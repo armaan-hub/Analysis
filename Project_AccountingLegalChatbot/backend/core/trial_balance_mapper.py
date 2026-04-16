@@ -71,6 +71,47 @@ COLUMN_ALIASES: dict[str, list[str]] = {
 }
 
 
+# ── Tally Group → Financial Category Mapping ──────────────────────────────────
+# Maps common Tally group names to IFRS-aligned categories.
+# The category determines which financial statement section the account goes to.
+
+TALLY_GROUP_CATEGORY: dict[str, str] = {
+    "capital account": "equity",
+    "reserves & surplus": "equity",
+    "partners capital": "equity",
+    "share capital": "equity",
+    "loans (liability)": "liabilities",
+    "secured loans": "liabilities",
+    "unsecured loans": "liabilities",
+    "current liabilities": "liabilities",
+    "provisions": "liabilities",
+    "duties & taxes": "liabilities",
+    "fixed assets": "assets_non_current",
+    "investments": "assets_non_current",
+    "current assets": "assets_current",
+    "bank accounts": "assets_current",
+    "cash-in-hand": "assets_current",
+    "deposits (asset)": "assets_current",
+    "sundry debtors": "assets_current",
+    "stock-in-hand": "assets_current",
+    "loans & advances (asset)": "assets_current",
+    "direct incomes": "revenue",
+    "direct incomes (income (direct))": "revenue",
+    "sales accounts": "revenue",
+    "indirect incomes": "other_income",
+    "indirect incomes (income (indirect))": "other_income",
+    "direct expenses": "cost_of_sales",
+    "direct expenses (expenses (direct))": "cost_of_sales",
+    "purchase accounts": "cost_of_sales",
+    "indirect expenses": "expenses",
+    "indirect expenses (expenses (indirect))": "expenses",
+    "manufacturing expenses": "cost_of_sales",
+}
+
+# Rows whose name exactly matches these are Tally meta-rows to exclude.
+_EXCLUDE_ROWS = {"grand total", "total", "nett total", "difference in opening balances"}
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _normalise(s: object) -> str:
@@ -81,6 +122,128 @@ def _normalise(s: object) -> str:
 def _match_column(raw: str, aliases: list[str]) -> bool:
     n = _normalise(raw)
     return any(alias in n or n in alias for alias in aliases)
+
+
+def _read_tally_hierarchy(file_path: str) -> list[dict]:
+    """
+    Read a Tally-exported Excel trial balance, using bold formatting to detect
+    group headers vs ledger (actual) accounts.
+
+    Tally TB structure:
+      - Header area (company name, address, date range, column headers)
+      - Column A = Particulars, Column B = Debit, Column C = Credit
+      - Bold rows = Tally group headers (contain subtotals → skip)
+      - Non-bold rows = actual ledger accounts (classify by parent group)
+
+    Returns a list of dicts:
+      {"name": str, "is_group": bool, "parent_group": str|None,
+       "category": str, "debit": float, "credit": float}
+    """
+    import openpyxl
+
+    wb = openpyxl.load_workbook(file_path, data_only=True)
+    ws = wb.active
+
+    # Step 1: Find the header row containing "Debit" / "Credit" to locate
+    # the actual column positions and the start of data.
+    debit_col: int | None = None
+    credit_col: int | None = None
+    data_start_row = 1
+
+    for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=min(20, ws.max_row), values_only=False), 1):
+        for cell in row:
+            v = cell.value
+            if v is None:
+                continue
+            v_lower = str(v).strip().lower()
+            if v_lower == "debit":
+                debit_col = cell.column  # 1-indexed column number
+            elif v_lower == "credit":
+                credit_col = cell.column
+        if debit_col and credit_col:
+            data_start_row = row_idx + 1
+            break
+
+    # Fallback: assume B=Debit, C=Credit if headers not found
+    if debit_col is None:
+        debit_col = 2
+    if credit_col is None:
+        credit_col = 3
+
+    logger.info("Tally TB: debit=col%d, credit=col%d, data starts row %d",
+                debit_col, credit_col, data_start_row)
+
+    # Step 2: Read data rows from data_start_row onwards
+    entries: list[dict] = []
+    current_group: str | None = None
+    current_group_category: str = "other"
+
+    def _cell_float(cell) -> float:
+        """Safely extract float from a cell."""
+        v = cell.value
+        if v is None:
+            return 0.0
+        try:
+            return float(str(v).replace(",", "").strip())
+        except (ValueError, TypeError):
+            return 0.0
+
+    for row in ws.iter_rows(min_row=data_start_row, max_row=ws.max_row, values_only=False):
+        cells = list(row)
+        # Get account name from column A (index 0)
+        name_cell = cells[0] if cells else None
+        # Handle merged cells that have no value
+        if name_cell is None:
+            continue
+        name_val = str(name_cell.value).strip() if name_cell.value is not None else ""
+        if not name_val or len(name_val) < 2:
+            continue
+
+        name_lower = name_val.lower().strip()
+        if name_lower in _EXCLUDE_ROWS:
+            continue
+
+        # Detect bold (group header)
+        is_bold = False
+        if hasattr(name_cell, "font") and name_cell.font:
+            is_bold = bool(name_cell.font.bold)
+
+        # Read debit and credit from specific columns
+        debit = 0.0
+        credit = 0.0
+        for cell in cells:
+            try:
+                col_num = cell.column
+            except AttributeError:
+                continue  # Skip MergedCell objects without column
+            if col_num == debit_col:
+                debit = _cell_float(cell)
+            elif col_num == credit_col:
+                credit = _cell_float(cell)
+
+        if is_bold:
+            current_group = name_val
+            current_group_category = TALLY_GROUP_CATEGORY.get(name_lower, "other")
+            entries.append({
+                "name": name_val,
+                "is_group": True,
+                "parent_group": None,
+                "category": current_group_category,
+                "debit": round(debit, 2),
+                "credit": round(credit, 2),
+            })
+        else:
+            entries.append({
+                "name": name_val,
+                "is_group": False,
+                "parent_group": current_group,
+                "category": current_group_category,
+                "debit": round(debit, 2),
+                "credit": round(credit, 2),
+            })
+
+    wb.close()
+    return entries
 
 
 def _detect_header_row(df) -> int:
@@ -177,16 +340,63 @@ def map_trial_balance(file_path: str) -> list[dict]:
     """
     Read any .xlsx / .xls / .csv Trial Balance and return normalised rows.
 
-    Args:
-        file_path: Absolute path to the uploaded file.
+    For Tally-exported Excel files (detected via bold group headers), uses the
+    group hierarchy to classify accounts accurately and skips group subtotal rows.
+
+    For other formats, falls back to pandas-based header detection + keyword
+    classification.
 
     Returns:
         List of dicts with keys: account_code, account_name, category,
         debit, credit, net.
-
-    Raises:
-        ValueError: If no data rows are found after header detection.
     """
+    ext = file_path.rsplit(".", 1)[-1].lower()
+
+    # Try Tally-aware reader for Excel files
+    if ext in ("xlsx", "xls"):
+        try:
+            tally_entries = _read_tally_hierarchy(file_path)
+            # Check if we actually found bold group headers (Tally format)
+            has_groups = any(e["is_group"] for e in tally_entries)
+            if has_groups:
+                rows = []
+                for e in tally_entries:
+                    if e["is_group"]:
+                        continue  # Skip group subtotal rows
+                    name = e["name"]
+                    name_lower = name.lower().strip()
+                    # Skip meta rows
+                    if name_lower in _EXCLUDE_ROWS:
+                        continue
+                    # Use parent group category; refine with keyword matching if needed
+                    category = e["category"]
+                    if category == "other":
+                        category = _classify_account(name)
+                    rows.append({
+                        "account_code": "",
+                        "account_name": name,
+                        "category": category,
+                        "debit": e["debit"],
+                        "credit": e["credit"],
+                        "net": round(e["debit"] - e["credit"], 2),
+                    })
+                if rows:
+                    logger.info(
+                        "Trial Balance mapped (Tally hierarchy): %d accounts "
+                        "(%d group headers skipped)",
+                        len(rows),
+                        sum(1 for e in tally_entries if e["is_group"]),
+                    )
+                    return rows
+        except Exception as exc:
+            logger.warning("Tally hierarchy detection failed, falling back: %s", exc)
+
+    # Fallback: pandas-based approach for non-Tally or CSV files
+    return _map_trial_balance_pandas(file_path)
+
+
+def _map_trial_balance_pandas(file_path: str) -> list[dict]:
+    """Pandas-based TB mapping (original approach for non-Tally files)."""
     import pandas as pd
 
     ext = file_path.rsplit(".", 1)[-1].lower()
