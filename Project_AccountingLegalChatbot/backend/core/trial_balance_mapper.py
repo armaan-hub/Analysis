@@ -40,14 +40,16 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "partner", "owner", "dividend", "drawing",
     ],
     "revenue": [
-        "revenue", "income", "sales", "fee", "commission", "rent income",
-        "interest income", "gain", "other income",
+        "revenue", "sales", "turnover", "rent income",
+        "interest income", "other income", "service income",
+        "commission received", "fee received", "fee income",
     ],
     "expenses": [
         "expense", "cost", "depreciation", "amortisation", "amortization",
         "salaries", "wages", "rent", "utilities", "insurance", "repairs",
         "maintenance", "marketing", "advertising", "travel", "legal",
         "professional", "bank charge", "interest expense", "loss",
+        "fee", "fees", "commission expense",
     ],
 }
 
@@ -137,11 +139,24 @@ def _fuzzy_map_columns(headers: list[str]) -> dict[str, Optional[str]]:
 
 
 def _classify_account(name: str) -> str:
+    """Classify account using longest-keyword-match-wins strategy."""
     n = _normalise(name)
+    best_cat = "other"
+    best_len = 0
     for category, keywords in CATEGORY_KEYWORDS.items():
-        if any(kw in n for kw in keywords):
-            return category
-    return "other"
+        for kw in keywords:
+            if kw in n and len(kw) > best_len:
+                best_len = len(kw)
+                best_cat = category
+    # Special case: "income" alone (e.g. "Direct Incomes") is revenue,
+    # but "income" inside expense context stays expense
+    if best_cat == "other" and "income" in n:
+        best_cat = "revenue"
+    if best_cat == "other" and ("gain" in n or "commission" in n):
+        # Bare "commission" without "expense" is revenue
+        if "expense" not in n and "cost" not in n:
+            best_cat = "revenue"
+    return best_cat
 
 
 def _to_float(val: object) -> float:
