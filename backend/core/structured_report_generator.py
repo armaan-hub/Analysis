@@ -154,9 +154,15 @@ def _group_accounts(
     # Map TB mapper categories → default IFRS groups
     CATEGORY_TO_IFRS = {
         "revenue": "Revenue",
+        "other_income": "Other Income",
+        "cost_of_sales": "Cost of Sales",
         "expenses": "Operating Expenses",
         "assets": "Current Assets",
+        "assets_current": "Current Assets",
+        "assets_non_current": "Non-Current Assets",
         "liabilities": "Current Liabilities",
+        "liabilities_current": "Current Liabilities",
+        "liabilities_non_current": "Non-Current Liabilities",
         "equity": "Equity",
         "other": "Operating Expenses",
     }
@@ -207,14 +213,14 @@ def _build_financial_statements(
     # Statement of Financial Position (Balance Sheet)
     sofp_sections = []
 
-    # Assets
+    # Assets (debit-normal → keep signs)
     asset_groups = ["Current Assets", "Non-Current Assets", "Cash and Cash Equivalents"]
     asset_section_items = []
     for group_name in asset_groups:
         items = grouped.get(group_name, [])
         if items:
             asset_section_items.append(
-                _build_statement_section(group_name, items, prior_lookup)
+                _build_statement_section(group_name, items, prior_lookup, credit_normal=False)
             )
 
     total_assets = sum(
@@ -227,38 +233,38 @@ def _build_financial_statements(
         for section in asset_section_items
     )
 
-    # Liabilities
+    # Liabilities (credit-normal → flip signs to positive)
     liability_groups = ["Current Liabilities", "Non-Current Liabilities"]
     liability_section_items = []
     for group_name in liability_groups:
         items = grouped.get(group_name, [])
         if items:
             liability_section_items.append(
-                _build_statement_section(group_name, items, prior_lookup)
+                _build_statement_section(group_name, items, prior_lookup, credit_normal=True)
             )
 
     total_liabilities = sum(
-        abs(item["current_year"])
+        item["current_year"]
         for section in liability_section_items
         for item in section.get("line_items", [])
     )
     total_liabilities_prior = sum(
-        abs(section["subtotal"]["prior_year"])
+        section["subtotal"]["prior_year"]
         for section in liability_section_items
     )
 
-    # Equity
+    # Equity (credit-normal → flip signs to positive)
     equity_items = grouped.get("Equity", []) + grouped.get("Retained Earnings", [])
     equity_section = (
-        _build_statement_section("Equity", equity_items, prior_lookup)
+        _build_statement_section("Equity", equity_items, prior_lookup, credit_normal=True)
         if equity_items else None
     )
 
     total_equity = sum(
-        abs(item["current_year"])
+        item["current_year"]
         for item in (equity_section or {}).get("line_items", [])
     )
-    total_equity_prior = abs((equity_section or {}).get("subtotal", {}).get("prior_year", 0.0))
+    total_equity_prior = (equity_section or {}).get("subtotal", {}).get("prior_year", 0.0)
 
     sofp = {
         "title": "Statement of Financial Position",
@@ -271,39 +277,45 @@ def _build_financial_statements(
     }
 
     # Statement of Profit or Loss
+    # Revenue and Other Income are credit-normal; expenses are debit-normal
+    _CREDIT_NORMAL_PL = {"Revenue", "Other Income"}
     sopl_groups = ["Revenue", "Cost of Sales", "Operating Expenses", "Other Income", "Finance Costs"]
     sopl_sections = []
     for group_name in sopl_groups:
         items = grouped.get(group_name, [])
         if items:
             sopl_sections.append(
-                _build_statement_section(group_name, items, prior_lookup)
+                _build_statement_section(
+                    group_name, items, prior_lookup,
+                    credit_normal=(group_name in _CREDIT_NORMAL_PL),
+                )
             )
 
-    total_revenue = sum(
-        abs(item["current_year"])
-        for item in (sopl_sections[0] if sopl_sections else {}).get("line_items", [])
-    )
-    total_expenses = sum(
-        abs(item["current_year"])
-        for section in sopl_sections[1:]
-        for item in section.get("line_items", [])
-    )
-    total_revenue_prior = abs(
-        sopl_sections[0]["subtotal"]["prior_year"] if sopl_sections else 0.0
-    )
-    total_expenses_prior = sum(
-        abs(section["subtotal"]["prior_year"])
-        for section in sopl_sections[1:]
-    )
+    # Net Profit = Revenue + Other Income - Cost of Sales - Expenses
+    # Credit-normal sections (Revenue, Other Income) contribute positively
+    # Debit-normal sections (Cost of Sales, Expenses) contribute negatively
+    total_income = 0.0
+    total_expense = 0.0
+    total_income_prior = 0.0
+    total_expense_prior = 0.0
+    for section in sopl_sections:
+        title = section["title"]
+        section_total = section["subtotal"]["current_year"]
+        section_prior = section["subtotal"]["prior_year"]
+        if title in _CREDIT_NORMAL_PL:
+            total_income += section_total
+            total_income_prior += section_prior
+        else:
+            total_expense += section_total
+            total_expense_prior += section_prior
 
     sopl = {
         "title": "Statement of Profit or Loss",
         "sections": sopl_sections,
         "total": {
             "account_name": "Net Profit / (Loss)",
-            "current_year": round(total_revenue - total_expenses, 2),
-            "prior_year": round(total_revenue_prior - total_expenses_prior, 2),
+            "current_year": round(total_income - total_expense, 2),
+            "prior_year": round(total_income_prior - total_expense_prior, 2),
         },
     }
 
@@ -320,8 +332,14 @@ def _build_financial_statements(
 
 def _build_statement_section(
     title: str, accounts: list[dict], prior_lookup: dict[str, float] | None = None,
+    credit_normal: bool = False,
 ) -> dict:
     """Build a section with line items from account list, including prior year.
+
+    Args:
+        credit_normal: If True, negate amounts (balance = debit-credit is negative
+            for credit-normal accounts like Revenue/Liabilities/Equity, so flip
+            them to positive for display).
 
     Prior year matching strategy:
     1. Try matching individual account names to prior_lookup.
@@ -330,6 +348,7 @@ def _build_statement_section(
     3. Show group-level total at the subtotal level.
     """
     prior_lookup = prior_lookup or {}
+    sign = -1 if credit_normal else 1
     line_items = []
     individual_prior_total = 0.0
 
@@ -339,7 +358,7 @@ def _build_statement_section(
         line_items.append({
             "account_name": acc["account_name"],
             "notes_ref": acc.get("notes_ref"),
-            "current_year": round(acc["balance"], 2),
+            "current_year": round(acc["balance"] * sign, 2),
             "prior_year": round(prior, 2),
         })
 
@@ -370,7 +389,7 @@ def _build_statement_section(
 
     subtotal = {
         "account_name": f"Total {title}",
-        "current_year": round(sum(a["balance"] for a in accounts), 2),
+        "current_year": round(sum(a["balance"] for a in accounts) * sign, 2),
         "prior_year": round(subtotal_prior, 2),
     }
 
