@@ -15,8 +15,8 @@ DEFAULT_TEMPLATE = {
     "currency_symbol": "AED",
     "font_family": "Times New Roman",
     "font_size": 10,
-    "page_size": "A4",
-    "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
+    "page_size": "LETTER",
+    "margins": {"top": 120, "bottom": 40, "left": 109, "right": 25},
 }
 
 
@@ -307,7 +307,7 @@ def apply_format(
 
 def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     """Generate a professional audit report PDF using ReportLab BaseDocTemplate."""
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, letter, letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT, TA_JUSTIFY
     from reportlab.lib import colors
@@ -319,8 +319,11 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     from reportlab.platypus.flowables import Flowable
 
     buf = io.BytesIO()
-    PAGE_W, PAGE_H = A4
-    LM = RM = TM = BM = 72  # 2.54 cm on all sides
+    PAGE_W, PAGE_H = letter   # 612 × 792 pt  (US Letter — matches reference)
+    LM = 109   # left margin  (reference: 108.81 pt)
+    RM = 25    # right margin (reference: 24.21 pt)
+    TM = 120   # top margin   (reference: 118.87 pt)
+    BM = 40    # bottom margin (footer space)
 
     meta = report.get("metadata", {})
     company = meta.get("company_name", "Company")
@@ -392,7 +395,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
                id='main', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
 
     doc = BaseDocTemplate(
-        buf, pagesize=A4,
+        buf, pagesize=letter,
         leftMargin=LM, rightMargin=RM, topMargin=TM, bottomMargin=BM,
         pageTemplates=[
             PageTemplate('Cover',     [fr], onPage=_cb_cover),
@@ -403,10 +406,13 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     )
 
     # ── Column widths ─────────────────────────────────────────────────────────
-    acct_w = avail_w * 0.52
-    note_w = avail_w * 0.08
-    num_w  = avail_w * 0.20
-    col_w  = [acct_w, note_w, num_w, num_w]
+    # Column widths derived from reference PDF measurements
+    # Reference: label col spans 108.81→470 pt (361 pt), value1 at 470-535 (65 pt), value2 at 535-588 (~53 pt)
+    acct_w = 305        # account label column
+    note_w = 56         # notes reference number column
+    num_w  = 65         # current year amount column
+    prior_w = avail_w - acct_w - note_w - num_w   # prior year amount column (~52 pt)
+    col_w  = [acct_w, note_w, num_w, prior_w]
 
     # ── Paragraph styles ─────────────────────────────────────────────────────
     SS = getSampleStyleSheet()
@@ -841,6 +847,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         Spacer(1, 10),
     ]
 
+    # ── Note 1: Incorporation ────────────────────────────────────────────────
     story.append(Paragraph("<b>1. Incorporation and Principal Activities</b>", s_note_title))
     incorp = notes.get("incorporation") if notes else None
     story.append(Paragraph(
@@ -849,6 +856,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         s_body_j))
     story.append(Spacer(1, 6))
 
+    # ── Note 2: Basis of Preparation ────────────────────────────────────────
     story.append(Paragraph("<b>2. Basis of Preparation</b>", s_note_title))
     story.append(Paragraph(
         "These financial statements have been prepared in accordance with International "
@@ -858,34 +866,395 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         "functional and presentation currency.", s_body_j))
     story.append(Spacer(1, 6))
 
-    if notes:
-        policies = notes.get("accounting_policies", "")
-        if policies:
-            story.append(Paragraph("<b>3. Significant Accounting Policies</b>", s_note_title))
-            for para in policies.split("\n\n"):
-                para = para.strip()
-                if para:
-                    story.append(Paragraph(para.replace("\n", "<br/>"), s_body_j))
-            story.append(Spacer(1, 6))
+    # ── Note 3: Significant Accounting Policies ──────────────────────────────
+    story.append(Paragraph("<b>3. Significant Accounting Policies</b>", s_note_title))
+    story.append(Paragraph(
+        "<b>Revenue Recognition</b><br/>"
+        "Revenue is recognised in accordance with IFRS 15 — Revenue from Contracts with Customers. "
+        "The Company recognises revenue when (or as) performance obligations are satisfied and control "
+        "of the promised goods or services is transferred to the customer.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Property, Plant and Equipment</b><br/>"
+        "Property, plant and equipment are stated at historical cost less accumulated depreciation "
+        "and accumulated impairment losses. Depreciation is calculated using the straight-line method "
+        "over the estimated useful lives of the assets. Gains and losses on disposal are recognised "
+        "in the statement of profit or loss.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Trade and Other Receivables</b><br/>"
+        "Trade and other receivables are initially recognised at fair value plus transaction costs "
+        "and subsequently measured at amortised cost using the effective interest method, less any "
+        "allowance for expected credit losses (ECL) measured under IFRS 9.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Cash and Cash Equivalents</b><br/>"
+        "Cash and cash equivalents comprise cash in hand and balances with banks. "
+        "Bank overdrafts that are repayable on demand and form an integral part of the Company's "
+        "cash management are included as a component of cash and cash equivalents.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Foreign Currency Transactions</b><br/>"
+        "The functional and presentation currency is UAE Dirhams (AED). Transactions in foreign "
+        "currencies are translated at the exchange rate at the date of the transaction. Monetary "
+        "assets and liabilities denominated in foreign currencies are retranslated at the rate "
+        "prevailing at the reporting date, with differences recognised in profit or loss.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Financial Instruments</b><br/>"
+        "Financial assets are classified as measured at amortised cost, FVTOCI, or FVTPL. "
+        "Financial liabilities are measured at amortised cost. The Company applies the simplified "
+        "approach for trade receivables using a provision matrix to measure expected credit losses.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Provisions and Contingent Liabilities</b><br/>"
+        "Provisions are recognised when the Company has a present legal or constructive obligation "
+        "as a result of a past event, it is probable that an outflow of resources will be required "
+        "to settle the obligation, and a reliable estimate can be made.", s_body_j))
+    story.append(Spacer(1, 6))
+    story.append(PageBreak())
 
-        estimates = notes.get("critical_estimates", "")
-        if estimates:
-            story.append(Paragraph("<b>4. Critical Estimates and Judgements</b>", s_note_title))
-            story.append(Paragraph(estimates, s_body_j))
-            story.append(Spacer(1, 6))
+    # ── Note 4: Critical Accounting Estimates ───────────────────────────────
+    story.append(Paragraph("<b>4. Critical Accounting Estimates and Judgements</b>", s_note_title))
+    story.append(Paragraph(
+        "The preparation of financial statements requires management to make judgements, estimates "
+        "and assumptions that affect the application of accounting policies and the reported amounts "
+        "of assets, liabilities, income and expenses. Actual results may differ from these estimates.",
+        s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Useful Lives of Property, Plant and Equipment</b><br/>"
+        "The Company reviews the estimated useful lives of property, plant and equipment at the end "
+        "of each annual reporting period. During the current year, management determined that the "
+        "useful lives of the assets were appropriate.", s_body_j))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Expected Credit Losses on Trade Receivables</b><br/>"
+        "Management applies judgement in estimating expected credit losses on trade receivables based "
+        "on historical loss patterns, adjusted for current conditions and forward-looking information.",
+        s_body_j))
+    story.append(Spacer(1, 6))
 
-        items = notes.get("items") or notes.get("sections") or []
-        note_start = 5
-        for i, item in enumerate(items):
-            num = item.get("note_number") or (note_start + i)
-            title = item.get("title", "")
-            content = item.get("content") or ""
-            story.append(Paragraph(f"<b>{num}. {title}</b>", s_note_title))
-            for para in content.split("\n\n"):
-                para = para.strip()
-                if para:
-                    story.append(Paragraph(para.replace("\n", "<br/>"), s_body_j))
+    # Pull financial data for notes
+    stmts = report.get("financial_statements", {})
+    sofp_data = stmts.get("statement_of_financial_position", {})
+    sopl_data = stmts.get("statement_of_profit_or_loss", {})
+    all_sofp_secs = _condense_sofp(sofp_data.get("sections", []))
+
+    def _note_fin_table(rows_data, has_prior=True):
+        """Build a small financial note table: label | current year | prior year."""
+        hdr = ["", cur_hdr, prior_hdr] if has_prior else ["", cur_hdr]
+        sub_hdr = ["", "AED", "AED"] if has_prior else ["", "AED"]
+        t_rows = [hdr, sub_hdr] + rows_data
+        t_cols = [acct_w + note_w, num_w, prior_w] if has_prior else [acct_w + note_w, num_w]
+        t = Table(t_rows, colWidths=t_cols, hAlign="LEFT")
+        t.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, 1), "Times-Bold"),
+            ("FONTNAME", (0, 2), (-1, -1), "Times-Roman"),
+            ("FONTSIZE", (0, 0), (-1, -1), FS),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LINEBELOW", (0, 1), (-1, 1), 0.5, BLK),
+            ("LINEABOVE", (0, -1), (-1, -1), 0.5, BLK),
+            ("LINEBELOW", (0, -1), (-1, -1), 1.5, BLK),
+            ("FONTNAME", (0, -1), (-1, -1), "Times-Bold"),
+        ]))
+        return t
+
+    # Extract condensed sections for notes
+    _nca_sec = next((s for s in all_sofp_secs
+                     if "non-current" in s.get("title", "").lower()), None)
+    _ca_sec  = next((s for s in all_sofp_secs
+                     if s.get("title", "").lower() == "current assets"), None)
+    _cl_sec  = next((s for s in all_sofp_secs
+                     if "current liabilit" in s.get("title", "").lower()), None)
+    _eq_sec  = next((s for s in all_sofp_secs
+                     if "equity" in s.get("title", "").lower()), None)
+
+    # ── Note 5: Property, Plant & Equipment ──────────────────────────────────
+    story.append(Paragraph("<b>5. Property, Plant and Equipment</b>", s_note_title))
+    if _nca_sec and _nca_sec.get("line_items"):
+        ppe_rows = []
+        for item in _nca_sec["line_items"]:
+            ppe_rows.append([f"  {item['account_name']}",
+                             _fmt_int(item.get("current_year")),
+                             _fmt_int(item.get("prior_year"))])
+        st = _nca_sec.get("subtotal", {})
+        ppe_rows.append(["Total", _fmt_int(st.get("current_year")), _fmt_int(st.get("prior_year"))])
+        story.append(_note_fin_table(ppe_rows))
+    else:
+        story.append(Paragraph(
+            "The Company does not hold any property, plant and equipment during the current period.",
+            s_body))
+    story.append(Spacer(1, 6))
+
+    # ── Note 6: Investment Properties ────────────────────────────────────────
+    story.append(Paragraph("<b>6. Investment Properties</b>", s_note_title))
+    story.append(Paragraph(
+        "The Company does not hold any investment properties during the current or prior financial year.",
+        s_body_j))
+    story.append(Spacer(1, 6))
+
+    # ── Note 7: Trade Receivables ─────────────────────────────────────────────
+    story.append(Paragraph("<b>7. Trade Receivables</b>", s_note_title))
+    if _ca_sec:
+        recv_items = [i for i in _ca_sec.get("line_items", [])
+                      if any(k in i["account_name"].lower() for k in ["receivable", "debtor"])]
+        if recv_items:
+            recv_rows = [[f"  {i['account_name']}",
+                          _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                         for i in recv_items]
+            st_recv = sum(i.get("current_year") or 0 for i in recv_items)
+            st_prev = sum(i.get("prior_year") or 0 for i in recv_items)
+            recv_rows.append(["Total trade receivables", _fmt_int(st_recv), _fmt_int(st_prev)])
+            story.append(_note_fin_table(recv_rows))
             story.append(Spacer(1, 4))
+        else:
+            story.append(Paragraph("No trade receivables in the current period.", s_body))
+    story.append(Paragraph(
+        "Based on management assessment, the expected credit loss on trade receivables is not "
+        "material and no allowance has been recognised.", s_body_j))
+    story.append(Spacer(1, 6))
+
+    # ── Note 8: Advances, Deposits and Other Receivables ──────────────────────
+    story.append(Paragraph("<b>8. Advances, Deposits and Other Receivables</b>", s_note_title))
+    if _ca_sec:
+        adv_items = [i for i in _ca_sec.get("line_items", [])
+                     if not any(k in i["account_name"].lower()
+                                for k in ["receivable", "debtor", "cash", "bank"])]
+        if adv_items:
+            adv_rows = [[f"  {i['account_name']}",
+                         _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                        for i in adv_items]
+            st_adv = sum(i.get("current_year") or 0 for i in adv_items)
+            st_adv_pr = sum(i.get("prior_year") or 0 for i in adv_items)
+            adv_rows.append(["Total", _fmt_int(st_adv), _fmt_int(st_adv_pr)])
+            story.append(_note_fin_table(adv_rows))
+        else:
+            story.append(Paragraph("No advances or other receivables in the current period.", s_body))
+    story.append(Spacer(1, 6))
+    story.append(PageBreak())
+
+    # ── Note 9: Cash in Hand and at Banks ─────────────────────────────────────
+    story.append(Paragraph("<b>9. Cash in Hand and at Banks</b>", s_note_title))
+    if _ca_sec:
+        cash_items = [i for i in _ca_sec.get("line_items", [])
+                      if any(k in i["account_name"].lower() for k in ["cash", "bank"])]
+        if cash_items:
+            cash_rows = [[f"  {i['account_name']}",
+                          _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                         for i in cash_items]
+            st_cash = sum(i.get("current_year") or 0 for i in cash_items)
+            st_cash_pr = sum(i.get("prior_year") or 0 for i in cash_items)
+            cash_rows.append(["Total", _fmt_int(st_cash), _fmt_int(st_cash_pr)])
+            story.append(_note_fin_table(cash_rows))
+        else:
+            story.append(Paragraph("No cash or bank balances in the current period.", s_body))
+    story.append(Spacer(1, 6))
+
+    # ── Note 10: Trade Payables ───────────────────────────────────────────────
+    story.append(Paragraph("<b>10. Trade Payables</b>", s_note_title))
+    if _cl_sec:
+        tp_items = [i for i in _cl_sec.get("line_items", [])
+                    if any(k in i["account_name"].lower() for k in ["payable", "creditor"])]
+        if tp_items:
+            tp_rows = [[f"  {i['account_name']}",
+                        _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                       for i in tp_items]
+            st_tp = sum(i.get("current_year") or 0 for i in tp_items)
+            st_tp_pr = sum(i.get("prior_year") or 0 for i in tp_items)
+            tp_rows.append(["Total trade payables", _fmt_int(st_tp), _fmt_int(st_tp_pr)])
+            story.append(_note_fin_table(tp_rows))
+        else:
+            story.append(Paragraph("No trade payables in the current period.", s_body))
+    story.append(Spacer(1, 6))
+
+    # ── Note 11: Other Payables, Accruals and Provisions ─────────────────────
+    story.append(Paragraph("<b>11. Other Payables, Accruals and Provisions</b>", s_note_title))
+    if _cl_sec:
+        op_items = [i for i in _cl_sec.get("line_items", [])
+                    if not any(k in i["account_name"].lower()
+                               for k in ["payable", "creditor", "loan", "bank od", "mortgage"])]
+        if op_items:
+            op_rows = [[f"  {i['account_name']}",
+                        _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                       for i in op_items]
+            st_op = sum(i.get("current_year") or 0 for i in op_items)
+            st_op_pr = sum(i.get("prior_year") or 0 for i in op_items)
+            op_rows.append(["Total", _fmt_int(st_op), _fmt_int(st_op_pr)])
+            story.append(_note_fin_table(op_rows))
+        else:
+            story.append(Paragraph("No other payables or accruals in the current period.", s_body))
+    story.append(Spacer(1, 6))
+
+    # ── Note 12: Long-term Loans ──────────────────────────────────────────────
+    story.append(Paragraph("<b>12. Long-term Loans</b>", s_note_title))
+    if _cl_sec:
+        ln_items = [i for i in _cl_sec.get("line_items", [])
+                    if any(k in i["account_name"].lower()
+                           for k in ["loan", "bank od", "mortgage", "borrowing"])]
+        if ln_items:
+            ln_rows = [[f"  {i['account_name']}",
+                        _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                       for i in ln_items]
+            st_ln = sum(i.get("current_year") or 0 for i in ln_items)
+            st_ln_pr = sum(i.get("prior_year") or 0 for i in ln_items)
+            ln_rows.append(["Total", _fmt_int(st_ln), _fmt_int(st_ln_pr)])
+            story.append(_note_fin_table(ln_rows))
+        else:
+            story.append(Paragraph("No long-term loans during the current period.", s_body))
+    story.append(Spacer(1, 6))
+    story.append(PageBreak())
+
+    # ── Note 13: Shareholders' Current Account ────────────────────────────────
+    story.append(Paragraph("<b>13. Shareholders' Current Account</b>", s_note_title))
+    if _eq_sec:
+        ca_items = [i for i in _eq_sec.get("line_items", [])
+                    if "current a" in i["account_name"].lower()
+                    or "current account" in i["account_name"].lower()]
+        if ca_items:
+            ca_rows = [[f"  {i['account_name']}",
+                        _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                       for i in ca_items]
+            st_ca = sum(i.get("current_year") or 0 for i in ca_items)
+            st_ca_pr = sum(i.get("prior_year") or 0 for i in ca_items)
+            ca_rows.append(["Total", _fmt_int(st_ca), _fmt_int(st_ca_pr)])
+            story.append(_note_fin_table(ca_rows))
+        else:
+            story.append(Paragraph(
+                "The shareholders' current account represents the net amount due to/from shareholders "
+                "arising from transactions during the year.", s_body_j))
+    else:
+        story.append(Paragraph(
+            "The shareholders' current account represents the net amount due to/from shareholders "
+            "arising from transactions during the year.", s_body_j))
+    story.append(Spacer(1, 6))
+
+    # ── Note 14: Retained Earnings ────────────────────────────────────────────
+    story.append(Paragraph("<b>14. Retained Earnings</b>", s_note_title))
+    sopl_total = (sopl_data.get("total") or sopl_data.get("net_profit") or {})
+    if sopl_total:
+        re_rows = [
+            ["Net profit for the year",
+             _fmt_int(sopl_total.get("current_year")),
+             _fmt_int(sopl_total.get("prior_year"))],
+        ]
+        if _eq_sec:
+            re_items = [i for i in _eq_sec.get("line_items", [])
+                        if "retain" in i["account_name"].lower()]
+            for i in re_items:
+                re_rows.insert(0, [f"  Opening balance — {i['account_name']}",
+                                   _fmt_int(i.get("prior_year")), "-"])
+        story.append(_note_fin_table(re_rows))
+    else:
+        story.append(Paragraph("Retained earnings movement is shown in the Statement of Changes in Equity.", s_body_j))
+    story.append(Spacer(1, 6))
+
+    # ── Notes 15-18: Income Statement Notes ──────────────────────────────────
+    sopl_sections = sopl_data.get("sections", []) if sopl_data else []
+    _sopl_condensed = _condense_sopl(sopl_sections, sopl_total)
+
+    def _sopl_section_by_title(title_key):
+        for s in sopl_sections:
+            if s.get("title", "").lower() == title_key.lower():
+                return s.get("subtotal", {}), s.get("line_items", [])
+        return {}, []
+
+    story.append(PageBreak())
+    story.append(Paragraph("<b>15. Revenue</b>", s_note_title))
+    rev_st, rev_items = _sopl_section_by_title("Revenue")
+    if rev_items:
+        rev_rows = [[f"  {i['account_name']}",
+                     _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                    for i in rev_items]
+        rev_rows.append(["Total Revenue",
+                          _fmt_int(rev_st.get("current_year")),
+                          _fmt_int(rev_st.get("prior_year"))])
+        story.append(_note_fin_table(rev_rows))
+    else:
+        rev_cond = next((r for r in _sopl_condensed if r[0] == "Revenue"), None)
+        if rev_cond:
+            story.append(_note_fin_table([
+                ["  Rental and service income",
+                 _fmt_int(rev_cond[2]), _fmt_int(rev_cond[3])],
+                ["Total Revenue",
+                 _fmt_int(rev_cond[2]), _fmt_int(rev_cond[3])],
+            ]))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("<b>16. Cost of Revenue</b>", s_note_title))
+    cos_st, cos_items = _sopl_section_by_title("Cost of Sales")
+    if not cos_items:
+        cos_st, cos_items = _sopl_section_by_title("Direct Expenses")
+    if cos_items:
+        cos_rows = [[f"  {i['account_name']}",
+                     _fmt_int(abs(i.get("current_year") or 0)),
+                     _fmt_int(abs(i.get("prior_year") or 0))]
+                    for i in cos_items]
+        cos_rows.append(["Total Cost of Revenue",
+                          _fmt_int(abs(cos_st.get("current_year") or 0)),
+                          _fmt_int(abs(cos_st.get("prior_year") or 0))])
+        story.append(_note_fin_table(cos_rows))
+    else:
+        story.append(Paragraph("No cost of revenue items for the current period.", s_body))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("<b>17. General and Administration Expenses</b>", s_note_title))
+    exp_st, exp_items = _sopl_section_by_title("Operating Expenses")
+    if not exp_items:
+        exp_st, exp_items = _sopl_section_by_title("Indirect Expenses")
+    if exp_items:
+        exp_rows = [[f"  {i['account_name']}",
+                     _fmt_int(abs(i.get("current_year") or 0)),
+                     _fmt_int(abs(i.get("prior_year") or 0))]
+                    for i in exp_items]
+        exp_rows.append(["Total G&A Expenses",
+                          _fmt_int(abs(exp_st.get("current_year") or 0)),
+                          _fmt_int(abs(exp_st.get("prior_year") or 0))])
+        story.append(_note_fin_table(exp_rows))
+    else:
+        ga_cond = next((r for r in _sopl_condensed if "general" in r[0].lower()), None)
+        if ga_cond and ga_cond[2]:
+            story.append(Paragraph(
+                f"General and administration expenses total AED {_fmt_int(abs(ga_cond[2]))} "
+                f"(prior year: AED {_fmt_int(abs(ga_cond[3]))}).", s_body_j))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("<b>18. Other Income</b>", s_note_title))
+    oi_st, oi_items = _sopl_section_by_title("Other Income")
+    if oi_items:
+        oi_rows = [[f"  {i['account_name']}",
+                    _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
+                   for i in oi_items]
+        oi_rows.append(["Total Other Income",
+                         _fmt_int(oi_st.get("current_year")),
+                         _fmt_int(oi_st.get("prior_year"))])
+        story.append(_note_fin_table(oi_rows))
+    else:
+        story.append(Paragraph("No other income during the current financial year.", s_body))
+    story.append(Spacer(1, 6))
+    story.append(PageBreak())
+
+    # ── Notes 19-21: Disclosure Notes ─────────────────────────────────────────
+    story.append(Paragraph("<b>19. Related Party Transactions</b>", s_note_title))
+    story.append(Paragraph(
+        "Related parties include the shareholders, key management personnel, and entities in which "
+        "the shareholders have significant influence. All transactions with related parties are "
+        "conducted on an arm's length basis and in the ordinary course of business.", s_body_j))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("<b>20. Commitments and Contingencies</b>", s_note_title))
+    story.append(Paragraph(
+        "As at the reporting date, the Company has no significant capital commitments or contingent "
+        "liabilities that require disclosure in these financial statements, other than those normally "
+        "arising in the course of business.", s_body_j))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("<b>21. Events after the Reporting Date</b>", s_note_title))
+    story.append(Paragraph(
+        "There are no material events after the reporting date that would require adjustment to or "
+        "disclosure in these financial statements.", s_body_j))
 
     doc.build(story)
     return buf.getvalue()
