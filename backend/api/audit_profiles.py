@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -574,3 +575,91 @@ def _table_to_dicts(table: list[list[str]]) -> list[dict]:
         if any(str(v).strip() for v in d.values()):
             rows.append(d)
     return rows
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Report Export (PDF / DOCX / Excel)
+# ═══════════════════════════════════════════════════════════════════
+
+EXPORT_MIME = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+@router.post("/{profile_id}/export-report/{fmt}")
+async def export_report(
+    profile_id: str,
+    fmt: str,
+    file: UploadFile = File(...),
+    company_name: Optional[str] = Form(None),
+    period_end: Optional[str] = Form(None),
+    auditor_name: Optional[str] = Form(None),
+    currency: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate and export an audit report in the specified format.
+    Accepts a trial balance file, generates the report, converts to PDF/DOCX/XLSX.
+    """
+    if fmt not in EXPORT_MIME:
+        raise HTTPException(400, f"Unsupported format '{fmt}'. Use: pdf, docx, xlsx")
+
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    if not profile.profile_json or not profile.profile_json.get("account_mapping"):
+        raise HTTPException(400, "Profile has no learned data. Build the profile first.")
+
+    # Save uploaded trial balance
+    profile_dir = PROFILE_UPLOAD_DIR / profile_id
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = f"export_{uuid.uuid4().hex[:8]}_{file.filename}"
+    tb_path = profile_dir / safe_name
+    content = await file.read()
+    tb_path.write_bytes(content)
+
+    # Extract and parse trial balance
+    extraction = analyze_document(str(tb_path))
+    tables = extraction.get("tables", [])
+    if not tables:
+        raise HTTPException(400, "No data tables found in the uploaded file.")
+    tb_rows = _table_to_dicts(tables[0])
+    if not tb_rows:
+        raise HTTPException(400, "Could not parse trial balance data from file.")
+
+    company_info = {
+        "profile_id": profile_id,
+        "company_name": company_name or profile.client_name or "",
+        "period_end": period_end or profile.period_end or "",
+        "auditor_name": auditor_name or "",
+        "currency": currency or profile.profile_json.get("custom_requirements", {}).get("currency", "AED"),
+    }
+
+    try:
+        report_json = generate_audit_report(
+            trial_balance=tb_rows, profile=profile.profile_json, company_info=company_info,
+        )
+    except Exception as e:
+        logger.error(f"Report generation failed: {e}")
+        raise HTTPException(500, f"Report generation failed: {str(e)}")
+
+    # Convert to requested format
+    try:
+        from core.format_applier import apply_format
+        format_template = profile.profile_json.get("format_template")
+        file_bytes = apply_format(report_json, format_template, fmt)
+    except Exception as e:
+        logger.error(f"Format export failed: {e}")
+        raise HTTPException(500, f"Format export failed: {str(e)}")
+
+    company = company_info.get("company_name", "report").replace(" ", "_")
+    filename = f"audit_report_{company}.{fmt}"
+
+    return Response(
+        content=file_bytes,
+        media_type=EXPORT_MIME[fmt],
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
