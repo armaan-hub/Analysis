@@ -187,19 +187,35 @@ Context from indexed documents:
         self.embedding_provider = EmbeddingProvider()
 
         # Initialize ChromaDB persistent client
-        self.chroma_client = chromadb.PersistentClient(
-            path=settings.vector_store_dir,
-            settings=ChromaSettings(
-                anonymized_telemetry=False,
-            ),
-        )
-        self.collection = self.chroma_client.get_or_create_collection(
-            name="documents",
-            metadata={"hnsw:space": "cosine"},
-        )
+        try:
+            self.chroma_client = chromadb.PersistentClient(
+                path=settings.vector_store_dir,
+                settings=ChromaSettings(
+                    anonymized_telemetry=False,
+                ),
+            )
+            self.collection = self.chroma_client.get_or_create_collection(
+                name="documents",
+                metadata={"hnsw:space": "cosine"},
+            )
+            doc_count = self.collection.count()
+        except Exception as e:
+            logger.warning(f"ChromaDB store corrupted or inaccessible, creating fresh store: {e}")
+            import shutil, tempfile
+            fresh_dir = tempfile.mkdtemp(prefix="chroma_fresh_")
+            self.chroma_client = chromadb.PersistentClient(
+                path=fresh_dir,
+                settings=ChromaSettings(anonymized_telemetry=False),
+            )
+            self.collection = self.chroma_client.get_or_create_collection(
+                name="documents",
+                metadata={"hnsw:space": "cosine"},
+            )
+            doc_count = 0
+
         logger.info(
             f"RAG engine initialized. Vector store: {settings.vector_store_dir}, "
-            f"Documents in store: {self.collection.count()}"
+            f"Documents in store: {doc_count}"
         )
 
     async def ingest_chunks(self, chunks: list[DocumentChunk], doc_id: str) -> int:
