@@ -60,6 +60,11 @@ export function AuditProfileStudio() {
   const [building, setBuilding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Report generation state
+  const [generating, setGenerating] = useState(false);
+  const [generatedReport, setGeneratedReport] = useState<Record<string, unknown> | null>(null);
+  const tbInputRef = useRef<HTMLInputElement>(null);
+
   /* ── Data fetching ──────────────────────────────────────────── */
 
   const fetchProfiles = useCallback(async () => {
@@ -168,6 +173,29 @@ export function AuditProfileStudio() {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file) uploadFile(file);
+  };
+
+  const generateReportFromFile = async (file: File) => {
+    if (!selectedProfile) return;
+    setGenerating(true);
+    setError('');
+    setGeneratedReport(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('company_name', selectedProfile.client_name || '');
+      form.append('period_end', selectedProfile.period_end || '');
+      const { data } = await API.post(
+        `/api/audit-profiles/${selectedProfile.id}/generate-report`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      setGeneratedReport(data.report);
+    } catch (e) {
+      setError(getErrMsg(e, 'Report generation failed'));
+    } finally {
+      setGenerating(false);
+    }
   };
 
   /* ── Status badge ───────────────────────────────────────────── */
@@ -430,6 +458,49 @@ export function AuditProfileStudio() {
                 <ProfilePreview profile={selectedProfile.profile_json} />
               </div>
             )}
+
+            {/* Report Generation */}
+            {selectedProfile.status === 'ready' && (
+              <div style={{ marginTop: 24 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+                  📊 Generate Audit Report
+                </h3>
+                <div style={{
+                  padding: 20, borderRadius: 12,
+                  border: '1px solid var(--s-border, #444)',
+                  background: 'var(--s-bg, #1a1a2e)',
+                }}>
+                  <p style={{ fontSize: 13, color: 'var(--s-muted, #888)', margin: '0 0 12px' }}>
+                    Upload a trial balance file and the system will generate a structured audit report
+                    using the learned mappings, format template, and requirements.
+                  </p>
+                  <input
+                    ref={tbInputRef} type="file" style={{ display: 'none' }}
+                    accept=".xlsx,.xls,.pdf"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) generateReportFromFile(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    onClick={() => tbInputRef.current?.click()}
+                    disabled={generating}
+                    style={{ ...btnPrimary, padding: '10px 20px', fontSize: 14 }}
+                  >
+                    {generating
+                      ? <><Loader2 size={16} className="spin" /> Generating Report...</>
+                      : '📊 Upload Trial Balance & Generate Report'}
+                  </button>
+                </div>
+
+                {generatedReport && (
+                  <div style={{ marginTop: 16 }}>
+                    <ReportPreview report={generatedReport} />
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -498,6 +569,117 @@ function ProfilePreview({ profile }: { profile: Record<string, unknown> }) {
       })}
     </div>
   );
+}
+
+/* ── Report Preview Component ──────────────────────────────────── */
+
+function ReportPreview({ report }: { report: Record<string, unknown> }) {
+  const metadata = (report.metadata || {}) as Record<string, unknown>;
+  const opinion = (report.auditor_opinion || {}) as Record<string, unknown>;
+  const fs = (report.financial_statements || {}) as Record<string, unknown>;
+  const notes = (report.notes || {}) as Record<string, unknown>;
+
+  const renderStatement = (stmt: Record<string, unknown> | null, key: string) => {
+    if (!stmt) return null;
+    const sections = (stmt.sections || []) as Array<Record<string, unknown>>;
+    const total = stmt.total as Record<string, unknown> | null;
+
+    return (
+      <div key={key} style={{ marginBottom: 20 }}>
+        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{stmt.title as string}</h4>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid var(--s-border, #444)' }}>
+              <th style={{ textAlign: 'left', padding: '6px 8px' }}>Account</th>
+              <th style={{ textAlign: 'right', padding: '6px 8px' }}>Current Year</th>
+              <th style={{ textAlign: 'right', padding: '6px 8px' }}>Prior Year</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sections.map((section, si) => {
+              const items = (section.line_items || []) as Array<Record<string, unknown>>;
+              const subtotal = section.subtotal as Record<string, unknown> | null;
+              return (
+                <React.Fragment key={si}>
+                  <tr><td colSpan={3} style={{ padding: '8px 8px 2px', fontWeight: 600, color: 'var(--accent, #6c5ce7)' }}>{section.title as string}</td></tr>
+                  {items.map((item, ii) => (
+                    <tr key={ii} style={{ borderBottom: '1px solid var(--s-border, #222)' }}>
+                      <td style={{ padding: '4px 8px 4px 24px' }}>{item.account_name as string}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 8px' }}>{fmtNum(item.current_year as number)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 8px', color: 'var(--s-muted, #888)' }}>{fmtNum(item.prior_year as number)}</td>
+                    </tr>
+                  ))}
+                  {subtotal && (
+                    <tr style={{ borderBottom: '1px solid var(--s-border, #444)', fontWeight: 600 }}>
+                      <td style={{ padding: '4px 8px 4px 16px' }}>{subtotal.account_name as string}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 8px' }}>{fmtNum(subtotal.current_year as number)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 8px' }}>{fmtNum(subtotal.prior_year as number)}</td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            {total && (
+              <tr style={{ borderTop: '2px solid var(--s-border, #444)', fontWeight: 700 }}>
+                <td style={{ padding: '6px 8px' }}>{total.account_name as string}</td>
+                <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtNum(total.current_year as number)}</td>
+                <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmtNum(total.prior_year as number)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      border: '1px solid var(--s-border, #333)', borderRadius: 12,
+      padding: 20, background: 'var(--s-bg, #1a1a2e)',
+    }}>
+      <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+        📋 Generated Audit Report
+      </h3>
+
+      {/* Metadata */}
+      <div style={{ fontSize: 12, color: 'var(--s-muted, #888)', marginBottom: 16 }}>
+        {metadata.company_name as string} · Period: {metadata.period_end as string} · {metadata.currency as string}
+      </div>
+
+      {/* Auditor Opinion */}
+      {opinion.opinion_text && (
+        <div style={{ marginBottom: 20, padding: 12, borderRadius: 8, background: 'var(--s-code-bg, #111)' }}>
+          <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            Independent Auditor&apos;s Report ({opinion.opinion_type as string})
+          </h4>
+          <p style={{ fontSize: 12, lineHeight: 1.6, margin: 0 }}>{opinion.opinion_text as string}</p>
+        </div>
+      )}
+
+      {/* Financial Statements */}
+      {renderStatement(fs.statement_of_financial_position as Record<string, unknown> | null, 'sofp')}
+      {renderStatement(fs.statement_of_profit_or_loss as Record<string, unknown> | null, 'sopl')}
+
+      {/* Notes Summary */}
+      {notes.accounting_policies && (
+        <div style={{ marginTop: 16 }}>
+          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Notes to Financial Statements</h4>
+          <pre style={{
+            fontSize: 11, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+            padding: 12, borderRadius: 8, background: 'var(--s-code-bg, #111)',
+            maxHeight: 200, overflow: 'auto',
+          }}>
+            {notes.accounting_policies as string}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtNum(n: number): string {
+  if (!n && n !== 0) return '-';
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /* ── Shared styles ──────────────────────────────────────────────── */

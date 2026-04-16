@@ -19,6 +19,7 @@ from db.database import get_db
 from db.models import AuditProfile, SourceDocument
 from core.document_analyzer import analyze_document
 from core.audit_profile_builder import build_profile_from_documents
+from core.structured_report_generator import generate_audit_report
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -339,3 +340,237 @@ async def build_profile(profile_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(500, f"Profile building failed: {str(e)}")
 
     return _profile_to_response(profile)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Account Mapping Management
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/{profile_id}/account-mapping")
+async def get_account_mapping(profile_id: str, db: AsyncSession = Depends(get_db)):
+    """Get the account mapping section of the profile."""
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    pj = profile.profile_json or {}
+    return {
+        "profile_id": profile_id,
+        "account_mapping": pj.get("account_mapping", {}),
+        "total_accounts": len(pj.get("account_mapping", {})),
+    }
+
+
+class UpdateMappingRequest(BaseModel):
+    account_name: str
+    mapped_to: str
+
+
+@router.put("/{profile_id}/account-mapping")
+async def update_account_mapping(
+    profile_id: str,
+    req: UpdateMappingRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a single account mapping in the profile."""
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    pj = dict(profile.profile_json or {})
+    mappings = dict(pj.get("account_mapping", {}))
+
+    mappings[req.account_name] = {
+        "name": req.account_name,
+        "mapped_to": req.mapped_to,
+        "confidence": 1.0,
+        "source": "user_override",
+    }
+
+    pj["account_mapping"] = mappings
+    profile.profile_json = pj
+    await db.flush()
+
+    logger.info(f"Updated mapping: {req.account_name} → {req.mapped_to}")
+    return {
+        "profile_id": profile_id,
+        "account_name": req.account_name,
+        "mapped_to": req.mapped_to,
+        "total_accounts": len(mappings),
+    }
+
+
+class BulkMappingRequest(BaseModel):
+    mappings: dict  # {account_name: mapped_to_group}
+
+
+@router.put("/{profile_id}/account-mapping/bulk")
+async def bulk_update_account_mapping(
+    profile_id: str,
+    req: BulkMappingRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk update account mappings."""
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    pj = dict(profile.profile_json or {})
+    mappings = dict(pj.get("account_mapping", {}))
+
+    for account_name, mapped_to in req.mappings.items():
+        mappings[account_name] = {
+            "name": account_name,
+            "mapped_to": mapped_to,
+            "confidence": 1.0,
+            "source": "user_override",
+        }
+
+    pj["account_mapping"] = mappings
+    profile.profile_json = pj
+    await db.flush()
+
+    logger.info(f"Bulk updated {len(req.mappings)} account mappings for profile {profile_id}")
+    return {
+        "profile_id": profile_id,
+        "updated_count": len(req.mappings),
+        "total_accounts": len(mappings),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Format Template Management
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/{profile_id}/format-template")
+async def get_format_template(profile_id: str, db: AsyncSession = Depends(get_db)):
+    """Get the format template section of the profile."""
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    pj = profile.profile_json or {}
+    return {
+        "profile_id": profile_id,
+        "format_template": pj.get("format_template", {}),
+        "custom_requirements": pj.get("custom_requirements", {}),
+    }
+
+
+class UpdateFormatRequest(BaseModel):
+    format_template: Optional[dict] = None
+    custom_requirements: Optional[dict] = None
+
+
+@router.put("/{profile_id}/format-template")
+async def update_format_template(
+    profile_id: str,
+    req: UpdateFormatRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update format template and/or custom requirements."""
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    pj = dict(profile.profile_json or {})
+
+    if req.format_template is not None:
+        pj["format_template"] = req.format_template
+    if req.custom_requirements is not None:
+        pj["custom_requirements"] = req.custom_requirements
+
+    profile.profile_json = pj
+    await db.flush()
+
+    logger.info(f"Updated format template for profile {profile_id}")
+    return {
+        "profile_id": profile_id,
+        "format_template": pj.get("format_template", {}),
+        "custom_requirements": pj.get("custom_requirements", {}),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Report Generation
+# ═══════════════════════════════════════════════════════════════════
+
+@router.post("/{profile_id}/generate-report")
+async def generate_report_endpoint(
+    profile_id: str,
+    file: UploadFile = File(...),
+    company_name: Optional[str] = Form(None),
+    period_end: Optional[str] = Form(None),
+    auditor_name: Optional[str] = Form(None),
+    currency: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate a structured audit report from trial balance + profile.
+    Uploads a trial balance file (Excel/PDF), uses the profile's learned
+    mappings and format template, returns a complete audit_report.json.
+    """
+    profile = await db.get(AuditProfile, profile_id)
+    if not profile:
+        raise HTTPException(404, f"Profile {profile_id} not found")
+
+    if not profile.profile_json or not profile.profile_json.get("account_mapping"):
+        raise HTTPException(400, "Profile has no learned data. Build the profile first.")
+
+    # Save uploaded trial balance
+    profile_dir = PROFILE_UPLOAD_DIR / profile_id
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = f"tb_{uuid.uuid4().hex[:8]}_{file.filename}"
+    tb_path = profile_dir / safe_name
+    content = await file.read()
+    tb_path.write_bytes(content)
+
+    # Extract trial balance data
+    extraction = analyze_document(str(tb_path))
+    tables = extraction.get("tables", [])
+    if not tables:
+        raise HTTPException(400, "No data tables found in the uploaded file.")
+
+    # Convert table to list of dicts (first row = header)
+    tb_rows = _table_to_dicts(tables[0])
+    if not tb_rows:
+        raise HTTPException(400, "Could not parse trial balance data from file.")
+
+    # Build company_info
+    company_info = {
+        "profile_id": profile_id,
+        "company_name": company_name or profile.client_name or "",
+        "period_end": period_end or profile.period_end or "",
+        "auditor_name": auditor_name or "",
+        "currency": currency or profile.profile_json.get("custom_requirements", {}).get("currency", "AED"),
+    }
+
+    try:
+        report_json = generate_audit_report(
+            trial_balance=tb_rows,
+            profile=profile.profile_json,
+            company_info=company_info,
+        )
+    except Exception as e:
+        logger.error(f"Report generation failed: {e}")
+        raise HTTPException(500, f"Report generation failed: {str(e)}")
+
+    logger.info(
+        f"Generated report for profile {profile_id}: "
+        f"{len(tb_rows)} TB rows processed"
+    )
+    return {"profile_id": profile_id, "report": report_json, "tb_rows_processed": len(tb_rows)}
+
+
+def _table_to_dicts(table: list[list[str]]) -> list[dict]:
+    """Convert a 2D table (first row = headers) to list of dicts."""
+    if len(table) < 2:
+        return []
+    headers = [str(h).strip() for h in table[0]]
+    rows = []
+    for row in table[1:]:
+        padded = list(row) + [""] * max(0, len(headers) - len(row))
+        d = {h: padded[i] for i, h in enumerate(headers) if h}
+        if any(str(v).strip() for v in d.values()):
+            rows.append(d)
+    return rows
