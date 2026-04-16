@@ -62,6 +62,18 @@ data_source_finance/
 data_source_law/
 data/
 
+# Build artifacts & executables
+*.exe
+*.dmg
+*.app/
+dist/
+dist-electron/
+build/
+out/
+release/
+Project_AccountingLegalChatbot/desktop/dist-electron/
+Project_AccountingLegalChatbot/desktop/dist/
+
 # Session & metadata files
 .claude/
 .code-review-graph/
