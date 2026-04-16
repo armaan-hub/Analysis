@@ -1,0 +1,101 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vs/
+.DS_Store
+Thumbs.db
+
+# Cache
+.pytest_cache/
+.cache/
+*.pyc
+node_modules/
+
+# Environment & Config
+.env
+.env.local
+.env*.local
+
+# Logs
+*.log
+*.err.log
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Large data & unnecessary directories (not part of core project)
+uploads/
+vector_store/
+vector_store_v2/
+data_source_finance/
+data_source_law/
+data/
+
+# Session & metadata files
+.claude/
+.code-review-graph/
+.gemini/
+.superpowers/
+.system_generated/
+session_summary.md
+session_summary_2026-04-15.md
+*.metadata.json
+*.resolved
+
+# Brain documentation (development only)
+brain/ERROR_AUDIT.md
+brain/PENDING_PROJECT_WORK.md
+brain/REQUIRED_CHANGES_IMPLEMENTATION_MAP.md
+brain/RUN_ERRORS.md
+brain/implementation_plan.md*
+brain/task.md*
+brain/walkthrough.md*
+
+# Testing data files
+Testing data/
+
+# Setup logs
+setup_python_env.log
+run_project.log
+backend_server.log
+backend_server.err.log
+frontend_server.log
+run_project_setup.log
+
+# View utilities
+view_db.py
+
+# Miscellaneous
+.code-review-graphignore
+HOW_TO_RUN_PROJECT.md (will be replaced by README.md)

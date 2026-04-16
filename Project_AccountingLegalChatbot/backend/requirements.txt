@@ -1,0 +1,78 @@
+# Accounting & Legal AI Chatbot – Backend Dependencies
+
+# Core Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+
+# LLM Providers
+openai==1.58.1
+anthropic==0.40.0
+httpx==0.28.1
+
+# RAG / Embeddings
+chromadb==0.5.15
+langchain==0.3.14
+langchain-community==0.3.14
+langchain-openai==0.3.0
+langchain-text-splitters==0.3.4
+
+# Document Parsing
+PyMuPDF==1.25.3
+python-docx==1.1.2
+openpyxl==3.1.5
+
+# Data processing (Trial Balance mapper)
+pandas==2.2.3
+scikit-learn==1.4.2
+
+# OCR (for scanned Arabic PDFs — requires Tesseract + poppler on PATH)
+pdf2image==1.17.0
+pytesseract==0.3.13
+Pillow==11.1.0
+opencv-python-headless==4.10.0.84
+deskew==1.3.2
+scikit-image==0.24.0
+
+# File handling
+python-multipart==0.0.20
+aiofiles==24.1.0
+
+# Report Generation (Excel/PDF output)
+reportlab==4.2.5
+xlsxwriter==3.2.0
+markdown==3.7
+
+# Monitoring / Scheduling
+apscheduler==3.10.4
+beautifulsoup4==4.12.3
+requests==2.32.3
+duckduckgo-search==6.3.7
+
+# WebSocket support
+websockets==14.1
+
+# CORS
+starlette==0.41.3
+
+# Utilities
+uuid6==2024.7.10
+python-dateutil==2.9.0
+
+# Requests dependency pins (W2 fix: silence RequestsDependencyWarning)
+urllib3==2.1.0
+charset-normalizer==3.3.2
+chardet==5.2.0
+
+# Testing (W1 fix: pytest was missing)
+pytest==7.4.4
+pytest-asyncio==0.23.2
+
+# Chroma telemetry compatibility
+posthog==3.25.0
