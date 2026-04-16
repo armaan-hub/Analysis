@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-export type Studio = 'legal' | 'financial' | 'regulatory' | 'settings';
+export type Studio = 'legal' | 'financial' | 'regulatory' | 'profiles' | 'settings';
 
 interface StudioContextValue {
   activeStudio: Studio;
