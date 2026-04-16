@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 from core.report_generator import report_generator
 from core.trial_balance_mapper import map_trial_balance, get_column_suggestions, get_column_suggestions_with_llm
-from core.agents.trial_balance_classifier import classify_risks
+from core.agents.trial_balance_classifier import classify_risks, group_tb_for_ifrs, format_ifrs_for_llm
 from core.llm_manager import get_llm_provider
 from db.database import get_db
 from db.models import GeneratedReport, SavedReport, AuditTemplate
@@ -327,11 +327,16 @@ async def generate_draft_report(req: DraftReportRequest):
 
     tb_block = ""
     if req.grouped_rows:
-        tb_block = "\n\n**Grouped Trial Balance (Current Year):**\n| Account | Category | Amount (AED) |\n|---------|----------|-------------|\n"
-        for r in req.grouped_rows:
-            amt = r.get("amount", 0)
-            fmt_amt = f"{amt:,.2f}" if isinstance(amt, (int, float)) else str(amt)
-            tb_block += f"| {r.get('account', '')} | {r.get('mappedTo', '')} | {fmt_amt} |\n"
+        try:
+            grouped = group_tb_for_ifrs(req.grouped_rows)
+            tb_block = "\n\n**Grouped Trial Balance (Current Year):**\n" + format_ifrs_for_llm(grouped)
+        except Exception as e:
+            logger.warning(f"IFRS grouping failed, falling back to flat list: {e}")
+            tb_block = "\n\n**Grouped Trial Balance (Current Year):**\n| Account | Category | Amount (AED) |\n|---------|----------|-------------|\n"
+            for r in req.grouped_rows:
+                amt = r.get("amount", 0)
+                fmt_amt = f"{amt:,.2f}" if isinstance(amt, (int, float)) else str(amt)
+                tb_block += f"| {r.get('account', '')} | {r.get('mappedTo', '')} | {fmt_amt} |\n"
 
     prior_year_block = ""
     if is_comparative and req.prior_year_content:

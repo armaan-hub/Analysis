@@ -720,8 +720,9 @@ async def _analyze_via_vision(file_path: str) -> dict:
             }
         ]
 
-        for i in range(min(6, actual_pages)):
-            mat = fitz.Matrix(2, 2)
+        for i in range(min(4, actual_pages)):
+            # 1.5x scale (~110 dpi on A4) — sufficient for vision LLM, keeps payload manageable
+            mat = fitz.Matrix(1.5, 1.5)
             pix = doc[i].get_pixmap(matrix=mat)
             b64 = base64.b64encode(pix.tobytes("png")).decode()
             content_parts.append({
@@ -731,7 +732,7 @@ async def _analyze_via_vision(file_path: str) -> dict:
 
         doc.close()
 
-        llm = get_llm_provider("openai")
+        llm = get_llm_provider()  # use active provider (nvidia/gemma-4 is vision-capable)
         resp = await llm.chat(
             [{"role": "user", "content": content_parts}],
             temperature=0.1,
