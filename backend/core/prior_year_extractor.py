@@ -25,40 +25,65 @@ def _has_financial_data(text: str) -> bool:
     return bool(re.search(r'\d{1,3}(?:,\d{3})+(?:\.\d{2})?', text))
 
 
+def _fix_ocr_number(s: str) -> str:
+    """Fix common OCR errors in financial numbers (e.g. S→5, l→1, O→0)."""
+    # Fix character substitutions at start of digit groups
+    s = re.sub(r'(?<![a-zA-Z])[Ss](?=,)', '5', s)
+    s = re.sub(r'(?<![a-zA-Z])[lI](?=,)', '1', s)
+    s = re.sub(r'(?<![a-zA-Z])[O](?=,)', '0', s)
+    return s.strip()
+
+
+def _parse_amount(raw: str) -> float:
+    """
+    Parse a financial amount string that may contain OCR noise.
+    Handles: commas as thousands separators, parentheses for negatives,
+    and OCR artifact where a period precedes 3 digits (also a thousands separator).
+    """
+    s = _fix_ocr_number(raw).replace(',', '').replace('(', '-').replace(')', '')
+    # If "nnn.ddd" and ddd is exactly 3 digits → period is OCR'd comma (thousands separator)
+    m = re.match(r'^(-?\d+)\.(\d{3})$', s)
+    if m:
+        s = m.group(1) + m.group(2)  # "5186.636" → "5186636"
+    return float(s)
+
+
 def _parse_text_tables(text: str) -> list[dict]:
     """
     Parse financial table rows from extracted PDF text.
-    Tries multiple patterns to handle different PDF column layouts.
+    Tries multiple patterns to handle different PDF column layouts and OCR noise.
     """
     rows = []
+    NUM = r'[\-\(]?[0-9SlO][0-9SlO,]*(?:\.[0-9SlO]+)?[\)]?'
 
     # Pattern 1: 2+ spaces between columns (original)
-    pattern1 = re.compile(
-        r'^(.+?)\s{2,}([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)\s{2,}([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)\s*$'
-    )
+    pattern1 = re.compile(rf'^(.+?)\s{{2,}}({NUM})\s{{2,}}({NUM})\s*$')
     # Pattern 2: tab-separated
-    pattern2 = re.compile(
-        r'^(.+?)\t([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)\t([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)\s*$'
-    )
+    pattern2 = re.compile(rf'^(.+?)\t({NUM})\t({NUM})\s*$')
     # Pattern 3: pipe-separated (some PDF extractors)
-    pattern3 = re.compile(
-        r'^(.+?)\s*\|\s*([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)\s*\|\s*([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)\s*$'
-    )
+    pattern3 = re.compile(rf'^(.+?)\s*\|\s*({NUM})\s*\|\s*({NUM})\s*$')
+    # Pattern 4: with optional note number between account name and values (OCR PDFs)
+    # e.g. "Revenue 17 5,186,636 9,906,850" or "Revenue  17  S,186.636  9,906,850"
+    pattern4 = re.compile(rf'^(.+?)\s+\d{{1,3}}\s+({NUM})\s+({NUM})\s*$')
 
     for line in text.split('\n'):
         line = line.strip()
         if not line:
             continue
-        for pattern in [pattern1, pattern2, pattern3]:
+        for pattern in [pattern1, pattern2, pattern3, pattern4]:
             m = pattern.match(line)
             if m:
                 account_name = m.group(1).strip()
-                prior_raw = m.group(3).replace(',', '').replace('(', '-').replace(')', '')
+                # Skip lines where account_name is just a number or note reference
+                if re.match(r'^\d+$', account_name):
+                    break
                 try:
-                    prior_value = float(prior_raw)
+                    prior_value = _parse_amount(m.group(3))
+                    cy_value = _parse_amount(m.group(2)) if m.group(2) else None
                     rows.append({
                         "account_name": account_name,
                         "prior_year_value": prior_value,
+                        "current_year_value": cy_value,
                     })
                 except ValueError:
                     pass

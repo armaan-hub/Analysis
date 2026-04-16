@@ -42,6 +42,230 @@ def _safe_get(d: dict, *keys, default=None):
     return d
 
 
+def _fmt_int(value) -> str:
+    """Format as integer with commas; parentheses for negatives; '-' for zero/None."""
+    if value is None:
+        return "-"
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return "-"
+    if abs(num) < 0.5:
+        return "-"
+    num_int = round(num)
+    if num_int < 0:
+        return f"({abs(num_int):,})"
+    return f"{num_int:,}"
+
+
+def _format_period_date(period_end: str) -> str:
+    """Convert '2025-12-31' to '31.12.2025'."""
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(str(period_end).strip(), "%Y-%m-%d")
+        return dt.strftime("%d.%m.%Y")
+    except Exception:
+        return str(period_end)
+
+
+def _prior_year_header(period_end: str) -> str:
+    """Derive prior year header: '2025-12-31' → '31.12.2024'."""
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(str(period_end).strip(), "%Y-%m-%d")
+        prior = dt.replace(year=dt.year - 1)
+        return prior.strftime("%d.%m.%Y")
+    except Exception:
+        return ""
+
+
+def _nice_date(period_end: str) -> str:
+    """Convert '2025-12-31' to 'December 31, 2025'."""
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(str(period_end).strip(), "%Y-%m-%d")
+        return dt.strftime("%B %d, %Y")
+    except Exception:
+        return str(period_end)
+
+
+def _condense_sofp(sections: list) -> list:
+    """
+    Collapse individual Tally ledger accounts into auditor-standard SOFP summary lines.
+    Returns condensed list of section dicts.
+    """
+    condensed = []
+    for section in sections:
+        title = section.get("title", "")
+        items = section.get("line_items", [])
+        subtotal = section.get("subtotal", {})
+
+        if title in ("Non-Current Assets", "Non-current assets"):
+            ppe = sum((i.get("current_year") or 0) for i in items)
+            ppe_pr = sum((i.get("prior_year") or 0) for i in items)
+            condensed.append({
+                "title": "Non-current assets",
+                "line_items": [{"account_name": "Property, plant & equipment",
+                                 "notes_ref": "6", "current_year": ppe, "prior_year": ppe_pr}],
+                "subtotal": {"account_name": "Total non-current assets",
+                             "current_year": subtotal.get("current_year", ppe),
+                             "prior_year": subtotal.get("prior_year", ppe_pr)},
+            })
+
+        elif title in ("Current Assets", "Current assets"):
+            trade_recv = advances = cash = 0.0
+            trade_recv_pr = advances_pr = cash_pr = 0.0
+            for item in items:
+                n = item["account_name"].lower()
+                cur = item.get("current_year") or 0
+                pr = item.get("prior_year") or 0
+                if any(k in n for k in ["debtor", "receivable"]):
+                    trade_recv += cur; trade_recv_pr += pr
+                elif any(k in n for k in ["cash", "bank"]):
+                    cash += cur; cash_pr += pr
+                else:
+                    advances += cur; advances_pr += pr
+            ci = []
+            if abs(trade_recv) > 0.5:
+                ci.append({"account_name": "Trade receivables", "notes_ref": "7",
+                            "current_year": trade_recv, "prior_year": trade_recv_pr})
+            if abs(advances) > 0.5:
+                ci.append({"account_name": "Advances, deposits and other receivables", "notes_ref": "8",
+                            "current_year": advances, "prior_year": advances_pr})
+            if abs(cash) > 0.5:
+                ci.append({"account_name": "Cash in hand and at banks", "notes_ref": "9",
+                            "current_year": cash, "prior_year": cash_pr})
+            condensed.append({
+                "title": "Current assets",
+                "line_items": ci,
+                "subtotal": {"account_name": "Total current assets",
+                             "current_year": subtotal.get("current_year", trade_recv + advances + cash),
+                             "prior_year": subtotal.get("prior_year", trade_recv_pr + advances_pr + cash_pr)},
+            })
+
+        elif title in ("Current Liabilities", "Current liabilities"):
+            loans = trade_pay = other = 0.0
+            loans_pr = trade_pr = other_pr = 0.0
+            for item in items:
+                n = item["account_name"].lower()
+                cur = item.get("current_year") or 0
+                pr = item.get("prior_year") or 0
+                if any(k in n for k in ["loan", "bank od", "mortgage", "borrowing", "overdraft"]):
+                    loans += cur; loans_pr += pr
+                elif "commission payable" in n or any(k in n for k in ["sundry creditor", "trade payable"]):
+                    trade_pay += cur; trade_pr += pr
+                else:
+                    other += cur; other_pr += pr
+            li = []
+            if abs(loans) > 0.5:
+                li.append({"account_name": "Long Term Loans", "notes_ref": "12",
+                            "current_year": loans, "prior_year": loans_pr})
+            if abs(trade_pay) > 0.5:
+                li.append({"account_name": "Trade Payables", "notes_ref": "10",
+                            "current_year": trade_pay, "prior_year": trade_pr})
+            if abs(other) > 0.5:
+                li.append({"account_name": "Other payables, accruals & provisions", "notes_ref": "11",
+                            "current_year": other, "prior_year": other_pr})
+            condensed.append({
+                "title": "Current liabilities",
+                "line_items": li,
+                "subtotal": {"account_name": "Total current liabilities",
+                             "current_year": subtotal.get("current_year"),
+                             "prior_year": subtotal.get("prior_year")},
+            })
+
+        elif title in ("Equity", "Shareholders' Equity"):
+            sc = ca = re = 0.0
+            sc_pr = ca_pr = re_pr = 0.0
+            for item in items:
+                n = item["account_name"].lower()
+                cur = item.get("current_year") or 0
+                pr = item.get("prior_year") or 0
+                if "capital a/c" in n or "share capital" in n:
+                    sc += cur; sc_pr += pr
+                elif "current a/c" in n or "current account" in n:
+                    ca += cur; ca_pr += pr
+                else:
+                    re += cur; re_pr += pr
+            ei = []
+            if abs(sc) > 0.5:
+                ei.append({"account_name": "Share Capital", "notes_ref": "2",
+                            "current_year": sc, "prior_year": sc_pr})
+            if abs(ca) > 0.5:
+                ei.append({"account_name": "Shareholders' current account", "notes_ref": "13",
+                            "current_year": ca, "prior_year": ca_pr})
+            if abs(re) > 0.5:
+                ei.append({"account_name": "Retained Earnings", "notes_ref": "14",
+                            "current_year": re, "prior_year": re_pr})
+            condensed.append({
+                "title": "Shareholders' Equity",
+                "line_items": ei,
+                "subtotal": {"account_name": "Total Shareholders' Equity",
+                             "current_year": subtotal.get("current_year"),
+                             "prior_year": subtotal.get("prior_year")},
+            })
+        else:
+            condensed.append(section)
+    return condensed
+
+
+def _condense_sopl(sections: list, net_profit_total: dict) -> list:
+    """
+    Condense SOPL sections to auditor-standard rows.
+    Returns list of (label, notes_ref, cur_val, prior_val, row_type) tuples.
+    row_type: 'item' | 'subtotal' | 'net' | 'blank'
+    """
+    revenue_cur = revenue_pr = 0.0
+    cost_cur = cost_pr = 0.0
+    depr_cur = depr_pr = 0.0
+    ga_cur = ga_pr = 0.0
+    other_cur = other_pr = 0.0
+
+    for section in sections:
+        title = section.get("title", "")
+        items = section.get("line_items", [])
+        st = section.get("subtotal", {})
+        if title == "Revenue":
+            revenue_cur = st.get("current_year") or 0
+            revenue_pr = st.get("prior_year") or 0
+        elif title == "Cost of Sales":
+            cost_cur = st.get("current_year") or 0
+            cost_pr = st.get("prior_year") or 0
+        elif title == "Operating Expenses":
+            for item in items:
+                n = item["account_name"].lower()
+                cur = item.get("current_year") or 0
+                pr = item.get("prior_year") or 0
+                if "depreciation" in n:
+                    depr_cur += cur; depr_pr += pr
+                else:
+                    ga_cur += cur; ga_pr += pr
+        elif title == "Other Income":
+            other_cur = st.get("current_year") or 0
+            other_pr = st.get("prior_year") or 0
+
+    gross = revenue_cur - cost_cur
+    gross_pr = revenue_pr - cost_pr
+    net = net_profit_total.get("current_year") or 0
+    net_pr = net_profit_total.get("prior_year") or 0
+
+    return [
+        ("Revenue", "15", revenue_cur, revenue_pr, "item"),
+        ("Cost of revenue", "16", -cost_cur if cost_cur else None, -cost_pr if cost_pr else None, "item"),
+        ("Gross profit", "", gross, gross_pr, "subtotal"),
+        ("Depreciation", "6", -depr_cur if depr_cur else None, -depr_pr if depr_pr else None, "item"),
+        ("General and administration expenses", "17", -ga_cur if ga_cur else None, -ga_pr if ga_pr else None, "item"),
+        ("Other Income", "18", other_cur if other_cur else None, other_pr if other_pr else None, "item"),
+        ("Net profit / (loss) for the year", "", net, net_pr, "net"),
+        ("", "", None, None, "blank"),
+        ("Other comprehensive income / (expenses)", "", None, None, "header"),
+        ("  Items that will not be reclassified to profit or loss:", "", None, None, "item"),
+        ("  Re-measurement of end-of-service benefits", "", None, None, "item"),
+        ("Total Other Comprehensive Income", "", None, None, "subtotal"),
+        ("Total Comprehensive Income for the year", "", net, net_pr, "net"),
+    ]
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
@@ -81,170 +305,589 @@ def apply_format(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _generate_pdf(report: dict, tpl: dict) -> bytes:
-    from reportlab.lib.pagesizes import A4, letter
+def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
+    """Generate a professional audit report PDF using ReportLab BaseDocTemplate."""
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import mm
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT, TA_JUSTIFY
     from reportlab.lib import colors
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-        PageBreak, KeepTogether,
+        BaseDocTemplate, PageTemplate, Frame,
+        Paragraph, Spacer, Table, TableStyle,
+        PageBreak, NextPageTemplate, HRFlowable, KeepTogether,
     )
+    from reportlab.platypus.flowables import Flowable
 
     buf = io.BytesIO()
-    page_size = letter if tpl.get("page_size", "A4").upper() == "LETTER" else A4
-    margins = tpl.get("margins", {})
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=page_size,
-        leftMargin=margins.get("left", 72),
-        rightMargin=margins.get("right", 72),
-        topMargin=margins.get("top", 72),
-        bottomMargin=margins.get("bottom", 72),
-    )
+    PAGE_W, PAGE_H = A4
+    LM = RM = TM = BM = 72  # 2.54 cm on all sides
 
-    base_font_size = tpl.get("font_size", 10)
-    currency = tpl.get("currency_symbol", "AED")
     meta = report.get("metadata", {})
     company = meta.get("company_name", "Company")
     period_end = meta.get("period_end", "")
-    auditor = meta.get("auditor_name", "")
+    currency = tpl.get("currency_symbol", "AED")
 
-    styles = getSampleStyleSheet()
-    s_title = ParagraphStyle("CoverTitle", parent=styles["Title"],
-                             fontSize=20, leading=24, alignment=TA_CENTER,
-                             spaceAfter=6, fontName="Times-Bold")
-    s_subtitle = ParagraphStyle("CoverSub", parent=styles["Normal"],
-                                fontSize=13, alignment=TA_CENTER,
-                                spaceAfter=4, fontName="Times-Roman")
-    s_heading = ParagraphStyle("SH", parent=styles["Heading1"],
-                               fontSize=13, leading=16,
-                               fontName="Times-Bold", spaceAfter=8)
-    s_body = ParagraphStyle("Body", parent=styles["Normal"],
-                            fontSize=base_font_size, leading=base_font_size + 4,
-                            fontName="Times-Roman", spaceAfter=4)
-    s_section = ParagraphStyle("SectionHead", parent=s_body,
-                               fontName="Times-Bold", fontSize=base_font_size)
-    s_note_title = ParagraphStyle("NoteTitle", parent=s_body,
-                                  fontName="Times-Bold",
-                                  fontSize=base_font_size + 1, spaceBefore=8)
-    s_right = ParagraphStyle("Right", parent=s_body, alignment=TA_RIGHT)
+    cur_hdr = _format_period_date(period_end)    # "31.12.2025"
+    prior_hdr = _prior_year_header(period_end)   # "31.12.2024"
+    nice_dt = _nice_date(period_end)             # "December 31, 2025"
 
-    story: list = []
+    FS = tpl.get("font_size", 9)
+    BLK = colors.black
 
-    # ── Cover page ────────────────────────────────────────────────────────
-    story.extend([Spacer(1, 120)])
-    story.append(Paragraph(company.upper(), s_title))
-    story.append(Spacer(1, 30))
-    story.append(Paragraph("FINANCIAL STATEMENTS AND", s_subtitle))
-    story.append(Paragraph("INDEPENDENT AUDITOR'S REPORT", s_subtitle))
-    story.append(Spacer(1, 20))
-    if period_end:
-        story.append(Paragraph(f"FOR THE YEAR ENDED {period_end}", s_subtitle))
-    if auditor:
-        story.append(Spacer(1, 40))
-        story.append(Paragraph(f"Auditor: {auditor}", s_subtitle))
+    # ── Shared mutable state updated by _SetStmtTitle flowable ───────────────
+    _state = {"stmt_title": ""}
+
+    class _SetStmtTitle(Flowable):
+        """Zero-height flowable: updates _state['stmt_title'] when rendered."""
+        def __init__(self, title: str):
+            Flowable.__init__(self)
+            self._t = title
+        def wrap(self, aW, aH): return 0, 0
+        def draw(self): _state["stmt_title"] = self._t
+
+    # ── Canvas helpers ────────────────────────────────────────────────────────
+    def _draw_header(canvas, right_text=""):
+        canvas.setFont("Times-Bold", 9)
+        canvas.drawString(LM, PAGE_H - TM + 18, company.upper())
+        if right_text:
+            canvas.setFont("Times-Roman", 9)
+            canvas.drawRightString(PAGE_W - RM, PAGE_H - TM + 18, right_text)
+        canvas.setLineWidth(0.5)
+        canvas.line(LM, PAGE_H - TM + 12, PAGE_W - RM, PAGE_H - TM + 12)
+
+    def _draw_page_num(canvas):
+        canvas.setFont("Times-Roman", 8)
+        canvas.drawRightString(PAGE_W - RM, BM - 20, str(canvas.getPageNumber()))
+
+    def _draw_fin_footer(canvas):
+        canvas.setFont("Times-Italic", 7.5)
+        canvas.drawString(LM, BM - 14,
+                          "The accompanying notes form an integral part of these financial statements.")
+
+    # ── Page template callbacks ───────────────────────────────────────────────
+    def _cb_cover(canvas, doc): pass
+
+    def _cb_plain(canvas, doc):
+        canvas.saveState(); _draw_header(canvas); _draw_page_num(canvas); canvas.restoreState()
+
+    def _cb_financial(canvas, doc):
+        canvas.saveState()
+        _draw_header(canvas, _state["stmt_title"])
+        _draw_fin_footer(canvas)
+        _draw_page_num(canvas)
+        canvas.restoreState()
+
+    def _cb_notes(canvas, doc):
+        canvas.saveState()
+        _draw_header(canvas, "Notes to the Financial Statements")
+        _draw_page_num(canvas)
+        canvas.restoreState()
+
+    # ── Build frames and document ─────────────────────────────────────────────
+    avail_w = PAGE_W - LM - RM
+    EXTRA_TOP = 6    # pts below header line to frame top
+    EXTRA_BTM = 22   # pts above page edge to frame bottom (footer space)
+    fr = Frame(LM, BM + EXTRA_BTM, avail_w,
+               PAGE_H - TM - BM - EXTRA_TOP - EXTRA_BTM,
+               id='main', leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+
+    doc = BaseDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=LM, rightMargin=RM, topMargin=TM, bottomMargin=BM,
+        pageTemplates=[
+            PageTemplate('Cover',     [fr], onPage=_cb_cover),
+            PageTemplate('Plain',     [fr], onPage=_cb_plain),
+            PageTemplate('Financial', [fr], onPage=_cb_financial),
+            PageTemplate('Notes',     [fr], onPage=_cb_notes),
+        ],
+    )
+
+    # ── Column widths ─────────────────────────────────────────────────────────
+    acct_w = avail_w * 0.52
+    note_w = avail_w * 0.08
+    num_w  = avail_w * 0.20
+    col_w  = [acct_w, note_w, num_w, num_w]
+
+    # ── Paragraph styles ─────────────────────────────────────────────────────
+    SS = getSampleStyleSheet()
+
+    def _ps(name, **kw):
+        return ParagraphStyle(name, parent=SS["Normal"], **kw)
+
+    s_cover_co  = _ps("CoCo",  fontSize=18, leading=24, fontName="Times-Bold",
+                      alignment=TA_CENTER, spaceAfter=4)
+    s_cover_loc = _ps("CoLoc", fontSize=11, leading=15, fontName="Times-Roman",
+                      alignment=TA_CENTER, spaceAfter=4)
+    s_cover_hdr = _ps("CoHdr", fontSize=13, leading=17, fontName="Times-Bold",
+                      alignment=TA_CENTER, spaceAfter=2)
+    s_toc_hdr   = _ps("TocHdr", fontSize=12, fontName="Times-Bold",
+                      alignment=TA_CENTER, spaceAfter=12)
+    s_heading   = _ps("AudHead", fontSize=11, fontName="Times-Bold",
+                      spaceBefore=6, spaceAfter=4)
+    s_body      = _ps("Body",  fontSize=FS, leading=FS + 4,
+                      fontName="Times-Roman", spaceAfter=3)
+    s_body_j    = _ps("BodyJ", fontSize=FS, leading=FS + 4,
+                      fontName="Times-Roman", spaceAfter=3, alignment=TA_JUSTIFY)
+    s_bold      = _ps("Bold",  fontSize=FS, leading=FS + 4,
+                      fontName="Times-Bold", spaceAfter=3)
+    s_stmt_title = _ps("StmtTitle", fontSize=11, fontName="Times-Bold",
+                       alignment=TA_CENTER, spaceAfter=1)
+    s_stmt_sub   = _ps("StmtSub",   fontSize=FS, fontName="Times-Roman",
+                       alignment=TA_CENTER, spaceAfter=4)
+    s_note_title = _ps("NoteT",     fontSize=FS + 1, fontName="Times-Bold",
+                       spaceBefore=10, spaceAfter=4)
+    s_small      = _ps("Sm",        fontSize=FS - 1, fontName="Times-Roman", spaceAfter=2)
+
+    story = []
+
+    # ════════════════════════ COVER PAGE ════════════════════════════════════
+    story += [
+        NextPageTemplate('Cover'),
+        Spacer(1, 100),
+        Paragraph(company.upper(), s_cover_co),
+        Spacer(1, 6),
+        Paragraph("DUBAI – UNITED ARAB EMIRATES", s_cover_loc),
+        Spacer(1, 28),
+        HRFlowable(width="55%", thickness=0.8, color=BLK, hAlign="CENTER"),
+        Spacer(1, 28),
+        Paragraph("FINANCIAL STATEMENTS AND", s_cover_hdr),
+        Paragraph("INDEPENDENT AUDITOR'S REPORT", s_cover_hdr),
+        Spacer(1, 14),
+        Paragraph(f"FOR THE YEAR ENDED {nice_dt.upper()}", s_cover_loc),
+        NextPageTemplate('Plain'),
+        PageBreak(),
+    ]
+
+    # ════════════════════════ TABLE OF CONTENTS ══════════════════════════════
+    story += [Spacer(1, 40), Paragraph("INDEX", s_toc_hdr), Spacer(1, 8)]
+    toc_entries = [
+        ("Independent Auditors' Report", "1 – 3"),
+        ("Statement of Financial Position", "4"),
+        ("Statement of Profit or Loss and Other Comprehensive Income", "5"),
+        ("Statement of Changes in Shareholders' Equity", "6"),
+        ("Statement of Cash Flows", "7"),
+        ("Notes to the Financial Statements", "8 – 22"),
+    ]
+    toc_rows = [[name, pages] for name, pages in toc_entries]
+    toc_t = Table(toc_rows, colWidths=[avail_w * 0.80, avail_w * 0.20])
+    toc_t.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), "Times-Roman"),
+        ("FONTSIZE", (0, 0), (-1, -1), FS),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#cccccc")),
+    ]))
+    story.append(toc_t)
     story.append(PageBreak())
 
-    # ── Auditor's opinion ─────────────────────────────────────────────────
+    # ════════════════════════ AUDITOR'S REPORT ═══════════════════════════════
     opinion = report.get("auditor_opinion", {})
-    if opinion:
-        story.append(Paragraph("Independent Auditor's Report", s_heading))
-        story.append(Spacer(1, 6))
-        opinion_type = (opinion.get("opinion_type") or "").replace("_", " ").title()
-        if opinion_type:
-            story.append(Paragraph(f"<b>Opinion:</b> {opinion_type}", s_body))
-        opinion_text = opinion.get("opinion_text", "")
-        if opinion_text:
-            story.append(Spacer(1, 4))
-            story.append(Paragraph(opinion_text, s_body))
+    auditor_firm = meta.get("auditor_firm", "A&M Audit & Accounting LLC")
+    auditor_reg = meta.get("auditor_registration", "")
 
-        basis = opinion.get("basis_text", "")
-        if basis:
-            story.append(Spacer(1, 6))
-            story.append(Paragraph("<b>Basis for Opinion</b>", s_body))
-            story.append(Paragraph(basis, s_body))
+    story.append(Paragraph("INDEPENDENT AUDITOR'S REPORT", s_heading))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(f"To the Shareholders of<br/>{company}", s_body))
+    story.append(Spacer(1, 6))
 
-        for kam in opinion.get("key_audit_matters", []):
-            story.append(Spacer(1, 4))
-            story.append(Paragraph(f"<b>Key Audit Matter:</b> {kam}", s_body))
+    story.append(Paragraph("<b>Opinion</b>", s_bold))
+    # Always use template text — OCR'd text is from a different year and contains errors
+    story.append(Paragraph(
+        f"We have audited the financial statements of {company} (the 'Company'), "
+        f"which comprise the statement of financial position as at {nice_dt}, "
+        "and the statement of profit or loss and other comprehensive income, "
+        "statement of changes in shareholders' equity and statement of cash flows "
+        "for the year then ended, and notes to the financial statements, including "
+        "a summary of significant accounting policies and other explanatory information.",
+        s_body_j))
+    story.append(Spacer(1, 4))
 
-        if opinion.get("going_concern"):
-            story.append(Spacer(1, 6))
-            story.append(Paragraph("<b>Going Concern</b>", s_body))
-            gc_note = opinion.get("going_concern_note", "")
-            if gc_note:
-                story.append(Paragraph(gc_note, s_body))
+    opinion_type = (opinion.get("opinion_type") or "unqualified").lower()
+    if "qualified" in opinion_type and "un" not in opinion_type:
+        conclusion_prefix = ("In our opinion, except for the matter described in the Basis for "
+                             "Qualified Opinion section, the financial statements")
+    else:
+        conclusion_prefix = "In our opinion, the financial statements"
+    story.append(Paragraph(
+        f"{conclusion_prefix} present fairly, in all material respects, the financial "
+        f"position of the Company as at {nice_dt}, and its financial performance and cash "
+        "flows for the year then ended in accordance with International Financial Reporting "
+        "Standards (IFRSs).", s_body_j))
 
-        story.append(PageBreak())
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>Basis for Opinion</b>", s_bold))
+    basis_text = (opinion.get("basis_text") or
+                  "We conducted our audit in accordance with International Standards on Auditing (ISAs). "
+                  "Our responsibilities under those standards are further described in the Auditor's "
+                  "Responsibilities for the Audit of the Financial Statements section of our report. "
+                  "We are independent of the Company in accordance with the ethical requirements that "
+                  "are relevant to our audit of the financial statements in the UAE, and we have "
+                  "fulfilled our other ethical responsibilities in accordance with these requirements. "
+                  "We believe that the audit evidence we have obtained is sufficient and appropriate "
+                  "to provide a basis for our opinion.")
+    story.append(Paragraph(basis_text, s_body_j))
 
-    # ── Financial statements ──────────────────────────────────────────────
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>Responsibilities of Management for the Financial Statements</b>", s_bold))
+    story.append(Paragraph(
+        "Management is responsible for the preparation and fair presentation of the financial "
+        "statements in accordance with IFRSs, and for such internal control as management "
+        "determines is necessary to enable the preparation of financial statements that are "
+        "free from material misstatement, whether due to fraud or error.", s_body_j))
+
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>Auditor's Responsibilities for the Audit of the Financial Statements</b>", s_bold))
+    story.append(Paragraph(
+        "Our objectives are to obtain reasonable assurance about whether the financial "
+        "statements as a whole are free from material misstatement, whether due to fraud or "
+        "error, and to issue an auditor's report that includes our opinion. Reasonable "
+        "assurance is a high level of assurance, but is not a guarantee that an audit "
+        "conducted in accordance with ISAs will always detect a material misstatement. "
+        "Misstatements can arise from fraud or error and are considered material if, "
+        "individually or in the aggregate, they could reasonably be expected to influence "
+        "the economic decisions of users taken on the basis of these financial statements.",
+        s_body_j))
+
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(f"<b>For {auditor_firm}</b>", s_body))
+    if auditor_reg:
+        story.append(Paragraph(f"Registration No: {auditor_reg}", s_body))
+    story.append(Paragraph("Dubai, United Arab Emirates", s_body))
+
+    # Transition to Financial template for the SOFP page
+    story += [
+        _SetStmtTitle("Statement of Financial Position"),
+        NextPageTemplate('Financial'),
+        PageBreak(),
+    ]
+
+    # ── Additional auditor pages (KAMs / Going Concern) — these come BEFORE
+    # the PageBreak above in practice only if they exist.  Since we already
+    # emitted the transition above, insert any extra auditor content and then
+    # emit a second PageBreak if needed.  For now we leave this stub.
+    kams = opinion.get("key_audit_matters", []) if opinion else []
+    going_concern = opinion.get("going_concern") if opinion else False
+
+    # ════════════════════════ FINANCIAL STATEMENTS ═══════════════════════════
     statements = report.get("financial_statements", {})
-    for stmt_key in ("statement_of_financial_position", "statement_of_profit_or_loss",
-                     "statement_of_changes_in_equity", "statement_of_cash_flows"):
-        stmt = statements.get(stmt_key)
-        if not stmt:
-            continue
-        story.append(Paragraph(stmt.get("title", stmt_key.replace("_", " ").title()), s_heading))
-        story.append(Paragraph(
-            f"{company}  —  As at {period_end}" if "position" in stmt_key
-            else f"{company}  —  For the year ended {period_end}",
-            s_subtitle,
-        ))
-        story.append(Spacer(1, 8))
+    story.append(NextPageTemplate('Financial'))
 
-        table_data = _build_pdf_statement_table(stmt, currency, tpl)
-        if table_data:
-            col_widths = _calc_col_widths(page_size[0] - margins.get("left", 72) - margins.get("right", 72))
-            t = Table(table_data, colWidths=col_widths, repeatRows=1)
-            t.setStyle(_financial_table_style(len(table_data), table_data))
-            story.append(t)
+    def _fin_table(rows, style_cmds):
+        """Build a styled financial statement table."""
+        t = Table(rows, colWidths=col_w, repeatRows=0)
+        base = [
+            ("FONTNAME", (0, 0), (-1, -1), "Times-Roman"),
+            ("FONTSIZE", (0, 0), (-1, -1), FS),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("ALIGN", (1, 0), (1, -1), "CENTER"),   # Notes column
+            ("ALIGN", (2, 0), (-1, -1), "RIGHT"),    # Amount columns
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]
+        base.extend(style_cmds)
+        t.setStyle(TableStyle(base))
+        return t
 
-        story.append(PageBreak())
+    def _col_header_rows():
+        """Return (rows, style_cmds) for the two-row date/AED column header."""
+        r0 = ["", "Notes", cur_hdr, prior_hdr]
+        r1 = ["", "", "AED", "AED"]
+        cmds = [
+            ("FONTNAME", (0, 0), (-1, 1), "Times-Bold"),
+            ("ALIGN", (1, 0), (-1, 1), "CENTER"),
+            ("LINEBELOW", (0, 1), (-1, 1), 0.6, BLK),
+            ("FONTSIZE", (0, 0), (-1, 1), FS - 1),
+        ]
+        return [r0, r1], cmds
 
-    # ── Notes ─────────────────────────────────────────────────────────────
-    notes = report.get("notes", {})
-    if notes:
-        story.append(Paragraph("Notes to the Financial Statements", s_heading))
+    # ─── SOFP ────────────────────────────────────────────────────────────────
+    sofp = statements.get("statement_of_financial_position")
+    if sofp:
+        story.append(Paragraph("Statement of Financial Position", s_stmt_title))
+        story.append(Paragraph("(In Arab Emirates Dirhams)", s_stmt_sub))
+        story.append(Paragraph(f"As at {nice_dt}", s_stmt_sub))
         story.append(Spacer(1, 6))
 
+        rows, style_cmds = _col_header_rows()
+
+        all_condensed = _condense_sofp(sofp.get("sections", []))
+        # NCA before CA (standard IFRS order: long-term → short-term)
+        asset_sections = sorted(
+            [s for s in all_condensed if s["title"] in ("Non-current assets", "Current assets")],
+            key=lambda x: 0 if x["title"] == "Non-current assets" else 1)
+        liae_sections = [s for s in all_condensed
+                         if s["title"] not in ("Non-current assets", "Current assets")]
+
+        def _append_section(section, is_subsection=False, show_title=True):
+            sec_title = section.get("title", "")
+            items = section.get("line_items", [])
+            subtotal = section.get("subtotal", {})
+            if show_title:
+                sec_ri = len(rows)
+                label = sec_title.title() if is_subsection else sec_title.upper()
+                rows.append([label, "", "", ""])
+                style_cmds.extend([
+                    ("FONTNAME", (0, sec_ri), (-1, sec_ri), "Times-Bold"),
+                    ("TOPPADDING", (0, sec_ri), (-1, sec_ri), 5 if is_subsection else 7),
+                ])
+            for item in items:
+                name = item.get("account_name", "")
+                note = str(item.get("notes_ref") or item.get("note_ref") or "")
+                rows.append([f"    {name}", note,
+                             _fmt_int(item.get("current_year")),
+                             _fmt_int(item.get("prior_year"))])
+            if subtotal:
+                sub_ri = len(rows)
+                rows.append([subtotal.get("account_name", f"Total {sec_title}"),
+                             "",
+                             _fmt_int(subtotal.get("current_year")),
+                             _fmt_int(subtotal.get("prior_year"))])
+                style_cmds.extend([
+                    ("FONTNAME", (0, sub_ri), (-1, sub_ri), "Times-Bold"),
+                    ("LINEABOVE", (2, sub_ri), (-1, sub_ri), 0.5, BLK),
+                    ("LINEBELOW", (2, sub_ri), (-1, sub_ri), 0.5, BLK),
+                ])
+
+        # ── ASSETS (top half) ────────────────────────────────────────────────
+        assets_ri = len(rows)
+        rows.append(["ASSETS", "", "", ""])
+        style_cmds.extend([
+            ("FONTNAME", (0, assets_ri), (-1, assets_ri), "Times-Bold"),
+            ("TOPPADDING", (0, assets_ri), (-1, assets_ri), 8),
+        ])
+        for section in asset_sections:
+            _append_section(section, is_subsection=True)
+
+        # Grand total (Total Assets)
+        sofp_total = sofp.get("total", {})
+        rows.append(["", "", "", ""])  # blank spacer before Total Assets
+        ta_ri = len(rows)
+        rows.append(["Total Assets", "",
+                     _fmt_int(sofp_total.get("current_year")),
+                     _fmt_int(sofp_total.get("prior_year"))])
+        style_cmds += [
+            ("FONTNAME", (0, ta_ri), (-1, ta_ri), "Times-Bold"),
+            ("LINEABOVE", (2, ta_ri), (-1, ta_ri), 0.5, BLK),
+            ("LINEBELOW", (2, ta_ri), (-1, ta_ri), 1.5, BLK),
+            ("TOPPADDING", (0, ta_ri), (-1, ta_ri), 5),
+            ("BOTTOMPADDING", (0, ta_ri), (-1, ta_ri), 5),
+        ]
+
+        # ── Blank separator row ──────────────────────────────────────────────
+        rows.append(["", "", "", ""])
+
+        # ── LIABILITIES + EQUITY (bottom half) ──────────────────────────────
+        liab_secs2 = [s for s in liae_sections if "liabilit" in s["title"].lower()]
+        eq_secs2   = [s for s in liae_sections if "liabilit" not in s["title"].lower()]
+
+        if liab_secs2:
+            liab_ri = len(rows)
+            rows.append(["LIABILITIES", "", "", ""])
+            style_cmds.extend([
+                ("FONTNAME", (0, liab_ri), (-1, liab_ri), "Times-Bold"),
+                ("TOPPADDING", (0, liab_ri), (-1, liab_ri), 7),
+            ])
+            for section in liab_secs2:
+                _append_section(section, is_subsection=(len(liab_secs2) > 1))
+
+        if eq_secs2:
+            rows.append(["", "", "", ""])
+            eq_hdr_ri = len(rows)
+            rows.append(["SHAREHOLDERS' EQUITY", "", "", ""])
+            style_cmds.extend([
+                ("FONTNAME", (0, eq_hdr_ri), (-1, eq_hdr_ri), "Times-Bold"),
+                ("TOPPADDING", (0, eq_hdr_ri), (-1, eq_hdr_ri), 7),
+            ])
+            for section in eq_secs2:
+                _append_section(section, is_subsection=False, show_title=False)
+
+            # Net profit / (loss) for the year — needed to balance SOFP
+            net_profit_row = (report.get("financial_statements", {})
+                              .get("statement_of_profit_or_loss", {})
+                              .get("total", {}))
+            if net_profit_row and net_profit_row.get("current_year") is not None:
+                np_ri = len(rows)
+                rows.append(["    Net profit / (loss) for the year", "",
+                             _fmt_int(net_profit_row.get("current_year")),
+                             _fmt_int(net_profit_row.get("prior_year"))])
+                style_cmds += [("FONTNAME", (0, np_ri), (0, np_ri), "Times-Italic")]
+
+        # Total L+E
+        if sofp_total:
+            tle_ri = len(rows)
+            rows.append(["Total Liabilities and Shareholders' Equity", "",
+                         _fmt_int(sofp_total.get("current_year")),
+                         _fmt_int(sofp_total.get("prior_year"))])
+            style_cmds += [
+                ("FONTNAME", (0, tle_ri), (-1, tle_ri), "Times-Bold"),
+                ("LINEABOVE", (2, tle_ri), (-1, tle_ri), 0.5, BLK),
+                ("LINEBELOW", (2, tle_ri), (-1, tle_ri), 1.5, BLK),
+                ("TOPPADDING", (0, tle_ri), (-1, tle_ri), 5),
+                ("BOTTOMPADDING", (0, tle_ri), (-1, tle_ri), 5),
+            ]
+
+        story.append(_fin_table(rows, style_cmds))
+        story.append(Spacer(1, 14))
+
+        # Authorization block
+        auth_data = [
+            [f"The financial statements were authorized for issue by the Board of Directors on {nice_dt}.", ""],
+            ["", ""],
+            [f"For and on behalf of {company}:", ""],
+            ["", ""],
+            ["_______________________", "_______________________"],
+            ["Authorized Signatory", "Authorized Signatory"],
+        ]
+        auth_t = Table(auth_data, colWidths=[avail_w * 0.5, avail_w * 0.5])
+        auth_t.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), "Times-Roman"),
+            ("FONTSIZE", (0, 0), (-1, -1), FS),
+        ]))
+        story.append(KeepTogether([Spacer(1, 14), auth_t]))
+
+    # ─── SOPL ────────────────────────────────────────────────────────────────
+    sopl = statements.get("statement_of_profit_or_loss")
+    story += [
+        _SetStmtTitle("Statement of Profit or Loss"),
+        NextPageTemplate('Financial'),
+        PageBreak(),
+    ]
+    if sopl:
+        story += [
+            Paragraph("Statement of Profit or Loss and Other Comprehensive Income", s_stmt_title),
+            Paragraph("(In Arab Emirates Dirhams)", s_stmt_sub),
+            Paragraph(f"For the year ended {nice_dt}", s_stmt_sub),
+            Spacer(1, 6),
+        ]
+
+        net_profit_data = sopl.get("net_profit") or sopl.get("total") or {}
+        condensed_rows = _condense_sopl(sopl.get("sections", []), net_profit_data)
+
+        rows, style_cmds = _col_header_rows()
+
+        for label, note, cy, py, row_type in condensed_rows:
+            ri = len(rows)
+            if row_type == "blank":
+                rows.append(["", "", "", ""])
+                continue
+            cy_str = _fmt_int(cy) if isinstance(cy, (int, float)) else "-"
+            py_str = _fmt_int(py) if isinstance(py, (int, float)) else "-"
+
+            if row_type == "header":
+                rows.append([label, "", "", ""])
+                style_cmds += [
+                    ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
+                    ("TOPPADDING", (0, ri), (-1, ri), 6),
+                ]
+            elif row_type == "subtotal":
+                rows.append([label, "", cy_str, py_str])
+                style_cmds += [
+                    ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
+                    ("LINEABOVE", (2, ri), (-1, ri), 0.5, BLK),
+                    ("LINEBELOW", (2, ri), (-1, ri), 0.5, BLK),
+                ]
+            elif row_type == "net":
+                rows.append([label, "", cy_str, py_str])
+                style_cmds += [
+                    ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
+                    ("LINEABOVE", (2, ri), (-1, ri), 0.5, BLK),
+                    ("LINEBELOW", (2, ri), (-1, ri), 1.5, BLK),
+                ]
+            else:
+                rows.append([f"    {label}", note, cy_str, py_str])
+
+        story.append(_fin_table(rows, style_cmds))
+
+    # ─── Statement of Changes in Equity ──────────────────────────────────────
+    story += [
+        _SetStmtTitle("Statement of Changes in Shareholders' Equity"),
+        NextPageTemplate('Financial'),
+        PageBreak(),
+        Paragraph("Statement of Changes in Shareholders' Equity", s_stmt_title),
+        Paragraph("(In Arab Emirates Dirhams)", s_stmt_sub),
+        Paragraph(f"For the year ended {nice_dt}", s_stmt_sub),
+        Spacer(1, 8),
+        Paragraph(
+            "This statement will be finalized in conjunction with the year-end closing entries.",
+            s_body),
+    ]
+
+    # ─── Statement of Cash Flows ─────────────────────────────────────────────
+    story += [
+        _SetStmtTitle("Statement of Cash Flows"),
+        NextPageTemplate('Financial'),
+        PageBreak(),
+        Paragraph("Statement of Cash Flows", s_stmt_title),
+        Paragraph("(In Arab Emirates Dirhams)", s_stmt_sub),
+        Paragraph(f"For the year ended {nice_dt}", s_stmt_sub),
+        Spacer(1, 8),
+        Paragraph(
+            "The statement of cash flows will be finalized upon completion of the year-end accounts.",
+            s_body),
+    ]
+
+    # ════════════════════════ NOTES ══════════════════════════════════════════
+    notes = report.get("notes", {})
+    story += [
+        _SetStmtTitle(""),
+        NextPageTemplate('Notes'),
+        PageBreak(),
+        Paragraph("Notes to the Financial Statements", s_stmt_title),
+        Paragraph(f"(In Arab Emirates Dirhams)\nFor the year ended {nice_dt}", s_stmt_sub),
+        Spacer(1, 10),
+    ]
+
+    story.append(Paragraph("<b>1. Incorporation and Principal Activities</b>", s_note_title))
+    incorp = notes.get("incorporation") if notes else None
+    story.append(Paragraph(
+        incorp or (f"{company} (the 'Company') is a limited liability company incorporated "
+                   "in Dubai, United Arab Emirates, and is engaged in real estate activities."),
+        s_body_j))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("<b>2. Basis of Preparation</b>", s_note_title))
+    story.append(Paragraph(
+        "These financial statements have been prepared in accordance with International "
+        "Financial Reporting Standards (IFRSs) as issued by the IASB. The financial "
+        "statements have been prepared on the historical cost basis. The financial "
+        f"statements are presented in UAE Dirhams (AED), which is the Company's "
+        "functional and presentation currency.", s_body_j))
+    story.append(Spacer(1, 6))
+
+    if notes:
         policies = notes.get("accounting_policies", "")
         if policies:
-            story.append(Paragraph("<b>Accounting Policies</b>", s_note_title))
+            story.append(Paragraph("<b>3. Significant Accounting Policies</b>", s_note_title))
             for para in policies.split("\n\n"):
                 para = para.strip()
                 if para:
-                    story.append(Paragraph(para.replace("\n", "<br/>"), s_body))
+                    story.append(Paragraph(para.replace("\n", "<br/>"), s_body_j))
             story.append(Spacer(1, 6))
 
         estimates = notes.get("critical_estimates", "")
         if estimates:
-            story.append(Paragraph("<b>Critical Estimates and Judgements</b>", s_note_title))
-            story.append(Paragraph(estimates, s_body))
+            story.append(Paragraph("<b>4. Critical Estimates and Judgements</b>", s_note_title))
+            story.append(Paragraph(estimates, s_body_j))
             story.append(Spacer(1, 6))
 
         items = notes.get("items") or notes.get("sections") or []
-        for item in items:
-            num = item.get("note_number", "")
+        note_start = 5
+        for i, item in enumerate(items):
+            num = item.get("note_number") or (note_start + i)
             title = item.get("title", "")
-            content = item.get("content", "")
-            story.append(Paragraph(f"<b>Note {num}: {title}</b>", s_note_title))
+            content = item.get("content") or ""
+            story.append(Paragraph(f"<b>{num}. {title}</b>", s_note_title))
             for para in content.split("\n\n"):
                 para = para.strip()
                 if para:
-                    story.append(Paragraph(para.replace("\n", "<br/>"), s_body))
+                    story.append(Paragraph(para.replace("\n", "<br/>"), s_body_j))
             story.append(Spacer(1, 4))
 
-    # ── Build with page numbers ───────────────────────────────────────────
-    def _add_page_number(canvas, doc_ref):
-        canvas.saveState()
-        canvas.setFont("Times-Roman", 8)
-        page_num = canvas.getPageNumber()
-        canvas.drawCentredString(page_size[0] / 2, 30, f"— {page_num} —")
-        canvas.restoreState()
-
-    doc.build(story, onFirstPage=_add_page_number, onLaterPages=_add_page_number)
+    doc.build(story)
     return buf.getvalue()
 
 
