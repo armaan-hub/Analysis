@@ -92,12 +92,14 @@ from api.documents import router as documents_router
 from api.reports import router as reports_router
 from api.monitoring import router as monitoring_router
 from api.settings import router as settings_router
+from api.audit_profiles import router as audit_profiles_router
 
 app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(reports_router)
 app.include_router(monitoring_router)
 app.include_router(settings_router)
+app.include_router(audit_profiles_router)
 
 
 # ── Root Endpoint ─────────────────────────────────────────────────

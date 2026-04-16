@@ -1,0 +1,528 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { API, getErrMsg } from '../../../lib/api';
+import {
+  BookOpen, Upload, FileText, CheckCircle, AlertCircle,
+  Plus, Trash2, RefreshCw, ChevronRight, X, Loader2
+} from 'lucide-react';
+
+/* ── Types ──────────────────────────────────────────────────────── */
+
+interface AuditProfile {
+  id: string;
+  engagement_name: string;
+  client_name: string;
+  period_end: string;
+  status: string;
+  profile_json: Record<string, unknown> | null;
+  source_files: Array<Record<string, unknown>>;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SourceDoc {
+  id: string;
+  document_type: string;
+  original_filename: string;
+  confidence: number;
+  status: string;
+  extracted_data: Record<string, unknown> | null;
+  uploaded_at: string;
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  trial_balance: '📊 Trial Balance',
+  prior_audit: '📄 Prior Year Audit',
+  template: '📋 Report Template',
+  chart_of_accounts: '📒 Chart of Accounts',
+  custom: '📎 Custom Document',
+};
+
+const DOC_TYPES = Object.keys(DOC_TYPE_LABELS);
+
+/* ── Main Component ─────────────────────────────────────────────── */
+
+export function AuditProfileStudio() {
+  const [profiles, setProfiles] = useState<AuditProfile[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<AuditProfile | null>(null);
+  const [sourceDocs, setSourceDocs] = useState<SourceDoc[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Create profile form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newClient, setNewClient] = useState('');
+  const [newPeriod, setNewPeriod] = useState('');
+
+  // Upload state
+  const [uploadType, setUploadType] = useState('trial_balance');
+  const [uploading, setUploading] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* ── Data fetching ──────────────────────────────────────────── */
+
+  const fetchProfiles = useCallback(async () => {
+    try {
+      const { data } = await API.get('/api/audit-profiles');
+      setProfiles(data);
+    } catch (e) {
+      setError(getErrMsg(e, 'Failed to load profiles'));
+    }
+  }, []);
+
+  const fetchSourceDocs = useCallback(async (profileId: string) => {
+    try {
+      const { data } = await API.get(`/api/audit-profiles/${profileId}/source-documents`);
+      setSourceDocs(data);
+    } catch (e) {
+      setError(getErrMsg(e, 'Failed to load source documents'));
+    }
+  }, []);
+
+  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+
+  useEffect(() => {
+    if (selectedProfile) fetchSourceDocs(selectedProfile.id);
+    else setSourceDocs([]);
+  }, [selectedProfile, fetchSourceDocs]);
+
+  /* ── Actions ────────────────────────────────────────────────── */
+
+  const createProfile = async () => {
+    if (!newName.trim()) return;
+    setLoading(true);
+    try {
+      const { data } = await API.post('/api/audit-profiles', {
+        engagement_name: newName.trim(),
+        client_name: newClient.trim(),
+        period_end: newPeriod.trim(),
+      });
+      setProfiles(prev => [data, ...prev]);
+      setSelectedProfile(data);
+      setShowCreate(false);
+      setNewName(''); setNewClient(''); setNewPeriod('');
+    } catch (e) {
+      setError(getErrMsg(e, 'Failed to create profile'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteProfile = async (id: string) => {
+    if (!confirm('Delete this profile and all its source documents?')) return;
+    try {
+      await API.delete(`/api/audit-profiles/${id}`);
+      setProfiles(prev => prev.filter(p => p.id !== id));
+      if (selectedProfile?.id === id) setSelectedProfile(null);
+    } catch (e) {
+      setError(getErrMsg(e, 'Failed to delete profile'));
+    }
+  };
+
+  const uploadFile = async (file: File) => {
+    if (!selectedProfile) return;
+    setUploading(true);
+    setError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('document_type', uploadType);
+      await API.post(`/api/audit-profiles/${selectedProfile.id}/upload-source`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await fetchSourceDocs(selectedProfile.id);
+      await refreshProfile();
+    } catch (e) {
+      setError(getErrMsg(e, 'Upload failed'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const buildProfile = async () => {
+    if (!selectedProfile) return;
+    setBuilding(true);
+    setError('');
+    try {
+      const { data } = await API.post(`/api/audit-profiles/${selectedProfile.id}/build-profile`);
+      setSelectedProfile(data);
+      setProfiles(prev => prev.map(p => p.id === data.id ? data : p));
+    } catch (e) {
+      setError(getErrMsg(e, 'Profile building failed'));
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (!selectedProfile) return;
+    try {
+      const { data } = await API.get(`/api/audit-profiles/${selectedProfile.id}`);
+      setSelectedProfile(data);
+      setProfiles(prev => prev.map(p => p.id === data.id ? data : p));
+    } catch { /* ignore */ }
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) uploadFile(file);
+  };
+
+  /* ── Status badge ───────────────────────────────────────────── */
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    const colors: Record<string, string> = {
+      draft: '#888', learning: '#f0ad4e', ready: '#5cb85c',
+      processing: '#5bc0de', extracted: '#5cb85c', error: '#d9534f',
+    };
+    return (
+      <span style={{
+        padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600,
+        background: `${colors[status] || '#888'}22`, color: colors[status] || '#888',
+      }}>
+        {status}
+      </span>
+    );
+  };
+
+  const ConfidenceMeter = ({ value }: { value: number }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 60, height: 6, borderRadius: 3,
+        background: 'var(--s-border, #333)',
+      }}>
+        <div style={{
+          width: `${value * 100}%`, height: '100%', borderRadius: 3,
+          background: value > 0.7 ? '#5cb85c' : value > 0.4 ? '#f0ad4e' : '#d9534f',
+        }} />
+      </div>
+      <span style={{ fontSize: 11, color: 'var(--s-muted, #888)' }}>
+        {(value * 100).toFixed(0)}%
+      </span>
+    </div>
+  );
+
+  /* ── Render ─────────────────────────────────────────────────── */
+
+  return (
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+      {/* Left Panel: Profile List */}
+      <div style={{
+        width: 300, borderRight: '1px solid var(--s-border, #333)',
+        display: 'flex', flexDirection: 'column', background: 'var(--s-bg, #1a1a2e)',
+      }}>
+        <div style={{
+          padding: '16px', borderBottom: '1px solid var(--s-border, #333)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <BookOpen size={18} />
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Audit Profiles</h3>
+          <button
+            onClick={() => setShowCreate(true)}
+            style={{
+              marginLeft: 'auto', background: 'var(--accent, #6c5ce7)', border: 'none',
+              color: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+              fontSize: 12, display: 'flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            <Plus size={14} /> New
+          </button>
+        </div>
+
+        {/* Create form */}
+        {showCreate && (
+          <div style={{ padding: 12, borderBottom: '1px solid var(--s-border, #333)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              placeholder="Engagement name *"
+              value={newName} onChange={e => setNewName(e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              placeholder="Client name"
+              value={newClient} onChange={e => setNewClient(e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              placeholder="Period end (e.g., 2025-12-31)"
+              value={newPeriod} onChange={e => setNewPeriod(e.target.value)}
+              style={inputStyle}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={createProfile} disabled={loading || !newName.trim()} style={btnPrimary}>
+                {loading ? <Loader2 size={14} className="spin" /> : 'Create'}
+              </button>
+              <button onClick={() => setShowCreate(false)} style={btnSecondary}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Profile list */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {profiles.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--s-muted, #888)', fontSize: 13 }}>
+              No profiles yet. Create one to get started.
+            </div>
+          )}
+          {profiles.map(p => (
+            <div
+              key={p.id}
+              onClick={() => setSelectedProfile(p)}
+              style={{
+                padding: '12px 16px', cursor: 'pointer',
+                borderBottom: '1px solid var(--s-border, #222)',
+                background: selectedProfile?.id === p.id ? 'var(--s-active, #2a2a4e)' : 'transparent',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>{p.engagement_name}</span>
+                <StatusBadge status={p.status} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--s-muted, #888)', marginTop: 4 }}>
+                {p.client_name || 'No client'} · {p.period_end || 'No period'}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--s-muted, #666)', marginTop: 2 }}>
+                {p.source_files?.length || 0} source files
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Panel: Profile Details + Upload */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        {error && (
+          <div style={{
+            padding: '10px 16px', marginBottom: 16, borderRadius: 8,
+            background: '#d9534f22', color: '#d9534f', fontSize: 13,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <AlertCircle size={16} />
+            {error}
+            <X size={14} style={{ marginLeft: 'auto', cursor: 'pointer' }} onClick={() => setError('')} />
+          </div>
+        )}
+
+        {!selectedProfile ? (
+          <div style={{ textAlign: 'center', paddingTop: 80, color: 'var(--s-muted, #888)' }}>
+            <BookOpen size={48} strokeWidth={1} />
+            <h3 style={{ marginTop: 16, fontWeight: 500 }}>Select or create an audit profile</h3>
+            <p style={{ fontSize: 13 }}>
+              Upload source documents (prior audits, trial balances, templates) and the system will learn
+              your formatting preferences, account groupings, and report structure.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Profile header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>
+                {selectedProfile.engagement_name}
+              </h2>
+              <StatusBadge status={selectedProfile.status} />
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button onClick={buildProfile} disabled={building || sourceDocs.length === 0} style={btnPrimary}>
+                  {building ? <><Loader2 size={14} className="spin" /> Building...</> : <><RefreshCw size={14} /> Build Profile</>}
+                </button>
+                <button onClick={() => deleteProfile(selectedProfile.id)} style={btnDanger}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Upload zone */}
+            <div style={{
+              border: '2px dashed var(--s-border, #444)', borderRadius: 12,
+              padding: 24, textAlign: 'center', marginBottom: 24,
+              background: 'var(--s-bg, #1a1a2e)',
+            }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleFileDrop}
+            >
+              <Upload size={32} strokeWidth={1.5} style={{ color: 'var(--accent, #6c5ce7)' }} />
+              <p style={{ margin: '12px 0 8px', fontSize: 14, fontWeight: 500 }}>
+                Upload Source Document
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--s-muted, #888)' }}>
+                Drag & drop or click to browse. Supports PDF, Excel, Word.
+              </p>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+                <select
+                  value={uploadType} onChange={e => setUploadType(e.target.value)}
+                  style={{ ...inputStyle, width: 'auto' }}
+                >
+                  {DOC_TYPES.map(t => (
+                    <option key={t} value={t}>{DOC_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+                <input
+                  ref={fileInputRef} type="file" style={{ display: 'none' }}
+                  accept=".pdf,.xlsx,.xls,.docx,.doc"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadFile(file);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={btnPrimary}
+                >
+                  {uploading ? <><Loader2 size={14} className="spin" /> Uploading...</> : 'Browse Files'}
+                </button>
+              </div>
+            </div>
+
+            {/* Source Documents */}
+            <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+              Source Documents ({sourceDocs.length})
+            </h3>
+            {sourceDocs.length === 0 ? (
+              <p style={{ color: 'var(--s-muted, #888)', fontSize: 13 }}>
+                No documents uploaded yet. Upload trial balances, prior audits, and templates above.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sourceDocs.map(doc => (
+                  <div key={doc.id} style={{
+                    padding: '12px 16px', borderRadius: 8,
+                    border: '1px solid var(--s-border, #333)',
+                    background: 'var(--s-bg, #1a1a2e)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <FileText size={16} />
+                      <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
+                        {doc.original_filename}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--s-muted, #888)' }}>
+                        {DOC_TYPE_LABELS[doc.document_type] || doc.document_type}
+                      </span>
+                      <StatusBadge status={doc.status} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+                      <ConfidenceMeter value={doc.confidence} />
+                      {doc.extracted_data && (
+                        <span style={{ fontSize: 11, color: 'var(--s-muted, #888)' }}>
+                          {(doc.extracted_data as Record<string, unknown>).tables
+                            ? `${(((doc.extracted_data as Record<string, unknown>).tables) as unknown[]).length} tables`
+                            : ''}
+                          {' · '}
+                          {((doc.extracted_data as Record<string, unknown>).text as string || '').length > 0
+                            ? `${Math.round(((doc.extracted_data as Record<string, unknown>).text as string).length / 1000)}K chars`
+                            : 'no text'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Profile JSON preview */}
+            {selectedProfile.profile_json && Object.keys(selectedProfile.profile_json).length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+                  <CheckCircle size={16} style={{ color: '#5cb85c', marginRight: 4 }} />
+                  Learned Profile
+                </h3>
+                <ProfilePreview profile={selectedProfile.profile_json} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Profile Preview Component ──────────────────────────────────── */
+
+function ProfilePreview({ profile }: { profile: Record<string, unknown> }) {
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const sections = [
+    { key: 'financial_data', label: '💰 Financial Data', icon: '💰' },
+    { key: 'format_template', label: '📐 Format Template', icon: '📐' },
+    { key: 'account_mapping', label: '🗂️ Account Mappings', icon: '🗂️' },
+    { key: 'statement_groupings', label: '📊 Statement Groupings', icon: '📊' },
+    { key: 'custom_requirements', label: '⚙️ Requirements', icon: '⚙️' },
+    { key: 'source_summary', label: '📎 Sources', icon: '📎' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {sections.map(s => {
+        const data = profile[s.key];
+        if (!data) return null;
+        const isExpanded = expandedSection === s.key;
+        const itemCount = typeof data === 'object'
+          ? (Array.isArray(data) ? data.length : Object.keys(data as object).length)
+          : 0;
+
+        return (
+          <div key={s.key} style={{
+            border: '1px solid var(--s-border, #333)', borderRadius: 8,
+            overflow: 'hidden',
+          }}>
+            <div
+              onClick={() => setExpandedSection(isExpanded ? null : s.key)}
+              style={{
+                padding: '10px 14px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'var(--s-bg, #1a1a2e)',
+              }}
+            >
+              <ChevronRight size={14} style={{
+                transform: isExpanded ? 'rotate(90deg)' : 'none',
+                transition: 'transform 0.2s',
+              }} />
+              <span style={{ fontSize: 13, fontWeight: 500 }}>{s.label}</span>
+              <span style={{ fontSize: 11, color: 'var(--s-muted, #888)', marginLeft: 'auto' }}>
+                {itemCount} items
+              </span>
+            </div>
+            {isExpanded && (
+              <pre style={{
+                margin: 0, padding: '12px 14px', fontSize: 11,
+                background: 'var(--s-code-bg, #111)', overflow: 'auto',
+                maxHeight: 300, lineHeight: 1.4,
+                color: 'var(--s-text, #ccc)',
+              }}>
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Shared styles ──────────────────────────────────────────────── */
+
+const inputStyle: React.CSSProperties = {
+  padding: '8px 12px', borderRadius: 6, border: '1px solid var(--s-border, #444)',
+  background: 'var(--s-input-bg, #222)', color: 'var(--s-text, #eee)',
+  fontSize: 13, outline: 'none', width: '100%',
+};
+
+const btnPrimary: React.CSSProperties = {
+  padding: '8px 16px', borderRadius: 6, border: 'none',
+  background: 'var(--accent, #6c5ce7)', color: '#fff',
+  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', gap: 6,
+};
+
+const btnSecondary: React.CSSProperties = {
+  padding: '8px 16px', borderRadius: 6, border: '1px solid var(--s-border, #444)',
+  background: 'transparent', color: 'var(--s-text, #ccc)',
+  fontSize: 12, cursor: 'pointer',
+};
+
+const btnDanger: React.CSSProperties = {
+  padding: '8px 10px', borderRadius: 6, border: 'none',
+  background: '#d9534f22', color: '#d9534f',
+  fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center',
+};

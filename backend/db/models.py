@@ -230,6 +230,54 @@ class TemplateSection(Base):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Audit Profile Models (NotebookLM-style document understanding)
+# ═══════════════════════════════════════════════════════════════════
+
+class AuditProfile(Base):
+    """
+    An audit engagement profile that learns from uploaded source documents.
+    Stores the merged knowledge: financial data, format preferences,
+    account mappings, and custom requirements.
+    """
+    __tablename__ = "audit_profiles"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    engagement_name = Column(String(255), nullable=False)
+    client_name = Column(String(255), nullable=True)
+    period_end = Column(String(50), nullable=True)
+    profile_json = Column(JSON, nullable=True)  # Merged audit profile (financial data, format, mappings)
+    source_files = Column(JSON, nullable=True)  # Metadata about uploaded files
+    status = Column(String(20), default="draft")  # draft | learning | ready
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    source_documents = relationship(
+        "SourceDocument", back_populates="profile", cascade="all, delete-orphan"
+    )
+
+
+class SourceDocument(Base):
+    """
+    A source document uploaded to an audit profile for pattern learning.
+    Stores extracted data and confidence score.
+    """
+    __tablename__ = "source_documents"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    profile_id = Column(String(36), ForeignKey("audit_profiles.id"), nullable=False)
+    document_type = Column(String(50), nullable=False)  # trial_balance | prior_audit | template | chart_of_accounts | custom
+    original_filename = Column(String(500), nullable=False)
+    file_path = Column(String(1000), nullable=True)
+    extracted_data = Column(JSON, nullable=True)  # Structured extraction result
+    confidence = Column(Float, default=0.0)
+    status = Column(String(20), default="processing")  # processing | extracted | error
+    error_message = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=_utcnow)
+
+    profile = relationship("AuditProfile", back_populates="source_documents")
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Cross-Session Memory
 # ═══════════════════════════════════════════════════════════════════
 
