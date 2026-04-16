@@ -82,6 +82,17 @@ class NvidiaProvider(BaseLLMProvider):
         import re
         return re.sub(r"<thinking>.*?</thinking>\s*", "", text, flags=re.DOTALL).strip()
 
+    @staticmethod
+    def _messages_contain_images(messages: list) -> bool:
+        """Return True if any message has image_url content parts (vision request)."""
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "image_url":
+                        return True
+        return False
+
     def _build_payload(self, messages, max_tokens, temperature, stream: bool) -> dict:
         payload: dict = {
             "model": self.model,
@@ -92,7 +103,8 @@ class NvidiaProvider(BaseLLMProvider):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        if self._is_gemma:
+        # enable_thinking is incompatible with vision/multimodal inputs — skip for image requests
+        if self._is_gemma and not self._messages_contain_images(messages):
             payload["chat_template_kwargs"] = {"enable_thinking": True}
         return payload
 
@@ -103,10 +115,12 @@ class NvidiaProvider(BaseLLMProvider):
         }
         payload = self._build_payload(messages, max_tokens, temperature, stream=False)
 
+        has_images = self._messages_contain_images(messages)
         last_exc: Exception = RuntimeError(f"NVIDIA provider unreachable — check API key and network")
+        # Vision requests can be large (multiple base64-encoded pages) — use a generous write timeout
         _timeout = (
             httpx.Timeout(None)
-            if max_tokens is None
+            if (max_tokens is None or has_images)
             else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
         )
         for attempt in range(2):

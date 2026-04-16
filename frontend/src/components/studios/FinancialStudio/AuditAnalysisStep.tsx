@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { API_BASE } from '../../../lib/api';
 
 function DiamondIcon() {
   return (
@@ -61,7 +62,7 @@ export function AuditAnalysisStep({
     setMessages([...newMessages, assistantMsg]);
 
     try {
-      const res = await fetch('/api/reports/analysis-chat', {
+      const res = await fetch(API_BASE + '/api/reports/analysis-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

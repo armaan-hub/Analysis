@@ -139,7 +139,7 @@ async def _extract_via_vision(file_path: str) -> list[dict]:
         from core.llm_manager import get_llm_provider
 
         pages = convert_from_path(file_path, first_page=1, last_page=8, dpi=150)
-        llm = get_llm_provider("openai")
+        llm = get_llm_provider()  # use active provider
         all_rows: list[dict] = []
 
         for page_img in pages[:4]:
@@ -204,6 +204,10 @@ async def _extract_via_fitz_vision(file_path: str) -> list[dict]:
     """
     Render PDF pages to images using fitz.get_pixmap() (no poppler needed),
     then send to the vision LLM to extract financial table rows.
+
+    Sends up to 8 pages sampled across the full document. The first 2 pages
+    of an audit report are typically the auditor's narrative and ToC — financial
+    tables begin from page 3+, so we skip page 0 and sample the rest.
     """
     try:
         import fitz
@@ -211,9 +215,30 @@ async def _extract_via_fitz_vision(file_path: str) -> list[dict]:
         from core.llm_manager import get_llm_provider
 
         doc = fitz.open(file_path)
-        if doc.page_count == 0:
+        n = doc.page_count
+        if n == 0:
             doc.close()
             return []
+
+        logger.info(f"fitz vision: PDF has {n} pages")
+
+        # Build a page index list that skips page 0 (cover/auditor letter)
+        # and samples up to 8 pages spread across the document.
+        # For a 30-page audit report this yields pages: 1,4,8,12,16,20,24,28
+        if n <= 2:
+            page_indices = list(range(n))
+        else:
+            # Always include page 1 (often ToC or first financial page)
+            # then sample remaining pages evenly, skipping page 0
+            remaining = list(range(1, n))
+            max_pages = 8
+            if len(remaining) <= max_pages:
+                page_indices = remaining
+            else:
+                step = len(remaining) / max_pages
+                page_indices = [remaining[int(i * step)] for i in range(max_pages)]
+
+        logger.info(f"fitz vision: sending page indices {page_indices}")
 
         content_parts: list[dict] = [
             {
@@ -230,8 +255,9 @@ async def _extract_via_fitz_vision(file_path: str) -> list[dict]:
             }
         ]
 
-        for i in range(min(8, doc.page_count)):
-            mat = fitz.Matrix(2, 2)
+        for i in page_indices:
+            # 1.5x scale (~110 dpi on A4) — sufficient for vision LLM, keeps payload manageable
+            mat = fitz.Matrix(1.5, 1.5)
             pix = doc[i].get_pixmap(matrix=mat)
             png_bytes = pix.tobytes("png")
             b64 = base64.b64encode(png_bytes).decode()
@@ -242,12 +268,14 @@ async def _extract_via_fitz_vision(file_path: str) -> list[dict]:
 
         doc.close()
 
-        llm = get_llm_provider("openai")
+        llm = get_llm_provider()  # use active provider (nvidia/gemma-4 is vision-capable)
         resp = await llm.chat(
             [{"role": "user", "content": content_parts}],
             temperature=0.1,
             max_tokens=3000,
         )
+
+        logger.info(f"fitz vision LLM response (first 200 chars): {resp.content[:200]}")
 
         raw = resp.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
@@ -277,6 +305,7 @@ async def _extract_via_fitz_vision(file_path: str) -> list[dict]:
                 except (ValueError, TypeError):
                     continue
 
+        logger.info(f"fitz vision extracted {len(result)} rows")
         seen: dict[str, dict] = {}
         for row in result:
             seen[row["account_name"].lower()] = row
@@ -286,7 +315,8 @@ async def _extract_via_fitz_vision(file_path: str) -> list[dict]:
         logger.warning("fitz (PyMuPDF) not available for vision extraction")
         return []
     except Exception as exc:
-        logger.error(f"fitz vision extraction failed: {exc}")
+        import traceback
+        logger.error(f"fitz vision extraction failed: {exc}\n{traceback.format_exc()}")
         return []
 
 

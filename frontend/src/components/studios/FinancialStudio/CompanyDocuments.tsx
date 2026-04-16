@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { API, getErrMsg } from '../../../lib/api';
+import { API, API_BASE, getErrMsg } from '../../../lib/api';
 
 export interface CompanyInfo {
   company_name: string;
@@ -92,13 +92,15 @@ export function CompanyDocuments({ onComplete, onSkip }: Props) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/reports/extract-prior-year', {
+      const res = await fetch(API_BASE + '/api/reports/extract-prior-year', {
         method: 'POST',
         body: formData,
       });
       if (!res.ok) throw new Error('Extraction failed');
       const data = await res.json();
-      setPriorYearContext(data.context || '');
+      const rows = data.rows || [];
+      const context = rows.map((r: any) => `${r.account}: AED ${r.amount}`).join('\n');
+      setPriorYearContext(context);
     } catch (err) {
       console.error('Prior year extraction failed:', err);
       setPriorYearError('Could not extract prior year data. You can still proceed.');
