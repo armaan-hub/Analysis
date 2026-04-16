@@ -67,6 +67,9 @@ export function AuditProfileStudio() {
   const [lastTbFile, setLastTbFile] = useState<File | null>(null);
   const tbInputRef = useRef<HTMLInputElement>(null);
 
+  // Tab state for profile detail view
+  const [detailTab, setDetailTab] = useState<'overview' | 'mapping' | 'format' | 'generate'>('overview');
+
   /* ── Data fetching ──────────────────────────────────────────── */
 
   const fetchProfiles = useCallback(async () => {
@@ -391,6 +394,37 @@ export function AuditProfileStudio() {
               </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div style={{
+              display: 'flex', gap: 0, marginBottom: 24,
+              borderBottom: '2px solid var(--s-border, #333)',
+            }}>
+              {([
+                { key: 'overview', label: '📋 Overview' },
+                { key: 'mapping', label: '🔗 Account Mapping' },
+                { key: 'format', label: '📐 Format' },
+                { key: 'generate', label: '📊 Generate' },
+              ] as const).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setDetailTab(tab.key)}
+                  style={{
+                    padding: '10px 20px', border: 'none', cursor: 'pointer',
+                    background: detailTab === tab.key ? 'var(--s-active, #2a2a4e)' : 'transparent',
+                    color: detailTab === tab.key ? 'var(--accent, #6c5ce7)' : 'var(--s-muted, #888)',
+                    fontSize: 13, fontWeight: detailTab === tab.key ? 600 : 400,
+                    borderBottom: detailTab === tab.key ? '2px solid var(--accent, #6c5ce7)' : '2px solid transparent',
+                    marginBottom: -2,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab: Overview */}
+            {detailTab === 'overview' && (<>
+
             {/* Upload zone */}
             <div style={{
               border: '2px dashed var(--s-border, #444)', borderRadius: 12,
@@ -491,9 +525,34 @@ export function AuditProfileStudio() {
               </div>
             )}
 
-            {/* Report Generation */}
-            {selectedProfile.status === 'ready' && (
-              <div style={{ marginTop: 24 }}>
+            {/* Report Generation — now in Generate tab */}
+            </>)}
+
+            {/* Tab: Account Mapping */}
+            {detailTab === 'mapping' && (
+              <AccountMappingEditor
+                profileId={selectedProfile.id}
+                profileJson={selectedProfile.profile_json}
+                onSave={async () => { await fetchProfiles(); if (selectedProfile) { const { data } = await API.get(`/api/audit-profiles/${selectedProfile.id}`); setSelectedProfile(data); } }}
+                setError={setError}
+              />
+            )}
+
+            {/* Tab: Format Customizer */}
+            {detailTab === 'format' && (
+              <FormatCustomizer
+                profileId={selectedProfile.id}
+                profileJson={selectedProfile.profile_json}
+                onSave={async () => { await fetchProfiles(); if (selectedProfile) { const { data } = await API.get(`/api/audit-profiles/${selectedProfile.id}`); setSelectedProfile(data); } }}
+                setError={setError}
+              />
+            )}
+
+            {/* Tab: Generate Report */}
+            {detailTab === 'generate' && (
+              <>
+            {selectedProfile.status === 'ready' ? (
+              <div>
                 <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
                   📊 Generate Audit Report
                 </h3>
@@ -558,6 +617,13 @@ export function AuditProfileStudio() {
                   </div>
                 )}
               </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--s-muted, #888)' }}>
+                <p style={{ fontSize: 14 }}>Profile must be in &quot;ready&quot; status to generate reports.</p>
+                <p style={{ fontSize: 12 }}>Upload source documents and build the profile first.</p>
+              </div>
+            )}
+              </>
             )}
           </>
         )}
@@ -739,6 +805,210 @@ function fmtNum(n: number): string {
   if (!n && n !== 0) return '-';
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+/* ── Account Mapping Editor ─────────────────────────────────────── */
+
+const IFRS_GROUPS = [
+  'Revenue', 'Cost of Sales', 'Staff Costs', 'Administrative Expenses',
+  'Other Operating Expenses', 'Finance Costs', 'Finance Income', 'Tax Expense',
+  'Property, Plant and Equipment', 'Intangible Assets', 'Right-of-Use Assets',
+  'Investment Property', 'Trade and Other Receivables', 'Prepayments',
+  'Cash and Cash Equivalents', 'Inventories', 'Other Current Assets',
+  'Share Capital', 'Retained Earnings', 'Other Reserves',
+  'Trade and Other Payables', 'Borrowings', 'Lease Liabilities',
+  'Provisions', 'Other Non-Current Liabilities', 'Other Current Liabilities',
+  'Depreciation', 'Amortisation',
+];
+
+function AccountMappingEditor({ profileId, profileJson, onSave, setError }: {
+  profileId: string;
+  profileJson: Record<string, unknown> | null;
+  onSave: () => Promise<void>;
+  setError: (e: string) => void;
+}) {
+  const mapping = ((profileJson || {}).account_mapping || {}) as Record<string, string>;
+  const [localMapping, setLocalMapping] = useState<Record<string, string>>({ ...mapping });
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  const accounts = Object.keys(localMapping).sort();
+  const filtered = filter
+    ? accounts.filter(a => a.toLowerCase().includes(filter.toLowerCase()) || (localMapping[a] || '').toLowerCase().includes(filter.toLowerCase()))
+    : accounts;
+
+  const saveMapping = async () => {
+    setSaving(true);
+    try {
+      await API.put(`/api/audit-profiles/${profileId}/account-mapping`, { mapping: localMapping });
+      await onSave();
+    } catch (e) {
+      setError(getErrMsg(e, 'Failed to save mapping'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>🔗 Account Mapping</h3>
+        <input
+          placeholder="Filter accounts..."
+          value={filter} onChange={e => setFilter(e.target.value)}
+          style={{ ...inputStyle, width: 200, marginLeft: 'auto' }}
+        />
+        <button onClick={saveMapping} disabled={saving} style={btnPrimary}>
+          {saving ? <><Loader2 size={14} className="spin" /> Saving...</> : 'Save Mapping'}
+        </button>
+      </div>
+
+      {accounts.length === 0 ? (
+        <p style={{ color: 'var(--s-muted, #888)', fontSize: 13 }}>
+          No account mappings yet. Build the profile from uploaded source documents first.
+        </p>
+      ) : (
+        <div style={{
+          border: '1px solid var(--s-border, #333)', borderRadius: 8, overflow: 'hidden',
+          maxHeight: 500, overflowY: 'auto',
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: 'var(--s-bg, #1a1a2e)', position: 'sticky', top: 0 }}>
+                <th style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '2px solid var(--s-border, #444)' }}>Account Name</th>
+                <th style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '2px solid var(--s-border, #444)' }}>IFRS Group</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(account => (
+                <tr key={account} style={{ borderBottom: '1px solid var(--s-border, #222)' }}>
+                  <td style={{ padding: '6px 12px', fontSize: 12 }}>{account}</td>
+                  <td style={{ padding: '4px 12px' }}>
+                    <select
+                      value={localMapping[account] || ''}
+                      onChange={e => setLocalMapping(prev => ({ ...prev, [account]: e.target.value }))}
+                      style={{ ...inputStyle, padding: '4px 8px', fontSize: 11 }}
+                    >
+                      <option value="">— Unassigned —</option>
+                      {IFRS_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p style={{ fontSize: 11, color: 'var(--s-muted, #666)', marginTop: 8 }}>
+        {accounts.length} accounts mapped · {filtered.length} shown
+      </p>
+    </div>
+  );
+}
+
+/* ── Format Customizer ─────────────────────────────────────────── */
+
+function FormatCustomizer({ profileId, profileJson, onSave, setError }: {
+  profileId: string;
+  profileJson: Record<string, unknown> | null;
+  onSave: () => Promise<void>;
+  setError: (e: string) => void;
+}) {
+  const template = ((profileJson || {}).format_template || {}) as Record<string, unknown>;
+  const [columns, setColumns] = useState<string>(
+    JSON.stringify(template.columns || ['Account', 'Notes', 'Current Year', 'Prior Year'])
+  );
+  const [currency, setCurrency] = useState((template.currency_symbol as string) || 'AED');
+  const [fontFamily, setFontFamily] = useState((template.font_family as string) || 'Times New Roman');
+  const [fontSize, setFontSize] = useState(String(template.font_size || 10));
+  const [pageSize, setPageSize] = useState((template.page_size as string) || 'A4');
+  const [saving, setSaving] = useState(false);
+
+  const saveFormat = async () => {
+    setSaving(true);
+    try {
+      let parsedCols;
+      try { parsedCols = JSON.parse(columns); } catch { parsedCols = ['Account', 'Notes', 'Current Year', 'Prior Year']; }
+      const formatData = {
+        columns: parsedCols,
+        currency_symbol: currency,
+        font_family: fontFamily,
+        font_size: parseInt(fontSize) || 10,
+        page_size: pageSize,
+      };
+      await API.put(`/api/audit-profiles/${profileId}/format-template`, { format_template: formatData });
+      await onSave();
+    } catch (e) {
+      setError(getErrMsg(e, 'Failed to save format'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>📐 Format Template</h3>
+        <button onClick={saveFormat} disabled={saving} style={{ ...btnPrimary, marginLeft: 'auto' }}>
+          {saving ? <><Loader2 size={14} className="spin" /> Saving...</> : 'Save Format'}
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <label style={labelStyle}>Currency Symbol</label>
+          <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputStyle}>
+            {['AED', 'USD', 'EUR', 'GBP', 'SAR', 'INR'].map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Page Size</label>
+          <select value={pageSize} onChange={e => setPageSize(e.target.value)} style={inputStyle}>
+            {['A4', 'Letter', 'Legal'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Font Family</label>
+          <select value={fontFamily} onChange={e => setFontFamily(e.target.value)} style={inputStyle}>
+            {['Times New Roman', 'Arial', 'Helvetica', 'Calibri', 'Garamond'].map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Font Size</label>
+          <input type="number" value={fontSize} onChange={e => setFontSize(e.target.value)} min={8} max={16} style={inputStyle} />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>Columns (JSON array)</label>
+          <input value={columns} onChange={e => setColumns(e.target.value)} style={inputStyle} />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20, padding: 16, borderRadius: 8, background: 'var(--s-code-bg, #111)' }}>
+        <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Preview</h4>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr>
+              {(() => { try { return JSON.parse(columns); } catch { return ['Account', 'Notes', 'CY', 'PY']; } })().map((col: string) => (
+                <th key={col} style={{ padding: '6px 8px', borderBottom: '2px solid var(--s-border, #444)', textAlign: 'left', fontFamily }}>
+                  {col} {col.includes('Year') ? `(${currency})` : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style={{ padding: '4px 8px', fontFamily, fontWeight: 600 }}>Non-Current Assets</td><td></td><td></td><td></td></tr>
+            <tr><td style={{ padding: '4px 8px 4px 20px', fontFamily }}>Property, Plant and Equipment</td><td style={{ fontFamily }}>5</td><td style={{ textAlign: 'right', fontFamily }}>1,234,567.00</td><td style={{ textAlign: 'right', fontFamily, color: '#888' }}>1,100,000.00</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 600,
+  color: 'var(--s-muted, #888)', marginBottom: 4,
+};
 
 /* ── Shared styles ──────────────────────────────────────────────── */
 
