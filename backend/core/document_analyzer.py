@@ -30,10 +30,18 @@ def analyze_document(file_path: str, doc_type: str = "auto") -> dict:
             "metadata": dict,                  # file size, author, etc.
         }
     """
-    if doc_type == "auto":
+    # Map file extension to extraction type
+    _EXT_MAP = {".pdf": "pdf", ".xlsx": "excel", ".xls": "excel",
+                ".docx": "docx", ".doc": "docx"}
+    _EXTRACTION_TYPES = {"pdf", "excel", "docx"}
+
+    if doc_type == "auto" or doc_type not in _EXTRACTION_TYPES:
+        # Business types (prior_audit, trial_balance, template, etc.) resolve via extension
         ext = os.path.splitext(file_path)[1].lower()
-        doc_type = {".pdf": "pdf", ".xlsx": "excel", ".xls": "excel",
-                    ".docx": "docx", ".doc": "docx"}.get(ext, "unknown")
+        resolved = _EXT_MAP.get(ext, "unknown")
+        if doc_type != "auto":
+            logger.info(f"Resolved business doc_type '{doc_type}' → '{resolved}' from extension")
+        doc_type = resolved
 
     try:
         if doc_type == "pdf":
@@ -65,7 +73,8 @@ def _empty_result(file_name: str = "", doc_type: str = "unknown") -> dict:
 
 
 def _extract_from_pdf(file_path: str) -> dict:
-    """Extract tables, text, and structure from a PDF using PyMuPDF."""
+    """Extract tables, text, and structure from a PDF using PyMuPDF.
+    Falls back to OCR (tesseract) for scanned/image-based PDFs."""
     import fitz
 
     doc = fitz.open(file_path)
@@ -115,6 +124,18 @@ def _extract_from_pdf(file_path: str) -> dict:
     doc.close()
 
     full_text = "\n".join(all_text_parts)
+
+    # OCR fallback: if no text extracted, the PDF is likely scanned/image-based
+    is_ocr = False
+    if not full_text.strip() and page_count > 0:
+        logger.info(f"No text from native extraction — attempting OCR on {file_name}")
+        ocr_text, ocr_tables = _ocr_extract_pdf(file_path, page_count)
+        if ocr_text.strip():
+            full_text = ocr_text
+            all_tables.extend(ocr_tables)
+            is_ocr = True
+            logger.info(f"OCR extracted {len(full_text)} chars, {len(ocr_tables)} tables from {file_name}")
+
     file_size = os.path.getsize(file_path)
 
     return {
@@ -122,7 +143,7 @@ def _extract_from_pdf(file_path: str) -> dict:
         "file_name": file_name,
         "pages": page_count,
         "tables": all_tables,
-        "text": full_text[:50000],  # Cap text to avoid memory issues
+        "text": full_text[:50000],
         "structure": {
             "headings": headings,
             "table_count": len(all_tables),
@@ -131,8 +152,84 @@ def _extract_from_pdf(file_path: str) -> dict:
         "metadata": {
             "file_size": file_size,
             "page_count": page_count,
+            "ocr_used": is_ocr,
         },
     }
+
+
+def _ocr_extract_pdf(file_path: str, page_count: int) -> tuple:
+    """OCR fallback for scanned/image-based PDFs using tesseract."""
+    import re as _re
+
+    try:
+        import fitz
+        import pytesseract
+        from PIL import Image
+        import io as _io
+
+        # Set tesseract path on Windows if not in PATH
+        tesseract_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ]
+        for tp in tesseract_paths:
+            if os.path.exists(tp):
+                pytesseract.pytesseract.tesseract_cmd = tp
+                break
+
+        doc = fitz.open(file_path)
+        all_text_parts: list[str] = []
+        all_tables: list[list[list[str]]] = []
+
+        for page_num in range(min(page_count, 30)):  # Cap at 30 pages for performance
+            page = doc[page_num]
+            mat = fitz.Matrix(250 / 72, 250 / 72)  # 250 DPI
+            pix = page.get_pixmap(matrix=mat)
+            img_bytes = pix.tobytes("png")
+            img = Image.open(_io.BytesIO(img_bytes))
+
+            text = pytesseract.image_to_string(img, lang="eng")
+            if text.strip():
+                all_text_parts.append(f"--- Page {page_num + 1} ---\n{text}")
+
+            # Try to extract tabular data from OCR text using regex patterns
+            table_rows = _parse_financial_rows_from_text(text)
+            if table_rows:
+                all_tables.append(table_rows)
+
+        doc.close()
+        return "\n".join(all_text_parts), all_tables
+
+    except ImportError as e:
+        logger.warning(f"OCR dependencies not available: {e}")
+        return "", []
+    except Exception as e:
+        logger.error(f"OCR extraction failed: {e}")
+        return "", []
+
+
+def _parse_financial_rows_from_text(text: str) -> list[list[str]]:
+    """Parse table-like rows from OCR text (account name + numbers)."""
+    import re as _re
+    rows: list[list[str]] = []
+    # Pattern: text followed by one or more number columns separated by spaces
+    pattern = _re.compile(
+        r'^(.{3,50}?)\s{2,}([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?)'
+        r'(?:\s{2,}([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?))?'
+        r'(?:\s{2,}([\-\(]?\d[\d,]*(?:\.\d+)?[\)]?))?\s*$'
+    )
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        m = pattern.match(line)
+        if m:
+            row = [m.group(1).strip()]
+            for g in [m.group(2), m.group(3), m.group(4)]:
+                if g:
+                    row.append(g.strip())
+            rows.append(row)
+    return rows
 
 
 def _extract_from_excel(file_path: str) -> dict:

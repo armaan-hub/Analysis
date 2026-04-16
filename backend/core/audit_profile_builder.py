@@ -26,7 +26,8 @@ IFRS_GROUPS = [
 
 # Keywords to infer account group from account name
 _GROUP_KEYWORDS: dict[str, list[str]] = {
-    "Revenue": ["revenue", "sales", "income from operations", "service income", "turnover"],
+    "Revenue": ["revenue", "sales", "income from operations", "service income", "turnover",
+                "commission received", "direct income", "indirect income"],
     "Cost of Sales": ["cost of sales", "cost of goods", "cogs", "direct cost", "purchases"],
     "Operating Expenses": [
         "salary", "salaries", "wages", "rent", "depreciation", "amortization",

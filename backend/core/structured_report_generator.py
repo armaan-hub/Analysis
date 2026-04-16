@@ -21,6 +21,8 @@ def generate_audit_report(
     trial_balance: list[dict],
     profile: dict,
     company_info: dict | None = None,
+    prior_year_data: list[dict] | None = None,
+    tb_categories: dict[str, str] | None = None,
 ) -> dict:
     """
     Main entry point. Generate a structured audit report JSON.
@@ -29,6 +31,8 @@ def generate_audit_report(
         trial_balance: List of TB rows, each with 'account_name', 'debit', 'credit' (or 'balance')
         profile: The audit_profile JSON from AuditProfile.profile_json
         company_info: Optional overrides for company_name, period_end, auditor_name, currency
+        prior_year_data: Optional list of prior-year rows [{account_name, prior_year_value}]
+        tb_categories: Optional dict {account_name: category} from trial_balance_mapper for fallback grouping
 
     Returns:
         dict matching AuditReportJSON schema
@@ -41,11 +45,14 @@ def generate_audit_report(
     # Normalize trial balance
     normalized_tb = _normalize_trial_balance(trial_balance)
 
-    # Group accounts using profile mapping
-    grouped = _group_accounts(normalized_tb, account_mapping)
+    # Build prior year lookup {account_name_lower: value}
+    prior_lookup = _build_prior_year_lookup(prior_year_data or [])
 
-    # Build financial statements
-    financial_statements = _build_financial_statements(grouped, format_template)
+    # Group accounts using profile mapping + TB category fallback
+    grouped = _group_accounts(normalized_tb, account_mapping, tb_categories)
+
+    # Build financial statements (with prior year data)
+    financial_statements = _build_financial_statements(grouped, format_template, prior_lookup)
 
     # Build metadata
     metadata = {
@@ -57,13 +64,14 @@ def generate_audit_report(
         "auditor_name": company_info.get("auditor_name", ""),
         "audit_standard": requirements.get("audit_standard", "ISA"),
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "is_comparative": bool(prior_lookup),
     }
 
     # Build auditor opinion
     auditor_opinion = _build_auditor_opinion(requirements)
 
     # Build notes
-    notes = _build_notes(requirements, grouped, metadata)
+    notes = _build_notes(requirements, grouped, metadata, prior_lookup)
 
     return {
         "metadata": metadata,
@@ -108,22 +116,76 @@ def _to_float(val: Any) -> float:
         return 0.0
 
 
-def _group_accounts(tb: list[dict], account_mapping: dict) -> dict[str, list[dict]]:
-    """Group TB accounts into IFRS categories using the profile mapping."""
+def _build_prior_year_lookup(prior_year_data: list[dict]) -> dict[str, float]:
+    """Build a case-insensitive lookup dict from prior year extraction rows."""
+    lookup: dict[str, float] = {}
+    for row in prior_year_data:
+        name = str(row.get("account_name", "")).strip()
+        val = row.get("prior_year_value", 0)
+        if name:
+            try:
+                lookup[name.lower()] = float(val) if val is not None else 0.0
+            except (ValueError, TypeError):
+                continue
+    return lookup
+
+
+def _find_prior_year(account_name: str, prior_lookup: dict[str, float]) -> float:
+    """Find prior year value using fuzzy name matching."""
+    name_lower = account_name.lower().strip()
+    # Exact match
+    if name_lower in prior_lookup:
+        return prior_lookup[name_lower]
+    # Partial match (prior year data may have slightly different names)
+    for key, val in prior_lookup.items():
+        if key in name_lower or name_lower in key:
+            return val
+    return 0.0
+
+
+def _group_accounts(
+    tb: list[dict], account_mapping: dict, tb_categories: dict[str, str] | None = None,
+) -> dict[str, list[dict]]:
+    """Group TB accounts into IFRS categories using the profile mapping.
+
+    Falls back to tb_categories from trial_balance_mapper when an account
+    isn't covered by the profile mapping.
+    """
+    # Map TB mapper categories → default IFRS groups
+    CATEGORY_TO_IFRS = {
+        "revenue": "Revenue",
+        "expenses": "Operating Expenses",
+        "assets": "Current Assets",
+        "liabilities": "Current Liabilities",
+        "equity": "Equity",
+        "other": "Operating Expenses",
+    }
+
+    tb_categories = tb_categories or {}
     groups: dict[str, list[dict]] = {}
     unmapped: list[dict] = []
 
+    def _get_group(mapping_val) -> str | None:
+        if isinstance(mapping_val, dict):
+            return mapping_val.get("mapped_to")
+        if isinstance(mapping_val, str):
+            return mapping_val
+        return None
+
     for row in tb:
         name = row["account_name"]
-        mapping = account_mapping.get(name, {})
-        group = mapping.get("mapped_to")
+        mapping = account_mapping.get(name)
+        group = _get_group(mapping) if mapping is not None else None
 
         if not group:
-            # Try case-insensitive lookup
             for key, val in account_mapping.items():
                 if key.lower() == name.lower():
-                    group = val.get("mapped_to")
+                    group = _get_group(val)
                     break
+
+        # Fallback to TB mapper category
+        if not group and name in tb_categories:
+            group = CATEGORY_TO_IFRS.get(tb_categories[name].lower())
 
         if group:
             groups.setdefault(group, []).append(row)
@@ -136,8 +198,11 @@ def _group_accounts(tb: list[dict], account_mapping: dict) -> dict[str, list[dic
     return groups
 
 
-def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
+def _build_financial_statements(
+    grouped: dict, format_template: dict, prior_lookup: dict[str, float] | None = None,
+) -> dict:
     """Build SOFP and SOPL from grouped accounts."""
+    prior_lookup = prior_lookup or {}
 
     # Statement of Financial Position (Balance Sheet)
     sofp_sections = []
@@ -148,12 +213,18 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
     for group_name in asset_groups:
         items = grouped.get(group_name, [])
         if items:
-            asset_section_items.append(_build_statement_section(group_name, items))
+            asset_section_items.append(
+                _build_statement_section(group_name, items, prior_lookup)
+            )
 
     total_assets = sum(
         item["current_year"]
         for section in asset_section_items
         for item in section.get("line_items", [])
+    )
+    total_assets_prior = sum(
+        section["subtotal"]["prior_year"]
+        for section in asset_section_items
     )
 
     # Liabilities
@@ -162,22 +233,32 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
     for group_name in liability_groups:
         items = grouped.get(group_name, [])
         if items:
-            liability_section_items.append(_build_statement_section(group_name, items))
+            liability_section_items.append(
+                _build_statement_section(group_name, items, prior_lookup)
+            )
 
     total_liabilities = sum(
         abs(item["current_year"])
         for section in liability_section_items
         for item in section.get("line_items", [])
     )
+    total_liabilities_prior = sum(
+        abs(section["subtotal"]["prior_year"])
+        for section in liability_section_items
+    )
 
     # Equity
     equity_items = grouped.get("Equity", []) + grouped.get("Retained Earnings", [])
-    equity_section = _build_statement_section("Equity", equity_items) if equity_items else None
+    equity_section = (
+        _build_statement_section("Equity", equity_items, prior_lookup)
+        if equity_items else None
+    )
 
     total_equity = sum(
         abs(item["current_year"])
         for item in (equity_section or {}).get("line_items", [])
     )
+    total_equity_prior = abs((equity_section or {}).get("subtotal", {}).get("prior_year", 0.0))
 
     sofp = {
         "title": "Statement of Financial Position",
@@ -185,7 +266,7 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
         "total": {
             "account_name": "Total Assets",
             "current_year": round(total_assets, 2),
-            "prior_year": 0.0,
+            "prior_year": round(total_assets_prior, 2),
         },
     }
 
@@ -195,7 +276,9 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
     for group_name in sopl_groups:
         items = grouped.get(group_name, [])
         if items:
-            sopl_sections.append(_build_statement_section(group_name, items))
+            sopl_sections.append(
+                _build_statement_section(group_name, items, prior_lookup)
+            )
 
     total_revenue = sum(
         abs(item["current_year"])
@@ -206,6 +289,13 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
         for section in sopl_sections[1:]
         for item in section.get("line_items", [])
     )
+    total_revenue_prior = abs(
+        sopl_sections[0]["subtotal"]["prior_year"] if sopl_sections else 0.0
+    )
+    total_expenses_prior = sum(
+        abs(section["subtotal"]["prior_year"])
+        for section in sopl_sections[1:]
+    )
 
     sopl = {
         "title": "Statement of Profit or Loss",
@@ -213,7 +303,7 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
         "total": {
             "account_name": "Net Profit / (Loss)",
             "current_year": round(total_revenue - total_expenses, 2),
-            "prior_year": 0.0,
+            "prior_year": round(total_revenue_prior - total_expenses_prior, 2),
         },
     }
 
@@ -228,21 +318,60 @@ def _build_financial_statements(grouped: dict, format_template: dict) -> dict:
     }
 
 
-def _build_statement_section(title: str, accounts: list[dict]) -> dict:
-    """Build a section with line items from account list."""
+def _build_statement_section(
+    title: str, accounts: list[dict], prior_lookup: dict[str, float] | None = None,
+) -> dict:
+    """Build a section with line items from account list, including prior year.
+
+    Prior year matching strategy:
+    1. Try matching individual account names to prior_lookup.
+    2. If no individual matches found, look for a group-level match
+       (e.g., "Revenue" section title matches a "Revenue" entry in prior_lookup).
+    3. Show group-level total at the subtotal level.
+    """
+    prior_lookup = prior_lookup or {}
     line_items = []
+    individual_prior_total = 0.0
+
     for acc in accounts:
+        prior = _find_prior_year(acc["account_name"], prior_lookup)
+        individual_prior_total += prior
         line_items.append({
             "account_name": acc["account_name"],
             "notes_ref": acc.get("notes_ref"),
             "current_year": round(acc["balance"], 2),
-            "prior_year": 0.0,
+            "prior_year": round(prior, 2),
         })
+
+    # If no individual accounts matched, try group-level match for subtotal
+    if individual_prior_total == 0.0 and prior_lookup:
+        group_prior = _find_prior_year(title, prior_lookup)
+        # Also try common aliases
+        if group_prior == 0.0:
+            aliases = {
+                "Current Assets": ["total current assets", "current assets"],
+                "Non-Current Assets": ["total non-current assets", "fixed assets", "property plant equipment"],
+                "Current Liabilities": ["total current liabilities", "current liabilities"],
+                "Non-Current Liabilities": ["total non-current liabilities", "long term liabilities"],
+                "Equity": ["total equity", "shareholders equity", "share capital", "total shareholders equity"],
+                "Revenue": ["total revenue", "revenue", "income", "total income"],
+                "Cost of Sales": ["cost of sales", "cost of revenue", "cost of goods sold"],
+                "Operating Expenses": ["total expenses", "operating expenses", "total operating expenses"],
+                "Other Income": ["other income"],
+                "Finance Costs": ["finance costs", "interest expense"],
+            }
+            for alias in aliases.get(title, []):
+                group_prior = _find_prior_year(alias, prior_lookup)
+                if group_prior != 0.0:
+                    break
+        subtotal_prior = group_prior
+    else:
+        subtotal_prior = individual_prior_total
 
     subtotal = {
         "account_name": f"Total {title}",
         "current_year": round(sum(a["balance"] for a in accounts), 2),
-        "prior_year": 0.0,
+        "prior_year": round(subtotal_prior, 2),
     }
 
     return {
@@ -281,7 +410,10 @@ def _build_auditor_opinion(requirements: dict) -> dict:
     }
 
 
-def _build_notes(requirements: dict, grouped: dict, metadata: dict) -> dict:
+def _build_notes(
+    requirements: dict, grouped: dict, metadata: dict,
+    prior_lookup: dict[str, float] | None = None,
+) -> dict:
     """Build notes to financial statements."""
     company = metadata.get("company_name", "the Company")
     currency = metadata.get("currency", "AED")
@@ -308,20 +440,31 @@ def _build_notes(requirements: dict, grouped: dict, metadata: dict) -> dict:
     )
 
     # Generate note sections for each group
+    prior_lookup = prior_lookup or {}
     note_sections = []
     note_num = 4
     for group_name, accounts in grouped.items():
         if group_name == "Unmapped Accounts":
             continue
         total = sum(a["balance"] for a in accounts)
-        detail_lines = "\n".join(
-            f"  - {a['account_name']}: {currency} {abs(a['balance']):,.2f}"
-            for a in accounts
+        total_prior = sum(
+            _find_prior_year(a["account_name"], prior_lookup) for a in accounts
         )
+        detail_lines = []
+        for a in accounts:
+            prior = _find_prior_year(a["account_name"], prior_lookup)
+            line = f"  - {a['account_name']}: {currency} {abs(a['balance']):,.2f}"
+            if prior != 0.0:
+                line += f" (Prior: {currency} {abs(prior):,.2f})"
+            detail_lines.append(line)
+        content = f"Total {group_name}: {currency} {abs(total):,.2f}"
+        if total_prior != 0.0:
+            content += f" (Prior: {currency} {abs(total_prior):,.2f})"
+        content += "\n\n" + "\n".join(detail_lines)
         note_sections.append({
             "note_number": note_num,
             "title": group_name,
-            "content": f"Total {group_name}: {currency} {abs(total):,.2f}\n\n{detail_lines}",
+            "content": content,
         })
         note_num += 1
 
