@@ -63,6 +63,8 @@ export function AuditProfileStudio() {
   // Report generation state
   const [generating, setGenerating] = useState(false);
   const [generatedReport, setGeneratedReport] = useState<Record<string, unknown> | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [lastTbFile, setLastTbFile] = useState<File | null>(null);
   const tbInputRef = useRef<HTMLInputElement>(null);
 
   /* ── Data fetching ──────────────────────────────────────────── */
@@ -180,6 +182,7 @@ export function AuditProfileStudio() {
     setGenerating(true);
     setError('');
     setGeneratedReport(null);
+    setLastTbFile(file);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -195,6 +198,35 @@ export function AuditProfileStudio() {
       setError(getErrMsg(e, 'Report generation failed'));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const exportReport = async (fmt: 'pdf' | 'docx' | 'xlsx') => {
+    if (!selectedProfile || !lastTbFile) return;
+    setExporting(fmt);
+    try {
+      const form = new FormData();
+      form.append('file', lastTbFile);
+      form.append('company_name', selectedProfile.client_name || '');
+      form.append('period_end', selectedProfile.period_end || '');
+      const { data } = await API.post(
+        `/api/audit-profiles/${selectedProfile.id}/export-report/${fmt}`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' }, responseType: 'blob' }
+      );
+      const blob = new Blob([data]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit_report_${selectedProfile.client_name || 'report'}.${fmt}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(getErrMsg(e, `Export to ${fmt.toUpperCase()} failed`));
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -497,6 +529,32 @@ export function AuditProfileStudio() {
                 {generatedReport && (
                   <div style={{ marginTop: 16 }}>
                     <ReportPreview report={generatedReport} />
+                    {/* Export Buttons */}
+                    <div style={{
+                      marginTop: 16, display: 'flex', gap: 12, flexWrap: 'wrap',
+                      padding: 16, borderRadius: 10,
+                      border: '1px solid var(--s-border, #333)',
+                      background: 'var(--s-bg, #1a1a2e)',
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, width: '100%', marginBottom: 4 }}>
+                        📥 Export Report
+                      </span>
+                      {(['pdf', 'docx', 'xlsx'] as const).map(fmt => (
+                        <button
+                          key={fmt}
+                          onClick={() => exportReport(fmt)}
+                          disabled={!!exporting}
+                          style={{
+                            ...btnPrimary, padding: '10px 20px',
+                            background: fmt === 'pdf' ? '#d9534f' : fmt === 'docx' ? '#337ab7' : '#5cb85c',
+                          }}
+                        >
+                          {exporting === fmt
+                            ? <><Loader2 size={14} className="spin" /> Exporting...</>
+                            : `📄 Download ${fmt.toUpperCase()}`}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
