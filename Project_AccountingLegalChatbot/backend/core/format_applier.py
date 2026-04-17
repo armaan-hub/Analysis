@@ -433,11 +433,6 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         canvas.drawString(LM, PAGE_H - TM + 12, company.upper())
         canvas.setFont("Times-Roman", 8)
         canvas.drawString(LM, PAGE_H - TM + 2, "Dubai \u2013 United Arab Emirates")
-        # Right side: full notes title with date
-        canvas.setFont("Times-Roman", 9)
-        canvas.drawRightString(PAGE_W - RM,
-                               PAGE_H - TM + 7,
-                               f"Notes to the financial statements for the year ended {nice_dt}")
         canvas.setLineWidth(0.5)
         canvas.line(LM, PAGE_H - TM - 4, PAGE_W - RM, PAGE_H - TM - 4)
         _draw_page_num(canvas)
@@ -540,7 +535,6 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#cccccc")),
     ]))
     story.append(toc_t)
     story += [NextPageTemplate('Auditor'), PageBreak()]
@@ -1251,11 +1245,13 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         return t
 
     _nca_sec = next((s for s in all_sofp_secs
-                     if "non-current" in s.get("title", "").lower()), None)
+                     if s.get("title", "").lower() == "non-current assets"), None)
     _ca_sec  = next((s for s in all_sofp_secs
                      if s.get("title", "").lower() == "current assets"), None)
+    _ncl_sec = next((s for s in all_sofp_secs
+                     if s.get("title", "").lower() == "non-current liabilities"), None)
     _cl_sec  = next((s for s in all_sofp_secs
-                     if "current liabilit" in s.get("title", "").lower()), None)
+                     if s.get("title", "").lower() == "current liabilities"), None)
     _eq_sec  = next((s for s in all_sofp_secs
                      if "equity" in s.get("title", "").lower()), None)
 
@@ -1727,6 +1723,8 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
             story.append(_note_fin_table(tp_rows))
         else:
             story.append(Paragraph("No trade payables in the current period.", s_body))
+    else:
+        story.append(Paragraph("No trade payables in the current period.", s_body))
     story.append(Spacer(1, 6))
 
     # -- Note 11: Other Payables --
@@ -1746,12 +1744,15 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
             story.append(_note_fin_table(op_rows))
         else:
             story.append(Paragraph("No other payables or accruals in the current period.", s_body))
+    else:
+        story.append(Paragraph("No other payables or accruals in the current period.", s_body))
     story.append(Spacer(1, 6))
 
     # -- Note 12: Long-term Loans --
     story.append(Paragraph("<b>12. Long-term Loans</b>", s_note_title))
-    if _cl_sec:
-        ln_items = [i for i in _cl_sec.get("line_items", [])
+    _ln_sec = _ncl_sec or _cl_sec  # prefer NCL; fall back to CL if NCL not present
+    if _ln_sec:
+        ln_items = [i for i in _ln_sec.get("line_items", [])
                     if any(k in i["account_name"].lower()
                            for k in ["loan", "bank od", "mortgage", "overdraft", "borrowing"])]
         if ln_items:
@@ -1764,6 +1765,8 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
             story.append(_note_fin_table(ln_rows))
         else:
             story.append(Paragraph("No long-term loans during the current period.", s_body))
+    else:
+        story.append(Paragraph("No long-term loans during the current period.", s_body))
     story.append(Spacer(1, 6))
     story.append(PageBreak())
 
@@ -1821,9 +1824,9 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         rev_rows = [[f"  {i['account_name']}",
                      _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
                     for i in rev_items]
-        rev_rows.append(["Total Revenue",
-                          _fmt_int(rev_st.get("current_year")),
-                          _fmt_int(rev_st.get("prior_year"))])
+        rev_total_cy = rev_st.get("current_year") or sum(i.get("current_year") or 0 for i in rev_items)
+        rev_total_py = rev_st.get("prior_year") or sum(i.get("prior_year") or 0 for i in rev_items)
+        rev_rows.append(["Total Revenue", _fmt_int(rev_total_cy), _fmt_int(rev_total_py)])
         story.append(_note_fin_table(rev_rows))
     else:
         rev_cond = next((r for r in _sopl_condensed if r[0] == "Revenue"), None)
