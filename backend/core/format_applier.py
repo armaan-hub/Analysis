@@ -121,16 +121,18 @@ def _condense_sofp(sections: list) -> list:
                 n = item["account_name"].lower()
                 cur = item.get("current_year") or 0
                 pr = item.get("prior_year") or 0
-                if any(k in n for k in ["debtor", "receivable"]):
+                if any(k in n for k in ["advance", "prepaid"]):
+                    advances += cur; advances_pr += pr
+                elif any(k in n for k in ["debtor", "receivable"]):
                     trade_recv += cur; trade_recv_pr += pr
                 elif any(k in n for k in ["cash", "bank"]):
                     cash += cur; cash_pr += pr
                 else:
                     advances += cur; advances_pr += pr
             ci = []
-            if abs(trade_recv) > 0.5:
-                ci.append({"account_name": "Trade receivables", "notes_ref": "7",
-                            "current_year": trade_recv, "prior_year": trade_recv_pr})
+            # Always include Trade receivables (shows "-" when zero — matches reference format)
+            ci.append({"account_name": "Trade receivables", "notes_ref": "7",
+                        "current_year": trade_recv, "prior_year": trade_recv_pr})
             if abs(advances) > 0.5:
                 ci.append({"account_name": "Advances, deposits and other receivables", "notes_ref": "8",
                             "current_year": advances, "prior_year": advances_pr})
@@ -251,14 +253,15 @@ def _condense_sopl(sections: list, net_profit_total: dict) -> list:
             revenue_cur = st.get("current_year") or 0
             revenue_pr = st.get("prior_year") or 0
         elif title == "Cost of Sales":
-            cost_cur = st.get("current_year") or 0
-            cost_pr = st.get("prior_year") or 0
-        elif title == "Operating Expenses":
-            op_section_pr = st.get("prior_year") or 0
+            cost_cur = abs(st.get("current_year") or 0)
+            cost_pr = abs(st.get("prior_year") or 0)
+        elif title in ("Operating Expenses", "General and Administration Expenses",
+                       "General and administration expenses"):
+            op_section_pr = abs(st.get("prior_year") or 0)
             for item in items:
                 n = item["account_name"].lower()
-                cur = item.get("current_year") or 0
-                pr = item.get("prior_year") or 0
+                cur = abs(item.get("current_year") or 0)
+                pr = abs(item.get("prior_year") or 0)
                 if "depreciation" in n:
                     depr_cur += cur; depr_pr += pr
                 else:
@@ -773,7 +776,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
             subtotal = section.get("subtotal", {})
             if show_title:
                 sec_ri = len(rows)
-                label = sec_title.title() if is_subsection else sec_title.upper()
+                label = sec_title
                 rows.append([label, "", "", ""])
                 style_cmds.extend([
                     ("FONTNAME", (0, sec_ri), (-1, sec_ri), "Times-Bold"),
@@ -799,7 +802,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
 
         # ── ASSETS (top half) ────────────────────────────────────────────────
         assets_ri = len(rows)
-        rows.append(["ASSETS", "", "", ""])
+        rows.append(["Assets", "", "", ""])
         style_cmds.extend([
             ("FONTNAME", (0, assets_ri), (-1, assets_ri), "Times-Bold"),
             ("TOPPADDING", (0, assets_ri), (-1, assets_ri), 8),
@@ -831,7 +834,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
 
         if liab_secs2:
             liab_ri = len(rows)
-            rows.append(["LIABILITIES", "", "", ""])
+            rows.append(["Liabilities", "", "", ""])
             style_cmds.extend([
                 ("FONTNAME", (0, liab_ri), (-1, liab_ri), "Times-Bold"),
                 ("TOPPADDING", (0, liab_ri), (-1, liab_ri), 7),
@@ -842,26 +845,14 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         if eq_secs2:
             rows.append(["", "", "", ""])
             eq_hdr_ri = len(rows)
-            rows.append(["SHAREHOLDERS' EQUITY", "", "", ""])
+            rows.append(["Shareholders' Equity", "", "", ""])
             style_cmds.extend([
                 ("FONTNAME", (0, eq_hdr_ri), (-1, eq_hdr_ri), "Times-Bold"),
                 ("TOPPADDING", (0, eq_hdr_ri), (-1, eq_hdr_ri), 7),
             ])
 
-            # Simulate closing-entry: fold net profit/loss into Retained Earnings
-            # so the equity section matches the closed-balance reference format.
-            _net_cy = (report.get("financial_statements", {})
-                       .get("statement_of_profit_or_loss", {})
-                       .get("total", {}).get("current_year") or 0)
             for section in eq_secs2:
-                for item in section.get("line_items", []):
-                    if "retained" in item.get("account_name", "").lower():
-                        item["current_year"] = round((item.get("current_year") or 0) + _net_cy, 2)
-                if section.get("subtotal"):
-                    cy = section["subtotal"].get("current_year") or 0
-                    section["subtotal"]["current_year"] = round(cy + _net_cy, 2)
                 _append_section(section, is_subsection=False, show_title=False)
-            # Net profit is now absorbed into Retained Earnings — no separate line needed.
 
         # Total L+E
         if sofp_total:
@@ -943,48 +934,66 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         Spacer(1, 8),
     ]
 
-    # Equity values from SOFP equity section
-    _eq_items = {}
+    # Equity values from SOFP equity section — separate opening (prior) and closing (current)
+    _eq_open = {}
+    _eq_close = {}
     for _sec in statements.get("statement_of_financial_position", {}).get("sections", []):
         if "equity" in _sec.get("title","").lower():
             for _it in _sec.get("line_items", []):
                 _n = _it.get("account_name","")
-                _eq_items[_n] = _it.get("current_year") or 0
+                _eq_open[_n] = _it.get("prior_year") or 0
+                _eq_close[_n] = _it.get("current_year") or 0
 
-    # Identify equity components
-    _sc = sum(v for k, v in _eq_items.items() if "capital a/c" in k.lower() or "share capital" in k.lower())
-    _ca = sum(v for k, v in _eq_items.items() if "current a/c" in k.lower() or "current account" in k.lower())
-    _re_open = sum(v for k, v in _eq_items.items()
-                   if not any(kw in k.lower() for kw in ["capital a/c", "share capital", "current a/c", "current account"]))
-    # Ensure share capital displays as positive
-    _sc = abs(_sc) if _sc < 0 else _sc
-    # Net profit for SOCE
+    def _eq_sum(d, keywords):
+        return sum(v for k, v in d.items() if any(kw in k.lower() for kw in keywords))
+    def _eq_other(d, exclude_keywords):
+        return sum(v for k, v in d.items() if not any(kw in k.lower() for kw in exclude_keywords))
+
+    _sc_kw = ["capital a/c", "share capital"]
+    _ca_kw = ["current a/c", "current account"]
+    _excl_kw = _sc_kw + _ca_kw
+
+    # Opening balances (prior year)
+    _sc_open  = abs(_eq_sum(_eq_open, _sc_kw))
+    _ca_open  = _eq_sum(_eq_open, _ca_kw)
+    _re_open  = _eq_other(_eq_open, _excl_kw)
+    _tot_open = _sc_open + _ca_open + _re_open
+
+    # Closing balances (current year)
+    _sc_close = abs(_eq_sum(_eq_close, _sc_kw))
+    _ca_close = _eq_sum(_eq_close, _ca_kw)
+    _re_close = _eq_other(_eq_close, _excl_kw)
+    _tot_close = _sc_close + _ca_close + _re_close
+
+    # Net profit from SOPL
     _soce_net = (statements.get("statement_of_profit_or_loss", {})
                  .get("total") or {}).get("current_year") or 0
 
-    _soce_desc_w2 = 155  # narrower description column to give value columns enough room
-    _soce_val_w = (avail_w - _soce_desc_w2) / 4  # ~80.75 pt each - enough for "Shareholders' Current Account"
+    # Net movements in current account = closing CA - opening CA
+    _ca_mvmt = _ca_close - _ca_open
+
+    _soce_desc_w2 = 155
+    _soce_val_w = (avail_w - _soce_desc_w2) / 4
 
     _soce_hdr = ["", "Share\nCapital", "Shareholders'\nCurrent Account", "Retained\nEarnings", "Total"]
     _soce_sub = ["", "AED", "AED", "AED", "AED"]
 
-    _re_close = _re_open + _soce_net   # closing retained earnings = opening + net profit/loss
-
     _soce_year = nice_dt[-4:]
-    _prior_year = str(int(_soce_year) - 1)
+    _prior_year_str = str(int(_soce_year) - 1)
     _soce_data = [
         _soce_hdr,
         _soce_sub,
-        [f"Balance at 31 December {_prior_year}",
-         _fmt_int(_sc), _fmt_int(_ca), _fmt_int(_re_open), _fmt_int(_sc + _ca + _re_open)],
-        ["", "", "", "", ""],  # blank row
-        ["Changes in Shareholders' Equity", "", "", "", ""],  # sub-header
+        [f"Balance at 31 December {_prior_year_str}",
+         _fmt_int(_sc_open), _fmt_int(_ca_open), _fmt_int(_re_open), _fmt_int(_tot_open)],
+        ["", "", "", "", ""],
+        ["Changes in Shareholders' Equity", "", "", "", ""],
         ["Capital introduced", "-", "-", "-", "-"],
         ["Net Profit / (loss) for the year",
          "-", "-", _fmt_int(_soce_net), _fmt_int(_soce_net)],
-        ["Net movements in shareholders' current account", "-", "-", "-", "-"],
+        ["Net movements in shareholders' current account",
+         "-", _fmt_int(_ca_mvmt), "-", _fmt_int(_ca_mvmt)],
         [f"Balance at 31 December {_soce_year}",
-         _fmt_int(_sc), _fmt_int(_ca), _fmt_int(_re_close), _fmt_int(_sc + _ca + _re_close)],
+         _fmt_int(_sc_close), _fmt_int(_ca_close), _fmt_int(_re_close), _fmt_int(_tot_close)],
     ]
 
     _soce_col_widths = [_soce_desc_w2, _soce_val_w, _soce_val_w, _soce_val_w, _soce_val_w]
@@ -1051,14 +1060,14 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     _net_cy = _net_prof.get("current_year") or 0
     _net_py = _net_prof.get("prior_year") or 0
 
-    # Depreciation from operating expenses
+    # Depreciation from operating expenses — use abs() since expenses may be stored as negatives
     _depr_cy = _depr_py = 0.0
     for _sec in _sopl_data.get("sections", []):
         for _item in _sec.get("line_items", []):
             if ("depreciation" in _item.get("account_name","").lower()
                     and "accumulated" not in _item.get("account_name","").lower()):
-                _depr_cy += _item.get("current_year") or 0
-                _depr_py += _item.get("prior_year") or 0
+                _depr_cy += abs(_item.get("current_year") or 0)
+                _depr_py += abs(_item.get("prior_year") or 0)
 
     # Working capital changes (from SOFP sections, change = current - prior)
     _sofp_raw = statements.get("statement_of_financial_position", {})
@@ -1070,11 +1079,14 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
             _cy = _item.get("current_year") or 0
             _py = _item.get("prior_year") or 0
             _chg = _cy - _py
-            if "current asset" in _stitle or _stitle == "current assets":
-                if any(k in _n for k in ["receivable", "debtor"]):
+            if ("current asset" in _stitle or _stitle == "current assets") and "non-current" not in _stitle:
+                # Check advance/prepaid FIRST (before receivable to avoid misclassification)
+                if any(k in _n for k in ["advance", "prepaid"]):
+                    _wc_adv += -_chg   # increase = outflow
+                elif any(k in _n for k in ["receivable", "debtor"]):
                     _wc_recv += -_chg  # increase = outflow
                 elif not any(k in _n for k in ["cash", "bank"]):
-                    _wc_adv += -_chg   # increase = outflow
+                    _wc_adv += -_chg   # increase = outflow (fallback)
             elif "current liabilit" in _stitle:
                 if any(k in _n for k in ["loan", "bank od", "mortgage", "overdraft", "borrowing"]):
                     pass  # loans go to financing
@@ -1086,18 +1098,22 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     _net_operating = _net_cy + _depr_cy + _wc_recv + _wc_adv + _wc_tp + _wc_op
     _net_operating_py = _net_py + _depr_py
 
-    # Investing — PPE purchases (gross additions since prior = 0)
+    # Investing — PPE purchases: gross additions = net change + depreciation (add-back)
+    # Net change alone is insufficient since depreciation reduces the balance even with zero purchases.
     _ppe_add = 0.0
+    _ppe_net_change = 0.0
     for _sec in _sofp_raw.get("sections", []):
-        if "non-current" in _sec.get("title","").lower():
+        if "non-current" in _sec.get("title","").lower() and "liabilit" not in _sec.get("title","").lower():
             for _item in _sec.get("line_items", []):
                 _n = _item.get("account_name","").lower()
                 if "accumulated" not in _n:  # gross PPE only
                     _cy = _item.get("current_year") or 0
                     _py = _item.get("prior_year") or 0
-                    _chg = _cy - _py
-                    if _chg > 0:
-                        _ppe_add += -_chg   # outflow
+                    _ppe_net_change += (_cy - _py)
+    # Gross additions = net change + depreciation (purchases = net decrease + depreciation used up)
+    _ppe_gross_add = _ppe_net_change + _depr_cy
+    if _ppe_gross_add > 0:
+        _ppe_add = -_ppe_gross_add  # outflow
 
     # Financing — loans
     _loans_cy = _loans_py = 0.0
@@ -1113,7 +1129,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     # Closing and opening cash
     _closing_cash = _opening_cash = 0.0
     for _sec in _sofp_raw.get("sections", []):
-        if "current asset" in _sec.get("title","").lower() or _sec.get("title","").lower() == "current assets":
+        if ("current asset" in _sec.get("title","").lower() or _sec.get("title","").lower() == "current assets") and "non-current" not in _sec.get("title","").lower():
             for _item in _sec.get("line_items", []):
                 if any(k in _item.get("account_name","").lower() for k in ["cash", "bank"]):
                     _closing_cash += _item.get("current_year") or 0
@@ -1649,7 +1665,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     story.append(Paragraph("<b>7. Trade Receivables</b>", s_note_title))
     if _ca_sec:
         recv_items = [i for i in _ca_sec.get("line_items", [])
-                      if any(k in i["account_name"].lower() for k in ["receivable", "debtor"])]
+                      if str(i.get("notes_ref") or "") == "7"]
         if recv_items:
             recv_rows = [[f"  {i['account_name']}",
                           _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
@@ -1675,8 +1691,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     story.append(Paragraph("<b>8. Advances, Deposits and Other Receivables</b>", s_note_title))
     if _ca_sec:
         adv_items = [i for i in _ca_sec.get("line_items", [])
-                     if not any(k in i["account_name"].lower()
-                                for k in ["receivable", "debtor", "cash", "bank"])]
+                     if str(i.get("notes_ref") or "") == "8"]
         if adv_items:
             adv_rows = [[f"  {i['account_name']}",
                          _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
@@ -1711,8 +1726,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     story.append(Paragraph("<b>10. Trade Payables</b>", s_note_title))
     if _cl_sec:
         tp_items = [i for i in _cl_sec.get("line_items", [])
-                    if any(k in i["account_name"].lower() for k in ["payable", "creditor",
-                                                                      "commission payable", "outside commission"])]
+                    if str(i.get("notes_ref") or "") == "10"]
         if tp_items:
             tp_rows = [[f"  {i['account_name']}",
                         _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]
@@ -1731,9 +1745,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     story.append(Paragraph("<b>11. Other Payables, Accruals and Provisions</b>", s_note_title))
     if _cl_sec:
         op_items = [i for i in _cl_sec.get("line_items", [])
-                    if not any(k in i["account_name"].lower()
-                               for k in ["loan", "bank od", "mortgage", "borrowing",
-                                         "payable", "creditor", "commission payable", "outside commission"])]
+                    if str(i.get("notes_ref") or "") == "11"]
         if op_items:
             op_rows = [[f"  {i['account_name']}",
                         _fmt_int(i.get("current_year")), _fmt_int(i.get("prior_year"))]

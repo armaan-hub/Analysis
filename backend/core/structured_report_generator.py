@@ -136,8 +136,14 @@ def _find_prior_year(account_name: str, prior_lookup: dict[str, float]) -> float
     # Exact match
     if name_lower in prior_lookup:
         return prior_lookup[name_lower]
+    # Skip fuzzy matching for balance-sheet-specific terms that would
+    # falsely match P&L entries (e.g. "accumulated depreciation" → "depreciation")
+    BS_SKIP_KEYWORDS = {"accumulated", "prepaid", "provision for", "allowance for"}
+    if any(kw in name_lower for kw in BS_SKIP_KEYWORDS):
+        return 0.0
     # Partial match (prior year data may have slightly different names)
-    for key, val in prior_lookup.items():
+    # Sort by key length descending to prefer longer/more specific matches first
+    for key, val in sorted(prior_lookup.items(), key=lambda x: len(x[0]), reverse=True):
         if key in name_lower or name_lower in key:
             return val
     return 0.0
@@ -362,10 +368,11 @@ def _build_statement_section(
             "prior_year": round(prior, 2),
         })
 
-    # If no individual accounts matched, try group-level match for subtotal
-    if individual_prior_total == 0.0 and prior_lookup:
+    # Always try group-level match for subtotal (preferred over individual sum
+    # for accuracy when authoritative group totals are in prior_lookup).
+    group_prior = 0.0
+    if prior_lookup:
         group_prior = _find_prior_year(title, prior_lookup)
-        # Also try common aliases
         if group_prior == 0.0:
             aliases = {
                 "Current Assets": ["total current assets", "current assets"],
@@ -383,9 +390,9 @@ def _build_statement_section(
                 group_prior = _find_prior_year(alias, prior_lookup)
                 if group_prior != 0.0:
                     break
-        subtotal_prior = group_prior
-    else:
-        subtotal_prior = individual_prior_total
+    # Group total takes precedence when available (more authoritative); fall
+    # back to individual sum when no group entry exists.
+    subtotal_prior = group_prior if group_prior != 0.0 else individual_prior_total
 
     subtotal = {
         "account_name": f"Total {title}",
