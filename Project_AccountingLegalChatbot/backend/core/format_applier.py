@@ -287,10 +287,8 @@ def _condense_sopl(sections: list, net_profit_total: dict) -> list:
         ("Other Income", "18", other_cur if other_cur else None, other_pr if other_pr else None, "item"),
         ("Net profit / (loss) for the year", "", net, net_pr, "net"),
         ("", "", None, None, "blank"),
-        ("Other comprehensive income / (expenses)", "", None, None, "header"),
-        ("  Items that will not be reclassified to profit or loss:", "", None, None, "item"),
-        ("  Re-measurement of end-of-service benefits", "", None, None, "item"),
-        ("Total Other Comprehensive Income", "", None, None, "subtotal"),
+        # OCI: single bold row with "-/-" values — matches reference format
+        ("Other comprehensive income / (expenses)", "", None, None, "bold_nolines"),
         ("Total Comprehensive Income for the year", "", net, net_pr, "net"),
     ]
 
@@ -389,7 +387,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
 
     def _draw_page_num(canvas):
         canvas.setFont("Times-Roman", 8)
-        canvas.drawRightString(PAGE_W - RM, BM - 20, str(canvas.getPageNumber()))
+        canvas.drawRightString(PAGE_W - RM, BM - 20, str(canvas.getPageNumber() - 2))
 
     def _draw_fin_footer(canvas):
         canvas.setFont("Times-Italic", 7.5)
@@ -476,14 +474,14 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     def _ps(name, **kw):
         return ParagraphStyle(name, parent=SS["Normal"], **kw)
 
-    s_cover_co  = _ps("CoCo",  fontSize=18, leading=24, fontName="Times-Bold",
-                      alignment=TA_CENTER, spaceAfter=4)
-    s_cover_loc = _ps("CoLoc", fontSize=11, leading=15, fontName="Times-Roman",
-                      alignment=TA_CENTER, spaceAfter=4)
-    s_cover_hdr = _ps("CoHdr", fontSize=13, leading=17, fontName="Times-Bold",
-                      alignment=TA_CENTER, spaceAfter=2)
-    s_toc_hdr   = _ps("TocHdr", fontSize=12, fontName="Times-Bold",
-                      alignment=TA_CENTER, spaceAfter=12)
+    s_cover_co  = _ps("CoCo",  fontSize=16, leading=22, fontName="Times-Bold",
+                      alignment=TA_LEFT, spaceAfter=4, leftIndent=39)
+    s_cover_loc = _ps("CoLoc", fontSize=16, leading=22, fontName="Times-Bold",
+                      alignment=TA_LEFT, spaceAfter=4, leftIndent=39)
+    s_cover_hdr = _ps("CoHdr", fontSize=14, leading=17, fontName="Times-Bold",
+                      alignment=TA_LEFT, spaceAfter=0, leftIndent=39)
+    s_toc_hdr   = _ps("TocHdr", fontSize=10, fontName="Times-Roman",
+                      alignment=TA_LEFT, spaceAfter=6)
     s_heading   = _ps("AudHead", fontSize=11, fontName="Times-Bold",
                       spaceBefore=6, spaceAfter=4)
     s_body      = _ps("Body",  fontSize=FS, leading=FS + 4,
@@ -505,39 +503,50 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     # ════════════════════════ COVER PAGE ════════════════════════════════════
     story += [
         NextPageTemplate('Cover'),
-        Spacer(1, 100),
+        Spacer(1, 182),
         Paragraph(company.upper(), s_cover_co),
-        Spacer(1, 6),
+        Spacer(1, 4),
         Paragraph("DUBAI – UNITED ARAB EMIRATES", s_cover_loc),
-        Spacer(1, 28),
-        HRFlowable(width="55%", thickness=0.8, color=BLK, hAlign="CENTER"),
-        Spacer(1, 28),
         Paragraph("FINANCIAL STATEMENTS AND", s_cover_hdr),
         Paragraph("INDEPENDENT AUDITOR'S REPORT", s_cover_hdr),
-        Spacer(1, 14),
-        Paragraph(f"FOR THE YEAR ENDED {nice_dt.upper()}", s_cover_loc),
+        Paragraph(f"FOR THE YEAR ENDED {nice_dt.upper()}", s_cover_hdr),
         NextPageTemplate('Cover'),
         PageBreak(),
     ]
 
     # ════════════════════════ TABLE OF CONTENTS ══════════════════════════════
-    story += [Spacer(1, 40), Paragraph("INDEX", s_toc_hdr), Spacer(1, 8)]
+    # Company header (matches reference: company name / location / date)
+    s_toc_co = _ps("TocCo", fontSize=FS, fontName="Times-Bold",
+                   alignment=TA_CENTER, spaceAfter=2)
+    s_toc_date = _ps("TocDate", fontSize=FS, fontName="Times-Bold",
+                     alignment=TA_CENTER, spaceAfter=10)
+    story += [
+        Spacer(1, 14),
+        Paragraph(company, s_toc_co),
+        Paragraph("Dubai - United Arab Emirates", s_toc_co),
+        Paragraph(f"As at {nice_dt}", s_toc_date),
+        Paragraph("Table of contents", s_toc_hdr),
+        Spacer(1, 6),
+    ]
     toc_entries = [
         ("Independent Auditors' Report", "1 – 3"),
-        ("Statement of Financial Position", "4"),
-        ("Statement of Profit or Loss and Other Comprehensive Income", "5"),
-        ("Statement of Changes in Shareholders' Equity", "6"),
-        ("Statement of Cash Flows", "7"),
-        ("Notes to the Financial Statements", "8 – 22"),
+        ("Statement of financial position", "4"),
+        ("Statement of profit or loss and other comprehensive income", "5"),
+        ("Statement of changes in shareholders' equity", "6"),
+        ("Statement of cash flows", "7"),
+        ("Notes to the financial statements", "8 – 22"),
     ]
-    toc_rows = [[name, pages] for name, pages in toc_entries]
+    toc_rows = [["", "Pages"]] + [[name, pages] for name, pages in toc_entries]
     toc_t = Table(toc_rows, colWidths=[avail_w * 0.80, avail_w * 0.20])
     toc_t.setStyle(TableStyle([
-        ("FONTNAME", (0, 0), (-1, -1), "Times-Roman"),
+        ("FONTNAME", (0, 0), (-1, 0), "Times-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Times-Roman"),
         ("FONTSIZE", (0, 0), (-1, -1), FS),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, 0), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
+        ("TOPPADDING", (0, 1), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 5),
     ]))
     story.append(toc_t)
     story += [NextPageTemplate('Auditor'), PageBreak()]
@@ -840,7 +849,9 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
                 ("TOPPADDING", (0, liab_ri), (-1, liab_ri), 7),
             ])
             for section in liab_secs2:
-                _append_section(section, is_subsection=(len(liab_secs2) > 1))
+                _is_ncl = "non-current liabilit" in section.get("title", "").lower()
+                _append_section(section, is_subsection=(len(liab_secs2) > 1),
+                                show_title=not _is_ncl)
 
         if eq_secs2:
             rows.append(["", "", "", ""])
@@ -900,6 +911,12 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
 
             if row_type == "header":
                 rows.append([label, "", "", ""])
+                style_cmds += [
+                    ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
+                    ("TOPPADDING", (0, ri), (-1, ri), 6),
+                ]
+            elif row_type == "bold_nolines":
+                rows.append([label, "", cy_str, py_str])
                 style_cmds += [
                     ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
                     ("TOPPADDING", (0, ri), (-1, ri), 6),
@@ -983,7 +1000,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     _soce_data = [
         _soce_hdr,
         _soce_sub,
-        [f"Balance at 31 December {_prior_year_str}",
+        [f"Balance at December 31, {_prior_year_str}",
          _fmt_int(_sc_open), _fmt_int(_ca_open), _fmt_int(_re_open), _fmt_int(_tot_open)],
         ["", "", "", "", ""],
         ["Changes in Shareholders' Equity", "", "", "", ""],
@@ -992,7 +1009,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
          "-", "-", _fmt_int(_soce_net), _fmt_int(_soce_net)],
         ["Net movements in shareholders' current account",
          "-", _fmt_int(_ca_mvmt), "-", _fmt_int(_ca_mvmt)],
-        [f"Balance at 31 December {_soce_year}",
+        [f"Balance at December 31, {_soce_year}",
          _fmt_int(_sc_close), _fmt_int(_ca_close), _fmt_int(_re_close), _fmt_int(_tot_close)],
     ]
 
@@ -1002,6 +1019,8 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     _soce_t.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), "Times-Roman"),
         ("FONTNAME", (0, 0), (-1, 1), "Times-Bold"),          # header rows bold
+        ("FONTNAME", (0, 2), (0, 2), "Times-Bold"),            # opening balance label bold
+        ("FONTNAME", (-1, 2), (-1, 2), "Times-Bold"),          # opening balance total bold
         ("FONTNAME", (0, 4), (-1, 4), "Times-Bold"),           # "Changes in..." row bold
         ("FONTNAME", (0, -1), (-1, -1), "Times-Bold"),         # closing balance bold
         ("FONTSIZE", (0, 0), (-1, -1), FS),
@@ -1054,93 +1073,27 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         Spacer(1, 8),
     ]
 
-    # Build the CFS data
-    _sopl_data = statements.get("statement_of_profit_or_loss", {})
-    _net_prof = _sopl_data.get("total") or _sopl_data.get("net_profit") or {}
-    _net_cy = _net_prof.get("current_year") or 0
-    _net_py = _net_prof.get("prior_year") or 0
+    # Build the CFS — use pre-calculated statement_of_cash_flows when available
+    _scf_data  = statements.get("statement_of_cash_flows", {})
+    _scf_secs  = _scf_data.get("sections", [])
+    _scf_total = _scf_data.get("total", {})
 
-    # Depreciation from operating expenses — use abs() since expenses may be stored as negatives
-    _depr_cy = _depr_py = 0.0
-    for _sec in _sopl_data.get("sections", []):
-        for _item in _sec.get("line_items", []):
-            if ("depreciation" in _item.get("account_name","").lower()
-                    and "accumulated" not in _item.get("account_name","").lower()):
-                _depr_cy += abs(_item.get("current_year") or 0)
-                _depr_py += abs(_item.get("prior_year") or 0)
-
-    # Working capital changes (from SOFP sections, change = current - prior)
+    # Cash opening/closing from SOFP (used in reconciliation section)
     _sofp_raw = statements.get("statement_of_financial_position", {})
-    _wc_recv = _wc_adv = _wc_tp = _wc_op = 0.0
-    for _sec in _sofp_raw.get("sections", []):
-        _stitle = _sec.get("title", "").lower()
-        for _item in _sec.get("line_items", []):
-            _n = _item.get("account_name","").lower()
-            _cy = _item.get("current_year") or 0
-            _py = _item.get("prior_year") or 0
-            _chg = _cy - _py
-            if ("current asset" in _stitle or _stitle == "current assets") and "non-current" not in _stitle:
-                # Check advance/prepaid FIRST (before receivable to avoid misclassification)
-                if any(k in _n for k in ["advance", "prepaid"]):
-                    _wc_adv += -_chg   # increase = outflow
-                elif any(k in _n for k in ["receivable", "debtor"]):
-                    _wc_recv += -_chg  # increase = outflow
-                elif not any(k in _n for k in ["cash", "bank"]):
-                    _wc_adv += -_chg   # increase = outflow (fallback)
-            elif "current liabilit" in _stitle:
-                if any(k in _n for k in ["loan", "bank od", "mortgage", "overdraft", "borrowing"]):
-                    pass  # loans go to financing
-                elif any(k in _n for k in ["sundry creditor", "trade payable", "commission payable", "outside commission"]):
-                    _wc_tp += _chg     # increase = inflow
-                else:
-                    _wc_op += _chg     # increase = inflow
-
-    _net_operating = _net_cy + _depr_cy + _wc_recv + _wc_adv + _wc_tp + _wc_op
-    _net_operating_py = _net_py + _depr_py
-
-    # Investing — PPE purchases: gross additions = net change + depreciation (add-back)
-    # Net change alone is insufficient since depreciation reduces the balance even with zero purchases.
-    _ppe_add = 0.0
-    _ppe_net_change = 0.0
-    for _sec in _sofp_raw.get("sections", []):
-        if "non-current" in _sec.get("title","").lower() and "liabilit" not in _sec.get("title","").lower():
-            for _item in _sec.get("line_items", []):
-                _n = _item.get("account_name","").lower()
-                if "accumulated" not in _n:  # gross PPE only
-                    _cy = _item.get("current_year") or 0
-                    _py = _item.get("prior_year") or 0
-                    _ppe_net_change += (_cy - _py)
-    # Gross additions = net change + depreciation (purchases = net decrease + depreciation used up)
-    _ppe_gross_add = _ppe_net_change + _depr_cy
-    if _ppe_gross_add > 0:
-        _ppe_add = -_ppe_gross_add  # outflow
-
-    # Financing — loans
-    _loans_cy = _loans_py = 0.0
-    for _sec in _sofp_raw.get("sections", []):
-        if "current liabilit" in _sec.get("title","").lower():
-            for _item in _sec.get("line_items", []):
-                _n = _item.get("account_name","").lower()
-                if any(k in _n for k in ["loan", "bank od", "mortgage", "overdraft", "borrowing"]):
-                    _cy = _item.get("current_year") or 0
-                    _py = _item.get("prior_year") or 0
-                    _loans_cy += (_cy - _py)
-
-    # Closing and opening cash
     _closing_cash = _opening_cash = 0.0
     for _sec in _sofp_raw.get("sections", []):
-        if ("current asset" in _sec.get("title","").lower() or _sec.get("title","").lower() == "current assets") and "non-current" not in _sec.get("title","").lower():
+        _st = _sec.get("title", "").lower()
+        if ("current asset" in _st or _st == "current assets") and "non-current" not in _st:
             for _item in _sec.get("line_items", []):
-                if any(k in _item.get("account_name","").lower() for k in ["cash", "bank"]):
+                if any(k in _item.get("account_name", "").lower() for k in ["cash", "bank"]):
                     _closing_cash += _item.get("current_year") or 0
                     _opening_cash += _item.get("prior_year") or 0
 
-    # Shareholders' balancing figure
-    _total_change = _closing_cash - _opening_cash
-    _shareholders_flow = _total_change - _net_operating - _ppe_add - _loans_cy
-    _net_financing = _loans_cy + _shareholders_flow
+    # Prior year net from SOPL for CFS net profit row
+    _sopl_data     = statements.get("statement_of_profit_or_loss", {})
+    _net_prof      = _sopl_data.get("total") or _sopl_data.get("net_profit") or {}
+    _cfs_prior_net = _net_prof.get("prior_year") or 0
 
-    # Build CFS table
     cfs_rows, cfs_cmds = _col_header_rows()
 
     def _cfs_section_hdr(label):
@@ -1151,69 +1104,229 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
             ("TOPPADDING", (0, ri), (-1, ri), 7),
         ])
 
+    def _cfs_subhdr(label):
+        ri = len(cfs_rows)
+        cfs_rows.append([f"    {label}", "", "", ""])
+        cfs_cmds.extend([
+            ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
+            ("TOPPADDING", (0, ri), (-1, ri), 4),
+        ])
+
     def _cfs_item(label, cy, py=None):
-        cfs_rows.append([f"    {label}", "", _fmt_int(cy), _fmt_int(py) if py is not None else "-"])
+        cfs_rows.append([f"    {label}", "", _fmt_int(cy),
+                         _fmt_int(py) if py is not None else "-"])
 
     def _cfs_subtotal(label, cy, py=None):
         ri = len(cfs_rows)
-        cfs_rows.append([label, "", _fmt_int(cy), _fmt_int(py) if py is not None else "-"])
+        cfs_rows.append([label, "", _fmt_int(cy),
+                         _fmt_int(py) if py is not None else "-"])
         cfs_cmds.extend([
             ("FONTNAME", (0, ri), (-1, ri), "Times-Bold"),
             ("LINEABOVE", (2, ri), (-1, ri), 0.5, BLK),
             ("LINEBELOW", (2, ri), (-1, ri), 0.5, BLK),
         ])
 
-    # Operating activities
-    _cfs_section_hdr("Cash flows from operating activities:")
-    _cfs_item("Net profit / (loss) for the year", _net_cy, _net_py if _net_py else None)
-    cfs_rows.append(["    Adjustments for:", "", "", ""])
-    _cfs_item("Depreciation", _depr_cy, _depr_py if _depr_py else None)
-    if _wc_recv:
-        _cfs_item("(Increase) / decrease in trade receivables", _wc_recv)
-    if _wc_adv:
-        _cfs_item("(Increase) / decrease in advances, deposits and prepayments", _wc_adv)
-    if _wc_tp:
-        _cfs_item("Increase / (decrease) in trade payables", _wc_tp)
-    if _wc_op:
-        _cfs_item("Increase / (decrease) in other payables, accruals and provisions", _wc_op)
-    cfs_rows.append(["", "", "", ""])
-    _cfs_subtotal("Net cash from / (used in) operating activities", _net_operating,
-                  _net_operating_py if _net_operating_py else None)
+    def _cfs_bold(label, cy, py=None):
+        ri = len(cfs_rows)
+        cfs_rows.append([label, "", _fmt_int(cy),
+                         _fmt_int(py) if py is not None else "-"])
+        cfs_cmds.extend([("FONTNAME", (0, ri), (-1, ri), "Times-Bold")])
 
-    # Investing activities
-    cfs_rows.append(["", "", "", ""])
-    _cfs_section_hdr("Cash flows from investing activities:")
-    if _ppe_add:
-        _cfs_item("Purchase of property, plant and equipment", _ppe_add)
-    _cfs_subtotal("Net cash used in investing activities", _ppe_add or 0)
+    if _scf_secs:
+        # ── Use pre-calculated CFS data ───────────────────────────────────────
+        _op_sec  = next((s for s in _scf_secs if "operating"  in s.get("title","").lower()), {})
+        _inv_sec = next((s for s in _scf_secs if "investing"  in s.get("title","").lower()), {})
+        _fin_sec = next((s for s in _scf_secs if "financing"  in s.get("title","").lower()), {})
 
-    # Financing activities
-    cfs_rows.append(["", "", "", ""])
-    _cfs_section_hdr("Cash flows from financing activities:")
-    if _loans_cy:
-        _cfs_item("Net proceeds from bank loans and overdrafts", _loans_cy)
-    if _shareholders_flow:
-        _cfs_item("Net movement in shareholders' accounts", _shareholders_flow)
-    _cfs_subtotal("Net cash from financing activities", _net_financing)
+        _op_items  = _op_sec.get("line_items", [])
+        _op_sub    = _op_sec.get("subtotal", {})
+        _inv_items = _inv_sec.get("line_items", [])
+        _inv_sub   = _inv_sec.get("subtotal", {})
+        _fin_items = _fin_sec.get("line_items", [])
+        _fin_sub   = _fin_sec.get("subtotal", {})
 
-    # Net change and reconciliation
-    cfs_rows.append(["", "", "", ""])
-    _ri = len(cfs_rows)
-    _net_change = _net_operating + _ppe_add + _net_financing
-    cfs_rows.append(["Net (decrease) / increase in cash and cash equivalents", "",
-                     _fmt_int(_net_change), "-"])
-    cfs_cmds.extend([("FONTNAME", (0, _ri), (-1, _ri), "Times-Bold")])
+        _net_item  = next((i for i in _op_items
+                           if "net profit" in i.get("account_name","").lower()), None)
+        _depr_item = next((i for i in _op_items
+                           if "depreciation" in i.get("account_name","").lower()), None)
+        _wc_items  = [i for i in _op_items
+                      if i is not _net_item and i is not _depr_item]
 
-    cfs_rows.append(["    Cash and cash equivalents at beginning of year", "",
-                     _fmt_int(_opening_cash) if _opening_cash else "-", "-"])
-    _lri = len(cfs_rows)
-    cfs_rows.append(["Cash and cash equivalents at end of year", "",
-                     _fmt_int(_closing_cash), "-"])
-    cfs_cmds.extend([
-        ("FONTNAME", (0, _lri), (-1, _lri), "Times-Bold"),
-        ("LINEABOVE", (2, _lri), (-1, _lri), 0.5, BLK),
-        ("LINEBELOW", (2, _lri), (-1, _lri), 1.5, BLK),
-    ])
+        _net_cy    = (_net_item.get("current_year", 0) if _net_item else 0)
+        _net_py    = (_net_item.get("prior_year", 0) if _net_item else _cfs_prior_net)
+        _depr_cy   = (_depr_item.get("current_year", 0) if _depr_item else 0)
+        _op_bwc    = _net_cy + _depr_cy          # operating profit before WC changes
+
+        # Operating
+        _cfs_section_hdr("Cash flows from operating activities:")
+        _cfs_item("Net profit / (loss) for the year", _net_cy,
+                  _net_py if _net_py else None)
+        cfs_rows.append(["    Adjustments for:", "", "", ""])
+        _cfs_item("Depreciation", _depr_cy, None)
+        _cfs_item("Current Tax", None, None)
+        _cfs_subtotal("Operating profit before working capital changes", _op_bwc,
+                      _net_py if _net_py else None)
+        _cfs_subhdr("(Increase)/decrease in current assets and liabilities")
+        for _wci in _wc_items:
+            _wlbl = _wci.get("account_name", "")
+            _cfs_item(_wlbl, _wci.get("current_year", 0),
+                      _wci.get("prior_year", 0) if _wci.get("prior_year") else None)
+        _op_cy = _op_sub.get("current_year", 0)
+        _op_py = _op_sub.get("prior_year", 0)
+        _cfs_subtotal("Net cash generated from operating activities (A)",
+                      _op_cy, _op_py if _op_py else None)
+
+        # Investing
+        cfs_rows.append(["", "", "", ""])
+        _cfs_section_hdr("Cash flow from Investing activities")
+        for _ii in _inv_items:
+            _ilbl = _ii.get("account_name", "")
+            if "property" in _ilbl.lower() or "plant" in _ilbl.lower():
+                _ilbl = "Property, plant & equipment"
+            _cfs_item(_ilbl, _ii.get("current_year", 0),
+                      _ii.get("prior_year", 0) if _ii.get("prior_year") else None)
+        _inv_cy = _inv_sub.get("current_year", 0)
+        _inv_py = _inv_sub.get("prior_year", 0)
+        _cfs_subtotal("Net cash generated from investing activities (B)",
+                      _inv_cy, _inv_py if _inv_py else None)
+
+        # Financing
+        cfs_rows.append(["", "", "", ""])
+        _cfs_section_hdr("Cash flows from financing activities:")
+        for _fi in _fin_items:
+            _flbl = _fi.get("account_name", "")
+            if ("loan" in _flbl.lower()
+                    and "shareholder" not in _flbl.lower()
+                    and "current account" not in _flbl.lower()):
+                _flbl = "Long Term Loans"
+            _cfs_item(_flbl, _fi.get("current_year", 0),
+                      _fi.get("prior_year", 0) if _fi.get("prior_year") else None)
+        _fin_cy = _fin_sub.get("current_year", 0)
+        _fin_py = _fin_sub.get("prior_year", 0)
+        _cfs_subtotal("Net cash generated from financing activities (C)",
+                      _fin_cy, _fin_py if _fin_py else None)
+
+        # Net change + reconciliation
+        cfs_rows.append(["", "", "", ""])
+        _total_cy = _scf_total.get("current_year", 0)
+        _total_py = _scf_total.get("prior_year", 0)
+        _cfs_bold("Net increase in cash and cash equivalents",
+                  _total_cy, _total_py if _total_py else None)
+        _cfs_bold("Cash and cash equivalents, beginning of the year",
+                  _opening_cash, None)
+        _lri = len(cfs_rows)
+        cfs_rows.append(["Cash and cash equivalents, end of the year", "",
+                         _fmt_int(_closing_cash),
+                         _fmt_int(_total_py + _opening_cash) if _total_py else "-"])
+        cfs_cmds.extend([
+            ("FONTNAME",  (0, _lri), (-1, _lri), "Times-Bold"),
+            ("LINEABOVE", (2, _lri), (-1, _lri), 0.5, BLK),
+            ("LINEBELOW", (2, _lri), (-1, _lri), 1.5, BLK),
+        ])
+
+    else:
+        # ── Fall-back: derive CFS from SOFP/SOPL ─────────────────────────────
+        _net_cy = _net_prof.get("current_year") or 0
+        _net_py = _net_prof.get("prior_year") or 0
+        _depr_cy = _depr_py = 0.0
+        for _sec in _sopl_data.get("sections", []):
+            for _item in _sec.get("line_items", []):
+                if ("depreciation" in _item.get("account_name","").lower()
+                        and "accumulated" not in _item.get("account_name","").lower()):
+                    _depr_cy += abs(_item.get("current_year") or 0)
+                    _depr_py += abs(_item.get("prior_year") or 0)
+        _wc_recv = _wc_adv = _wc_tp = _wc_op = 0.0
+        for _sec in _sofp_raw.get("sections", []):
+            _stitle = _sec.get("title", "").lower()
+            for _item in _sec.get("line_items", []):
+                _n   = _item.get("account_name","").lower()
+                _cy  = _item.get("current_year") or 0
+                _py  = _item.get("prior_year") or 0
+                _chg = _cy - _py
+                if (("current asset" in _stitle or _stitle == "current assets")
+                        and "non-current" not in _stitle):
+                    if any(k in _n for k in ["advance", "prepaid"]):
+                        _wc_adv += -_chg
+                    elif any(k in _n for k in ["receivable", "debtor"]):
+                        _wc_recv += -_chg
+                    elif not any(k in _n for k in ["cash", "bank"]):
+                        _wc_adv += -_chg
+                elif "current liabilit" in _stitle:
+                    if any(k in _n for k in ["loan", "bank od", "mortgage",
+                                              "overdraft", "borrowing"]):
+                        pass
+                    elif any(k in _n for k in ["sundry creditor", "trade payable",
+                                                "commission payable",
+                                                "outside commission"]):
+                        _wc_tp += _chg
+                    else:
+                        _wc_op += _chg
+        _net_operating    = _net_cy + _depr_cy + _wc_recv + _wc_adv + _wc_tp + _wc_op
+        _net_operating_py = _net_py + _depr_py
+        _ppe_add = _ppe_net_change = 0.0
+        for _sec in _sofp_raw.get("sections", []):
+            if ("non-current" in _sec.get("title","").lower()
+                    and "liabilit" not in _sec.get("title","").lower()):
+                for _item in _sec.get("line_items", []):
+                    if "accumulated" not in _item.get("account_name","").lower():
+                        _ppe_net_change += ((_item.get("current_year") or 0)
+                                            - (_item.get("prior_year") or 0))
+        _ppe_gross_add = _ppe_net_change + _depr_cy
+        if _ppe_gross_add > 0:
+            _ppe_add = -_ppe_gross_add
+        _loans_cy = 0.0
+        for _sec in _sofp_raw.get("sections", []):
+            if "current liabilit" in _sec.get("title","").lower():
+                for _item in _sec.get("line_items", []):
+                    _n = _item.get("account_name","").lower()
+                    if any(k in _n for k in ["loan", "bank od", "mortgage",
+                                              "overdraft", "borrowing"]):
+                        _loans_cy += ((_item.get("current_year") or 0)
+                                      - (_item.get("prior_year") or 0))
+        _total_change      = _closing_cash - _opening_cash
+        _shareholders_flow = _total_change - _net_operating - _ppe_add - _loans_cy
+        _net_financing     = _loans_cy + _shareholders_flow
+
+        _cfs_section_hdr("Cash flows from operating activities:")
+        _cfs_item("Net profit / (loss) for the year", _net_cy,
+                  _net_py if _net_py else None)
+        cfs_rows.append(["    Adjustments for:", "", "", ""])
+        _cfs_item("Depreciation", _depr_cy, _depr_py if _depr_py else None)
+        if _wc_adv:
+            _cfs_item("(Increase)/decrease in advances, deposits and other receivables",
+                      _wc_adv)
+        if _wc_tp:
+            _cfs_item("Increase/(decrease) in trade payables", _wc_tp)
+        if _wc_op:
+            _cfs_item("Increase/(decrease) in other payables, accruals & provisions",
+                      _wc_op)
+        cfs_rows.append(["", "", "", ""])
+        _cfs_subtotal("Net cash generated from operating activities (A)",
+                      _net_operating, _net_operating_py if _net_operating_py else None)
+        cfs_rows.append(["", "", "", ""])
+        _cfs_section_hdr("Cash flow from Investing activities")
+        if _ppe_add:
+            _cfs_item("Property, plant & equipment", _ppe_add)
+        _cfs_subtotal("Net cash generated from investing activities (B)", _ppe_add or 0)
+        cfs_rows.append(["", "", "", ""])
+        _cfs_section_hdr("Cash flows from financing activities:")
+        if _loans_cy:
+            _cfs_item("Long Term Loans", _loans_cy)
+        if _shareholders_flow:
+            _cfs_item("Net movement - shareholders' current account", _shareholders_flow)
+        _cfs_subtotal("Net cash generated from financing activities (C)", _net_financing)
+        cfs_rows.append(["", "", "", ""])
+        _net_change = _net_operating + _ppe_add + _net_financing
+        _cfs_bold("Net increase in cash and cash equivalents", _net_change)
+        _cfs_bold("Cash and cash equivalents, beginning of the year", _opening_cash)
+        _lri = len(cfs_rows)
+        cfs_rows.append(["Cash and cash equivalents, end of the year", "",
+                         _fmt_int(_closing_cash), "-"])
+        cfs_cmds.extend([
+            ("FONTNAME",  (0, _lri), (-1, _lri), "Times-Bold"),
+            ("LINEABOVE", (2, _lri), (-1, _lri), 0.5, BLK),
+            ("LINEBELOW", (2, _lri), (-1, _lri), 1.5, BLK),
+        ])
 
     story.append(_fin_table(cfs_rows, cfs_cmds))
 
