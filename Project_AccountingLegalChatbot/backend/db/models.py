@@ -316,3 +316,5 @@ class Template(Base):
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
     is_global = Column(Boolean, default=False)
     confidence_score = Column(Float, default=0.0)
+    format_family = Column(String(20), default="custom", nullable=False, server_default="custom")
+    format_variant = Column(String(255), nullable=True)

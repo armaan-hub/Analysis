@@ -40,8 +40,23 @@ class Base(DeclarativeBase):
 
 async def init_db():
     """Create all tables on startup."""
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # SQLite's create_all won't add columns to existing tables.
+    # Run ALTER TABLE manually, swallowing the error if the column already exists.
+    async with engine.begin() as conn:
+        for stmt in (
+            "ALTER TABLE templates ADD COLUMN format_family TEXT NOT NULL DEFAULT 'custom'",
+            "ALTER TABLE templates ADD COLUMN format_variant TEXT",
+        ):
+            try:
+                await conn.execute(text(stmt))
+            except OperationalError:
+                pass  # Column already exists
 
 
 async def get_db() -> AsyncSession:
