@@ -71,7 +71,7 @@ class AutoVerifier:
         Compute pixel similarity between two grayscale images.
         Returns 1.0 for identical, 0.0 for maximum difference.
         """
-        img_test = img_test.resize(img_ref.size, Image.LANCZOS)
+        img_test = img_test.resize(img_ref.size, Image.Resampling.LANCZOS)
         arr_ref = np.array(img_ref.convert("L"), dtype=float)
         arr_test = np.array(img_test.convert("L"), dtype=float)
         diff = np.abs(arr_ref - arr_test).mean()
@@ -169,7 +169,7 @@ class AutoVerifier:
         band_size = max(h // 6, 1)
 
         ref_arr = np.array(ref_image.convert("L"), dtype=float)
-        test_arr = np.array(test_image.resize(ref_image.size, Image.LANCZOS).convert("L"), dtype=float)
+        test_arr = np.array(test_image.resize(ref_image.size, Image.Resampling.LANCZOS).convert("L"), dtype=float)
 
         band_diffs = []
         for i in range(6):
@@ -205,7 +205,7 @@ class AutoVerifier:
         band_size = max(h // 6, 1)
 
         ref_arr = np.array(ref_image.convert("L"), dtype=float)
-        test_arr = np.array(test_image.resize(ref_image.size, Image.LANCZOS).convert("L"), dtype=float)
+        test_arr = np.array(test_image.resize(ref_image.size, Image.Resampling.LANCZOS).convert("L"), dtype=float)
 
         hints: List[Dict[str, Any]] = []
         for i in range(6):
