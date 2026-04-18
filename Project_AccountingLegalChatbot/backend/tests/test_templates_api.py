@@ -148,3 +148,64 @@ async def test_feedback_nonexistent_template_returns_404(client):
         json={"feedback_type": "correct"},
     )
     assert resp.status_code == 404
+
+
+# ── Prebuilt format tests (Phase 2C) ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_list_prebuilt_formats_all(client):
+    resp = await client.get("/api/templates/prebuilt")
+    assert resp.status_code == 200
+    data = resp.json()
+    formats = data.get("formats", data) if isinstance(data, dict) else data
+    assert len(formats) >= 6  # 3 original + 3 new
+
+
+@pytest.mark.asyncio
+async def test_list_prebuilt_formats_ifrs_filter(client):
+    resp = await client.get("/api/templates/prebuilt?format_family=IFRS")
+    assert resp.status_code == 200
+    data = resp.json()
+    formats = data.get("formats", data) if isinstance(data, dict) else data
+    assert all(f["format_family"] == "IFRS" for f in formats)
+    assert len(formats) >= 2  # IFRS Standard + UK FRS 102 + GCC Standard (min 2)
+
+
+@pytest.mark.asyncio
+async def test_list_prebuilt_formats_local_tax_filter(client):
+    resp = await client.get("/api/templates/prebuilt?format_family=local-tax")
+    assert resp.status_code == 200
+    data = resp.json()
+    formats = data.get("formats", data) if isinstance(data, dict) else data
+    assert len(formats) >= 2  # UAE + Saudi ZATCA
+
+
+@pytest.mark.asyncio
+async def test_apply_new_prebuilt_uk_frs102(client, db_session):
+    resp = await client.post(
+        "/api/templates/prebuilt/prebuilt-uk-frs102/apply?user_id=test-user-2c"
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["format_family"] == "IFRS"
+    assert data["format_variant"] == "UK FRS 102"
+
+
+@pytest.mark.asyncio
+async def test_apply_new_prebuilt_saudi_zatca(client, db_session):
+    resp = await client.post(
+        "/api/templates/prebuilt/prebuilt-saudi-zatca/apply?user_id=test-user-2c"
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["format_family"] == "local-tax"
+
+
+@pytest.mark.asyncio
+async def test_apply_new_prebuilt_gcc(client, db_session):
+    resp = await client.post(
+        "/api/templates/prebuilt/prebuilt-gcc-standard/apply?user_id=test-user-2c"
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["format_family"] == "IFRS"

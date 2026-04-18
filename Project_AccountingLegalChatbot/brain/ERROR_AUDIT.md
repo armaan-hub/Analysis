@@ -1,28 +1,44 @@
-# Final Project Audit & Verification — 2026-04-15
+# Final Project Audit & Verification — 2026-04-18
 
 ---
 
 ## 1. Backend Status (pytest)
-**Status:** ✅ Fully Operational
-- **63 tests passed**, 1 skipped (NVIDIA NIM integration).
-- **ChromaDB Corruption Fixed**: Detected and bypassed a corrupted/locked vector store by migrating to `vector_store_v2` in `.env`.
-- **Mocks Fixed**: Standardized LLM provider mocking in `test_audit_flow.py` to prevent real API calls (403 Forbidden) and ensure reliable CI/CD runs.
-- **Improved Error Handling**: `upload-trial-balance` now correctly distinguishes client (422) vs server (500) errors.
+**Status:** ✅ Fully Operational (with minor migration notes)
+- **178 tests passed**, 2 skipped (NVIDIA NIM integration, Source content doc lookup).
+- **Migration Logic**: Manual `ALTER TABLE` added to `init_db` to handle `format_family` and `format_variant` columns in SQLite.
+- **Template System**: Successfully extended with batch learning and fine-tune capabilities.
 
 ## 2. Frontend Status (lint & build)
-**Status:** ✅ Fully Operational
-- **Build**: `npm run build` succeeds (2058 modules, 452ms).
-- **Lint**: `npm run lint` passes after removing unused `_activeSourceId` prop in `ChatMessages.tsx`.
-- **UI UX**: Verified `FinancialStudio` stepper logic and `AuditGrid` source-labeling (AI vs Manual).
+**Status:** ❌ Build Failing
+- **Build**: `npm run build` fails with 4 TypeScript errors.
+- **Lint**: `npm run lint` fails with 1 error and 1 warning.
+- **Critical Issues**:
+  - `AuditProfileStudio.tsx`: Type 'unknown' is not assignable to type 'ReactNode' (Lines 769, 783).
+  - `LegalStudio.tsx`: Unsafe type conversion for SSE events (Lines 138, 168).
+  - `CompanyDocuments.tsx`: Explicit `any` usage forbidden by lint rules (Line 102).
+  - `AuditGrid.tsx`: Incompatible library warning with React Compiler for TanStack Table.
 
-## 3. Core Logic Fixes
-- **Related Party Risk**: ✅ Fixed. Keywords now trigger `high` risk regardless of whether they appear in the `account` name or `category`.
-- **Source Content Resolution**: ✅ Fixed. `get_source_content` now supports lookup by Document UUID ID, original filename, and stored filename.
-- **HMR Performance**: ✅ Fixed. Moved non-component exports to `report-types.ts` to enable Vite Fast Refresh.
+## 3. Core Logic Fixes & Updates
+- **Batch Learning**: ✅ Implemented. Consensus config generation from multiple PDFs is functional.
+- **SQLite Migrations**: ⚠️ Manual migration logic in `database.py` is susceptible to race conditions in multi-process environments, but sufficient for single-user CLI/Local-dev.
 
 ---
 
-## Technical Recommendations
-1. **ChromaDB Migration**: The old `./vector_store` directory remains locked by a system process. It should be manually deleted after a reboot to reclaim space (~300MB).
-2. **NVIDIA API Key**: The current key in `.env` is returning 403 Forbidden. Ensure the key is active and has sufficient credits for RAG/Chat operations in production.
-3. **Scaling**: If deploying with multiple Uvicorn workers, implement ERR-34 (Redis Pub/Sub) for WebSocket alerts.
+## Technical Recommendations & Solutions
+
+### Frontend Fixes (Required for Build)
+1. **AuditProfileStudio.tsx (L769)**:
+   - *Problem*: `metadata` properties are typed as `unknown`.
+   - *Solution*: Define a `Metadata` interface or cast to `string` more explicitly: `(metadata.company_name as string)`. If already casting, ensure the wrapper `div` doesn't have conflicting children types.
+
+2. **LegalStudio.tsx (L138, L168)**:
+   - *Problem*: Unsafe cast from `evt` type to specific object types.
+   - *Solution*: Use double casting: `(evt as unknown as { message_id: string })`.
+
+3. **CompanyDocuments.tsx (L102)**:
+   - *Problem*: `Unexpected any` error.
+   - *Solution*: Replace `any` with `Record<string, unknown>` or a specific `Document` interface.
+
+### Backend Improvements
+1. **Migration Safety**: Consider using Alembic for more robust migrations if the schema continues to evolve.
+2. **TemplateStore Update**: In `update_config`, ensure `updated_at` is always in UTC (currently uses `datetime.now(timezone.utc)` which is correct).

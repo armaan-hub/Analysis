@@ -109,6 +109,97 @@ PREBUILT_FORMATS = [
             },
         },
     },
+    {
+        "id": "prebuilt-uk-frs102",
+        "name": "UK FRS 102",
+        "format_family": "IFRS",
+        "format_variant": "UK FRS 102",
+        "description": "UK Financial Reporting Standard for medium-sized entities",
+        "config": {
+            "page": {"width": 595.28, "height": 841.89, "unit": "points", "detected_size": "A4", "confidence": 1.0},
+            "margins": {"top": 56, "bottom": 56, "left": 72, "right": 72},
+            "fonts": {
+                "heading": {"family": "Helvetica-Bold", "size": 11},
+                "body": {"family": "Helvetica", "size": 9},
+                "footer": {"family": "Helvetica", "size": 8},
+            },
+            "tables": [],
+            "sections": [
+                {"name": "cover", "page": 1, "layout": "static"},
+                {"name": "directors_report", "page": 2, "layout": "flow"},
+                {"name": "balance_sheet", "page": 3, "layout": "flow"},
+                {"name": "profit_loss", "page": 4, "layout": "flow"},
+                {"name": "notes", "pages": [5, 6, 7, 8, 9], "layout": "flow"},
+            ],
+            "substitutions": {},
+            "extraction_metadata": {
+                "analyzer_version": "prebuilt",
+                "source": "prebuilt",
+                "confidence_per_element": {"page_size": 1.0, "margins": 1.0, "fonts": 0.9, "tables": 0.8},
+            },
+        },
+    },
+    {
+        "id": "prebuilt-saudi-zatca",
+        "name": "Saudi ZATCA",
+        "format_family": "local-tax",
+        "format_variant": "Saudi ZATCA 2024",
+        "description": "Saudi Arabia Zakat, Tax and Customs Authority financial reporting format",
+        "config": {
+            "page": {"width": 595.28, "height": 841.89, "unit": "points", "detected_size": "A4", "confidence": 1.0},
+            "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
+            "fonts": {
+                "heading": {"family": "Helvetica-Bold", "size": 12},
+                "body": {"family": "Helvetica", "size": 9},
+                "footer": {"family": "Helvetica", "size": 8},
+            },
+            "tables": [],
+            "sections": [
+                {"name": "cover", "page": 1, "layout": "static"},
+                {"name": "zakat_computation", "page": 2, "layout": "flow"},
+                {"name": "financial_position", "page": 3, "layout": "flow"},
+                {"name": "income_statement", "page": 4, "layout": "flow"},
+                {"name": "notes", "pages": [5, 6, 7, 8], "layout": "flow"},
+            ],
+            "substitutions": {},
+            "extraction_metadata": {
+                "analyzer_version": "prebuilt",
+                "source": "prebuilt",
+                "confidence_per_element": {"page_size": 1.0, "margins": 1.0, "fonts": 0.9, "tables": 0.8},
+            },
+        },
+    },
+    {
+        "id": "prebuilt-gcc-standard",
+        "name": "GCC Standard",
+        "format_family": "IFRS",
+        "format_variant": "GCC IFRS",
+        "description": "Gulf Cooperation Council standard financial statement format (IAS-compliant)",
+        "config": {
+            "page": {"width": 595.28, "height": 841.89, "unit": "points", "detected_size": "A4", "confidence": 1.0},
+            "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
+            "fonts": {
+                "heading": {"family": "Helvetica-Bold", "size": 12},
+                "body": {"family": "Helvetica", "size": 9},
+                "footer": {"family": "Helvetica", "size": 8},
+            },
+            "tables": [],
+            "sections": [
+                {"name": "cover", "page": 1, "layout": "static"},
+                {"name": "sofp", "page": 2, "layout": "flow"},
+                {"name": "sopl", "page": 3, "layout": "flow"},
+                {"name": "soce", "page": 4, "layout": "flow"},
+                {"name": "cfs", "page": 5, "layout": "flow"},
+                {"name": "notes", "pages": [6, 7, 8, 9, 10], "layout": "flow"},
+            ],
+            "substitutions": {},
+            "extraction_metadata": {
+                "analyzer_version": "prebuilt",
+                "source": "prebuilt",
+                "confidence_per_element": {"page_size": 1.0, "margins": 1.0, "fonts": 0.9, "tables": 0.8},
+            },
+        },
+    },
 ]
 
 

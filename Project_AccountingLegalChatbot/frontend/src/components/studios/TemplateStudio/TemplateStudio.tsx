@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { API, getErrMsg } from '../../../lib/api';
 import {
   Layout, Upload, FileText, Trash2, Globe, RefreshCw,
-  CheckCircle, AlertCircle, X, Loader2, Eye, Send, Search, Layers,
+  CheckCircle, AlertCircle, X, Loader2, Eye, Send, Search, Layers, BookOpen,
 } from 'lucide-react';
 import { TemplateEditor } from './TemplateEditor';
 import { BatchUploadForm } from './BatchUploadForm';
+import { PrebuiltFormatsTab } from './PrebuiltFormatsTab';
 import './TemplateStudio.css';
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -62,7 +63,7 @@ export function TemplateStudio() {
   const [editingTemplate, setEditingTemplate] = useState<TemplateDetail | null>(null);
 
   // Tabs & search
-  const [activeTab, setActiveTab] = useState<'my' | 'library' | 'batch'>('my');
+  const [activeTab, setActiveTab] = useState<'my' | 'library' | 'batch' | 'prebuilt'>('my');
   const [searchQuery, setSearchQuery] = useState('');
 
   /* ── Data Fetching ───────────────────────────────────────────── */
@@ -352,6 +353,12 @@ export function TemplateStudio() {
         >
           <Layers size={14} /> Batch Learn
         </button>
+        <button
+          className={`ts-tabs__btn ${activeTab === 'prebuilt' ? 'ts-tabs__btn--active' : ''}`}
+          onClick={() => setActiveTab('prebuilt')}
+        >
+          <BookOpen size={14} /> Prebuilt
+        </button>
         <div className="ts-tabs__search">
           <Search size={14} />
           <input
@@ -367,8 +374,11 @@ export function TemplateStudio() {
       {/* Batch Upload */}
       {activeTab === 'batch' && <BatchUploadForm onComplete={fetchTemplates} />}
 
+      {/* Prebuilt Formats */}
+      {activeTab === 'prebuilt' && <PrebuiltFormatsTab onApplied={fetchTemplates} />}
+
       {/* Template Table */}
-      {activeTab !== 'batch' && (
+      {activeTab !== 'batch' && activeTab !== 'prebuilt' && (
       <div className="ts-section">
         {loading ? (
           <div className="ts-empty"><Loader2 size={24} className="spin" /></div>
