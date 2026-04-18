@@ -19,6 +19,9 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const AuditProfileStudio = React.lazy(() =>
   import('./components/studios/AuditProfileStudio/AuditProfileStudio').then(m => ({ default: m.AuditProfileStudio }))
 );
+const TemplateStudio = React.lazy(() =>
+  import('./components/studios/TemplateStudio/TemplateStudio').then(m => ({ default: m.TemplateStudio }))
+);
 
 interface Conversation {
   id: string;
@@ -92,6 +95,7 @@ export default function App() {
                 />
                 <Route path="/monitoring" element={<RegulatoryStudio />} />
                 <Route path="/profiles" element={<AuditProfileStudio />} />
+                <Route path="/templates" element={<TemplateStudio />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
             </Suspense>
