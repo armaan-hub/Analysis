@@ -243,12 +243,32 @@ async def apply_prebuilt_format(
     store = TemplateStore(db)
     template_name = name or prebuilt["name"]
 
+    existing = await store.list_user_templates(user_id, format_family=prebuilt["format_family"])
+    matching = [t for t in existing if t.name == template_name]
+    if matching:
+        t = matching[0]
+        return {
+            "message": f"Pre-built format '{prebuilt['name']}' already applied",
+            "template_id": t.id,
+            "name": t.name,
+            "format_family": t.format_family,
+            "format_variant": t.format_variant,
+        }
+
+    synthetic_report = json.dumps({
+        "overall_passed": True,
+        "confidence": 1.0,
+        "source": "prebuilt",
+        "checks": []
+    })
+
     tmpl = await store.save(
         name=template_name,
         config=prebuilt["config"],
         user_id=user_id,
         status="verified",
         confidence_score=1.0,
+        verification_report=synthetic_report,
         format_family=prebuilt["format_family"],
         format_variant=prebuilt["format_variant"],
     )
