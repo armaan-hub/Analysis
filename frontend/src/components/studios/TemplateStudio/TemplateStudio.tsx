@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { API, getErrMsg } from '../../../lib/api';
 import {
   Layout, Upload, FileText, Trash2, Globe, RefreshCw,
-  CheckCircle, AlertCircle, X, Loader2, Eye, Send, Search,
+  CheckCircle, AlertCircle, X, Loader2, Eye, Send, Search, Layers,
 } from 'lucide-react';
 import { TemplateEditor } from './TemplateEditor';
+import { BatchUploadForm } from './BatchUploadForm';
 import './TemplateStudio.css';
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -61,7 +62,7 @@ export function TemplateStudio() {
   const [editingTemplate, setEditingTemplate] = useState<TemplateDetail | null>(null);
 
   // Tabs & search
-  const [activeTab, setActiveTab] = useState<'my' | 'library'>('my');
+  const [activeTab, setActiveTab] = useState<'my' | 'library' | 'batch'>('my');
   const [searchQuery, setSearchQuery] = useState('');
 
   /* ── Data Fetching ───────────────────────────────────────────── */
@@ -345,6 +346,12 @@ export function TemplateStudio() {
         >
           <Globe size={14} /> Global Library ({library.length})
         </button>
+        <button
+          className={`ts-tabs__btn ${activeTab === 'batch' ? 'ts-tabs__btn--active' : ''}`}
+          onClick={() => setActiveTab('batch')}
+        >
+          <Layers size={14} /> Batch Learn
+        </button>
         <div className="ts-tabs__search">
           <Search size={14} />
           <input
@@ -357,7 +364,11 @@ export function TemplateStudio() {
         </div>
       </div>
 
+      {/* Batch Upload */}
+      {activeTab === 'batch' && <BatchUploadForm onComplete={fetchTemplates} />}
+
       {/* Template Table */}
+      {activeTab !== 'batch' && (
       <div className="ts-section">
         {loading ? (
           <div className="ts-empty"><Loader2 size={24} className="spin" /></div>
@@ -461,6 +472,7 @@ export function TemplateStudio() {
           )
         )}
       </div>
+      )}
 
       {/* Detail Modal */}
       {(selectedDetail || detailLoading) && (
