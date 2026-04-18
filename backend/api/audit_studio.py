@@ -2,18 +2,22 @@
 Audit Studio API — versioning, chat, generation.
 Routes nest under each profile: /api/audit-profiles/{id}/...
 """
+from typing import Optional
+import os
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 
 from db.database import AsyncSessionLocal
-from db.models import AuditProfile, ProfileVersion, AuditChatMessage
+from db.models import AuditProfile, ProfileVersion, AuditChatMessage, GeneratedOutput
 from core.audit_studio.versioning import (
     branch_version,
     activate_version,
     compare_versions,
 )
 from core.audit_studio import chat_service
+from core.audit_studio.generation_service import enqueue
 
 router = APIRouter(prefix="/api/audit-profiles", tags=["audit-studio"])
 
@@ -135,3 +139,51 @@ async def chat_clear(profile_id: str):
         )
         await s.commit()
     return {"status": "cleared"}
+
+
+# ── Task 11: generate ─────────────────────────────────────────────
+
+class GenerateRequest(BaseModel):
+    template_id: Optional[str] = None
+    options: dict = {}
+
+
+@router.post("/{profile_id}/generate/{output_type}")
+async def generate(profile_id: str, output_type: str, req: GenerateRequest):
+    await _require_profile(profile_id)
+    try:
+        job_id = await enqueue(profile_id, output_type, req.template_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"job_id": job_id, "status": "pending"}
+
+
+# ── Task 12: list outputs + download ─────────────────────────────
+
+@router.get("/{profile_id}/outputs")
+async def list_outputs(profile_id: str):
+    await _require_profile(profile_id)
+    async with AsyncSessionLocal() as s:
+        rows = (await s.execute(
+            select(GeneratedOutput).where(GeneratedOutput.profile_id == profile_id)
+            .order_by(GeneratedOutput.created_at.desc())
+        )).scalars().all()
+    return {"outputs": [
+        {"id": r.id, "output_type": r.output_type, "status": r.status,
+         "download_url": f"/api/audit-profiles/{profile_id}/outputs/{r.id}/download" if r.status == "ready" else None,
+         "error_message": r.error_message,
+         "created_at": r.created_at.isoformat()}
+        for r in rows
+    ]}
+
+
+@router.get("/{profile_id}/outputs/{output_id}/download")
+async def download_output(profile_id: str, output_id: str):
+    await _require_profile(profile_id)
+    async with AsyncSessionLocal() as s:
+        row = await s.get(GeneratedOutput, output_id)
+    if row is None or row.profile_id != profile_id:
+        raise HTTPException(status_code=404, detail="Output not found")
+    if row.status != "ready" or not row.output_path or not os.path.exists(row.output_path):
+        raise HTTPException(status_code=409, detail=f"Output not ready (status={row.status})")
+    return FileResponse(row.output_path, filename=os.path.basename(row.output_path))
