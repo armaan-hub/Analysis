@@ -150,45 +150,49 @@ async def start_learning(
     _jobs[job_id]["status"] = "processing"
 
     async def _learn():
-        store = TemplateStore(db)
-        try:
-            _jobs[job_id]["progress"] = 20
-            config = _analyzer.analyze(_jobs[job_id]["pdf_path"])
-            _jobs[job_id]["progress"] = 60
-
-            report = _verifier.generate_report(config)
-            _jobs[job_id]["progress"] = 80
-
-            status = "verified" if report["overall_passed"] else "needs_review"
-
-            tmpl = await store.save(
-                name=_jobs[job_id]["template_name"],
-                config=config,
-                user_id=_jobs[job_id]["user_id"],
-                status=status,
-                confidence_score=report["confidence"],
-                verification_report=json.dumps(report),
-                page_count=config.get("page_count"),
-                source_pdf_name=config.get("source"),
-            )
-
-            _jobs[job_id].update({
-                "status": status,
-                "template_id": tmpl.id,
-                "confidence": report["confidence"],
-                "progress": 100,
-            })
-
-            # Clean up temp file
+        from db.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as bg_session:
+            store = TemplateStore(bg_session)
             try:
-                os.remove(_jobs[job_id]["pdf_path"])
-            except OSError:
-                pass
+                _jobs[job_id]["progress"] = 20
+                config = _analyzer.analyze(_jobs[job_id]["pdf_path"])
+                _jobs[job_id]["progress"] = 60
 
-        except Exception as exc:
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(exc)
-            _jobs[job_id]["progress"] = 100
+                report = _verifier.generate_report(config)
+                _jobs[job_id]["progress"] = 80
+
+                status = "verified" if report["overall_passed"] else "needs_review"
+
+                tmpl = await store.save(
+                    name=_jobs[job_id]["template_name"],
+                    config=config,
+                    user_id=_jobs[job_id]["user_id"],
+                    status=status,
+                    confidence_score=report["confidence"],
+                    verification_report=json.dumps(report),
+                    page_count=config.get("page_count"),
+                    source_pdf_name=config.get("source"),
+                )
+                await bg_session.commit()
+
+                _jobs[job_id].update({
+                    "status": status,
+                    "template_id": tmpl.id,
+                    "confidence": report["confidence"],
+                    "progress": 100,
+                })
+
+                # Clean up temp file
+                try:
+                    os.remove(_jobs[job_id]["pdf_path"])
+                except OSError:
+                    pass
+
+            except Exception as exc:
+                await bg_session.rollback()
+                _jobs[job_id]["status"] = "failed"
+                _jobs[job_id]["error"] = str(exc)
+                _jobs[job_id]["progress"] = 100
 
     background_tasks.add_task(_learn)
 
@@ -542,46 +546,50 @@ async def batch_learn(
     }
 
     async def _batch_learn_task():
-        store = TemplateStore(db)
-        try:
-            _jobs[job_id]["progress"] = 20
-            learner = BatchTemplateLearner()
-            config = learner.learn_from_multiple(pdf_paths)
-            _jobs[job_id]["progress"] = 70
+        from db.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as bg_session:
+            store = TemplateStore(bg_session)
+            try:
+                _jobs[job_id]["progress"] = 20
+                learner = BatchTemplateLearner()
+                config = learner.learn_from_multiple(pdf_paths)
+                _jobs[job_id]["progress"] = 70
 
-            report = _verifier.generate_report(config)
-            _jobs[job_id]["progress"] = 85
+                report = _verifier.generate_report(config)
+                _jobs[job_id]["progress"] = 85
 
-            status = "verified" if report["overall_passed"] else "needs_review"
+                status = "verified" if report["overall_passed"] else "needs_review"
 
-            tmpl = await store.save(
-                name=name,
-                config=config,
-                user_id=user_id,
-                status=status,
-                confidence_score=report["confidence"],
-                verification_report=json.dumps(report),
-                page_count=config.get("page_count"),
-                source_pdf_name=config.get("source"),
-            )
+                tmpl = await store.save(
+                    name=name,
+                    config=config,
+                    user_id=user_id,
+                    status=status,
+                    confidence_score=report["confidence"],
+                    verification_report=json.dumps(report),
+                    page_count=config.get("page_count"),
+                    source_pdf_name=config.get("source"),
+                )
+                await bg_session.commit()
 
-            _jobs[job_id].update({
-                "status": status,
-                "template_id": tmpl.id,
-                "confidence": report["confidence"],
-                "progress": 100,
-            })
+                _jobs[job_id].update({
+                    "status": status,
+                    "template_id": tmpl.id,
+                    "confidence": report["confidence"],
+                    "progress": 100,
+                })
 
-            for p in pdf_paths:
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
+                for p in pdf_paths:
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
 
-        except Exception as exc:
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(exc)
-            _jobs[job_id]["progress"] = 100
+            except Exception as exc:
+                await bg_session.rollback()
+                _jobs[job_id]["status"] = "failed"
+                _jobs[job_id]["error"] = str(exc)
+                _jobs[job_id]["progress"] = 100
 
     background_tasks.add_task(_batch_learn_task)
 
