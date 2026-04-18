@@ -150,6 +150,88 @@ async def test_feedback_nonexistent_template_returns_404(client):
     assert resp.status_code == 404
 
 
+# ── Phase 2D: Confidence calibration / retraining tests ──────────────────────
+
+@pytest.mark.asyncio
+async def test_confidence_history_empty_feedback(client, db_session):
+    from core.template_store import TemplateStore
+    store = TemplateStore(db_session)
+    tmpl = await store.save(
+        user_id="user-p2d",
+        name="P2D Calibration Test",
+        config={"page": {"width": 595, "height": 842, "unit": "points"}, "margins": {}, "fonts": {}, "tables": [], "sections": []},
+        status="verified",
+        confidence_score=0.75,
+    )
+    resp = await client.get(f"/api/templates/{tmpl.id}/confidence-history")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["feedback_count"] == 0
+    assert data["current_confidence"] == pytest.approx(0.75, abs=0.01)
+    assert data["calibration_summary"]["method"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_retrain_single_template_no_feedback(client, db_session):
+    from core.template_store import TemplateStore
+    store = TemplateStore(db_session)
+    tmpl = await store.save(
+        user_id="user-p2d2",
+        name="Retrain No Feedback",
+        config={"page": {"width": 595, "height": 842, "unit": "points"}, "margins": {}, "fonts": {}, "tables": [], "sections": []},
+        status="verified",
+        confidence_score=0.75,
+    )
+    resp = await client.post(f"/api/templates/{tmpl.id}/retrain")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["action"] == "skipped"
+    assert data["reason"] == "no_feedback"
+
+
+@pytest.mark.asyncio
+async def test_retrain_single_template_with_feedback(client, db_session):
+    from core.template_store import TemplateStore
+    store = TemplateStore(db_session)
+    tmpl = await store.save(
+        user_id="user-p2d3",
+        name="Retrain With Feedback",
+        config={"page": {"width": 595, "height": 842, "unit": "points"}, "margins": {}, "fonts": {}, "tables": [], "sections": []},
+        status="verified",
+        confidence_score=0.7,
+    )
+    # Submit 2 accurate feedbacks (normalized to "correct" by the API)
+    await client.post(f"/api/templates/{tmpl.id}/feedback", json={"feedback_type": "accurate"})
+    await client.post(f"/api/templates/{tmpl.id}/feedback", json={"feedback_type": "accurate"})
+
+    resp = await client.post(f"/api/templates/{tmpl.id}/retrain")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["action"] == "retrained"
+    assert data["new_confidence"] >= data["old_confidence"]
+
+
+@pytest.mark.asyncio
+async def test_retrain_all_endpoint(client, db_session):
+    resp = await client.post("/api/templates/retrain")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "retrained" in data
+    assert "results" in data
+
+
+@pytest.mark.asyncio
+async def test_confidence_history_not_found(client):
+    resp = await client.get("/api/templates/nonexistent-xyz/confidence-history")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_retrain_single_not_found(client):
+    resp = await client.post("/api/templates/nonexistent-xyz/retrain")
+    assert resp.status_code == 404
+
+
 # ── Prebuilt format tests (Phase 2C) ─────────────────────────────────────────
 
 @pytest.mark.asyncio

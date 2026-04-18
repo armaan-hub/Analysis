@@ -15,6 +15,7 @@ from core.template_verifier import TemplateVerifier
 from core.template_store import TemplateStore, _UNSET
 from core.confidence_calibrator import ConfidenceCalibrator
 from db.database import get_db
+from db.models import Template
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 
@@ -546,6 +547,9 @@ async def submit_feedback(
     }
     """
     feedback_type = payload.get("feedback_type")
+    # Normalize aliases: "accurate"→"correct", "inaccurate"→"incorrect"
+    _type_aliases = {"accurate": "correct", "inaccurate": "incorrect"}
+    feedback_type = _type_aliases.get(feedback_type, feedback_type)
     if feedback_type not in ("correct", "incorrect", "partial"):
         raise HTTPException(
             status_code=400,
@@ -567,6 +571,99 @@ async def submit_feedback(
     )
 
     return result
+
+
+@router.get("/{template_id}/confidence-history")
+async def get_confidence_history(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return feedback history and calibration summary for a template."""
+    from sqlalchemy import select as sa_select
+    from db.models import TemplateFeedback
+
+    template = await db.get(Template, template_id)
+    if not template:
+        raise HTTPException(404, f"Template {template_id} not found")
+
+    result = await db.execute(
+        sa_select(TemplateFeedback)
+        .where(TemplateFeedback.template_id == template_id)
+        .order_by(TemplateFeedback.created_at)
+    )
+    feedback_rows = result.scalars().all()
+
+    history = [
+        {
+            "id": f.id,
+            "feedback_type": f.feedback_type,
+            "original_confidence": template.confidence_score,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        }
+        for f in feedback_rows
+    ]
+
+    summary = _calibrator.get_calibration_summary(history)
+
+    return {
+        "template_id": template_id,
+        "current_confidence": template.confidence_score,
+        "feedback_count": len(history),
+        "history": history,
+        "calibration_summary": summary,
+    }
+
+
+@router.post("/{template_id}/retrain")
+async def retrain_single_template(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Retrain confidence score for a single template using its feedback."""
+    from sqlalchemy import select as sa_select
+    from db.models import TemplateFeedback
+    from sqlalchemy import update as sa_update
+
+    template = await db.get(Template, template_id)
+    if not template:
+        raise HTTPException(404, f"Template {template_id} not found")
+
+    fb_result = await db.execute(
+        sa_select(TemplateFeedback).where(TemplateFeedback.template_id == template_id)
+    )
+    feedbacks = fb_result.scalars().all()
+
+    if not feedbacks:
+        return {
+            "template_id": template_id,
+            "action": "skipped",
+            "reason": "no_feedback",
+            "current_confidence": template.confidence_score,
+        }
+
+    history = [
+        {"feedback_type": f.feedback_type, "original_confidence": template.confidence_score}
+        for f in feedbacks
+    ]
+    old_score = template.confidence_score
+    new_score = _calibrator.calibrate(old_score, history)
+
+    if template.is_global and new_score < 0.5:
+        new_score = max(new_score, 0.5)
+
+    await db.execute(
+        sa_update(Template).where(Template.id == template_id).values(confidence_score=new_score)
+    )
+    await db.commit()
+
+    summary = _calibrator.get_calibration_summary(history)
+    return {
+        "template_id": template_id,
+        "action": "retrained",
+        "old_confidence": round(old_score, 4),
+        "new_confidence": round(new_score, 4),
+        "calibration_summary": summary,
+    }
 
 
 @router.delete("/{template_id}")
