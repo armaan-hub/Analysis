@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Template
 
+# Sentinel used by update_config to distinguish "not provided" from explicit None.
+_UNSET = object()
+
 
 class TemplateStore:
     """Async SQLAlchemy-based template persistence layer."""
@@ -37,22 +40,25 @@ class TemplateStore:
         now = datetime.now(timezone.utc)
 
         if template_id:
-            # Update existing
+            # Update existing — only include format fields when explicitly supplied
+            values = {
+                "name": name,
+                "config_json": config_json,
+                "status": status,
+                "confidence_score": confidence_score,
+                "verification_report": verification_report,
+                "page_count": page_count,
+                "source_pdf_name": source_pdf_name,
+                "updated_at": now,
+            }
+            if format_family != "custom":
+                values["format_family"] = format_family
+            if format_variant is not None:
+                values["format_variant"] = format_variant
             await self.session.execute(
                 update(Template)
                 .where(Template.id == template_id)
-                .values(
-                    name=name,
-                    config_json=config_json,
-                    status=status,
-                    confidence_score=confidence_score,
-                    verification_report=verification_report,
-                    page_count=page_count,
-                    source_pdf_name=source_pdf_name,
-                    format_family=format_family,
-                    format_variant=format_variant,
-                    updated_at=now,
-                )
+                .values(**values)
             )
             await self.session.commit()
             return await self.load(template_id)
@@ -132,7 +138,7 @@ class TemplateStore:
         confidence_score: float,
         verification_report: Optional[str] = None,
         format_family: Optional[str] = None,
-        format_variant: Optional[str] = None,
+        format_variant: object = _UNSET,
     ) -> None:
         """Update config, name, status, and confidence of an existing template."""
         values: dict = dict(
@@ -145,8 +151,8 @@ class TemplateStore:
         )
         if format_family is not None:
             values["format_family"] = format_family
-        if format_variant is not None:
-            values["format_variant"] = format_variant
+        if format_variant is not _UNSET:
+            values["format_variant"] = format_variant  # includes None to clear
         stmt = (
             update(Template)
             .where(Template.id == template_id)
