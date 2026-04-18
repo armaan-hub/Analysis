@@ -20,6 +20,60 @@ DEFAULT_TEMPLATE = {
 }
 
 
+def template_config_to_format(template_config: dict) -> dict:
+    """
+    Convert a template_analyzer config dict to the format_template dict
+    used by apply_format / DEFAULT_TEMPLATE.
+
+    Maps:
+      template_config["fonts"]["body"]["size"] → font_size
+      template_config["fonts"]["body"]["family"] → font_family (normalized)
+      template_config["margins"] → margins (kept as-is)
+      template_config["page"]["width"] → page_size detection
+    """
+    result = {}
+
+    # Fonts
+    fonts = template_config.get("fonts", {})
+    body = fonts.get("body", {})
+    if body.get("size"):
+        result["font_size"] = body["size"]
+    if body.get("family"):
+        # Normalize font family to ReportLab-compatible name
+        family = body["family"]
+        if "Times" in family or "times" in family:
+            result["font_family"] = "Times-Roman"
+        elif "Helvetica" in family or "Arial" in family:
+            result["font_family"] = "Helvetica"
+        elif "Courier" in family:
+            result["font_family"] = "Courier"
+        # else: leave default
+
+    # Margins (the template_config margins are in points, matching format_applier usage)
+    margins = template_config.get("margins", {})
+    if all(k in margins for k in ("top", "bottom", "left", "right")):
+        result["margins"] = {
+            "top": margins["top"],
+            "bottom": margins["bottom"],
+            "left": margins["left"],
+            "right": margins["right"],
+        }
+
+    # Page size
+    page = template_config.get("page", {})
+    w = page.get("width", 0)
+    h = page.get("height", 0)
+    if w and h:
+        # US Letter: 612×792, A4: 595×842
+        if abs(w - 612) < 10 and abs(h - 792) < 10:
+            result["page_size"] = "LETTER"
+        elif abs(w - 595) < 10 and abs(h - 842) < 10:
+            result["page_size"] = "A4"
+        # else: keep default
+
+    return result
+
+
 def _fmt_number(value, currency: str = "AED") -> str:
     """Format a number with commas; negatives in parentheses; None as '-'."""
     if value is None:
@@ -300,6 +354,7 @@ def apply_format(
     report_json: dict,
     format_template: Optional[dict] = None,
     output_format: str = "pdf",
+    template_config: Optional[dict] = None,
 ) -> bytes:
     """
     Convert audit_report.json dict to formatted file bytes.
@@ -308,11 +363,17 @@ def apply_format(
         report_json: Structured audit report (from structured_report_generator).
         format_template: Optional display overrides (columns, font, margins, etc.).
         output_format: One of "pdf", "docx", "xlsx".
+        template_config: Optional template_analyzer config dict (auto-converted via
+            template_config_to_format). If both format_template and template_config
+            are provided, format_template takes precedence for overlapping keys.
 
     Returns:
         Raw bytes of the generated document.
     """
-    tpl = {**DEFAULT_TEMPLATE, **(format_template or {})}
+    base = {}
+    if template_config:
+        base = template_config_to_format(template_config)
+    tpl = {**DEFAULT_TEMPLATE, **base, **(format_template or {})}
 
     dispatch = {
         "pdf": _generate_pdf,
