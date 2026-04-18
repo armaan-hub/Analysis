@@ -44,7 +44,7 @@ class ReportGenerator:
         
         row = 4
         ws_income.cell(row=row, column=1, value="Account").font = Font(bold=True)
-        ws_income.cell(row=row, column=2, value="Amount (USD)").font = Font(bold=True)
+        ws_income.cell(row=row, column=2, value="Amount (AED)").font = Font(bold=True)
         row += 1
         
         # Data (mock processing)

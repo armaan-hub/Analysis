@@ -14,8 +14,12 @@ ENV/
 # Data & databases
 backend/data/
 backend/vector_store/
+backend/vector_store_v2/
 *.db
 *.sqlite3
+
+# Log files
+*.log
 
 # Environment files
 .env

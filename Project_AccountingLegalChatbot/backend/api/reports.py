@@ -1195,9 +1195,8 @@ async def upload_trial_balance(
                 except ImportError:
                     prior_year_content = ""
             elif prior_ext in ("xlsx", "xls", "csv"):
-                from core.document_processor import map_trial_balance as _map_tb
                 try:
-                    py_rows = _map_tb(prior_tmp_path)
+                    py_rows = map_trial_balance(prior_tmp_path)
                     lines = ["| Account | Debit | Credit | Net |", "|---------|-------|--------|-----|"]
                     for r in py_rows[:200]:
                         lines.append(f"| {r.get('account_name','')} | {r.get('debit',0):,.2f} | {r.get('credit',0):,.2f} | {r.get('net',0):,.2f} |")

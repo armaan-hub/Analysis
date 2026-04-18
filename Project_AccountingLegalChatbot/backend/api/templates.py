@@ -2,8 +2,10 @@
 FastAPI routes for Template Learning System.
 Provides upload, learn, list, get, delete, and publish endpoints.
 """
+import copy
 import json
 import os
+import time
 import uuid
 from typing import List, Optional
 
@@ -14,6 +16,8 @@ from core.template_analyzer import TemplateAnalyzer
 from core.template_verifier import TemplateVerifier
 from core.template_store import TemplateStore, _UNSET
 from core.confidence_calibrator import ConfidenceCalibrator
+from core.format_fingerprinter import FormatFingerprinter
+from core.auto_verifier import AutoVerifier
 from db.database import get_db
 from db.models import Template
 
@@ -27,15 +31,73 @@ _calibrator = ConfidenceCalibrator()
 _jobs: dict = {}
 
 
+async def _fast_learn_pipeline(
+    pdf_path: str,
+    name: str,
+    user_id: Optional[str],
+    db: AsyncSession,
+) -> dict:
+    """
+    Fast-learn pipeline: fingerprint → (clone or analyze_precise) → verify → save.
+
+    Returns the new fast-learn response schema:
+      {template_id, status, confidence, time_taken_sec, match_source, hints}
+    """
+    start = time.time()
+
+    fingerprinter = FormatFingerprinter()
+    match_config, match_score, match_source = fingerprinter.match(pdf_path)
+
+    if match_score >= 88 and match_config is not None:
+        config = copy.deepcopy(match_config)
+    else:
+        config = _analyzer.analyze_precise(pdf_path)
+
+    verifier = AutoVerifier()
+    verify_result = verifier.verify(config, pdf_path)
+
+    calibrated_confidence = _calibrator.calibrate(verify_result["confidence"], [])
+
+    store = TemplateStore(db)
+    tmpl = await store.save(
+        name=name,
+        config=config,
+        user_id=user_id,
+        status=verify_result["status"],
+        confidence_score=calibrated_confidence,
+        source_pdf_name=os.path.basename(pdf_path),
+        page_count=config.get("page_count"),
+    )
+
+    try:
+        os.remove(pdf_path)
+    except OSError:
+        pass
+
+    return {
+        "template_id": tmpl.id,
+        "status": verify_result["status"],
+        "confidence": round(calibrated_confidence, 4),
+        "time_taken_sec": round(time.time() - start, 1),
+        "match_source": match_source or "none",
+        "hints": verify_result.get("hints"),
+    }
+
+
 @router.post("/upload-reference")
 async def upload_reference(
     file: UploadFile = File(...),
     name: Optional[str] = Query(default=None),
     user_id: Optional[str] = Query(default=None),
+    fast_learn: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
     Upload a reference PDF to learn its format.
-    Saves the PDF and returns a job_id for tracking progress.
+
+    fast_learn=false (default): saves the PDF and returns a job_id for async processing.
+    fast_learn=true: runs the full fast-learn pipeline synchronously and returns
+                     {template_id, status, confidence, time_taken_sec, match_source, hints}.
     """
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -50,6 +112,9 @@ async def upload_reference(
     content = await file.read()
     with open(temp_path, "wb") as f:
         f.write(content)
+
+    if fast_learn:
+        return await _fast_learn_pipeline(temp_path, template_name, user_id, db)
 
     _jobs[job_id] = {
         "status": "pending",
