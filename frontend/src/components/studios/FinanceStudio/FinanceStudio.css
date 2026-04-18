@@ -1,0 +1,35 @@
+.finance-studio {
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  gap: 12px;
+  height: 100%;
+  padding: 12px;
+  background: transparent;
+}
+
+.finance-studio__left,
+.finance-studio__right {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: auto;
+  padding: 12px;
+  backdrop-filter: blur(12px);
+}
+
+.finance-studio__center {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-width: 0;
+}
+
+.finance-studio__center > * {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: auto;
+  padding: 12px;
+  backdrop-filter: blur(12px);
+  min-width: 0;
+}
