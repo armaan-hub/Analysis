@@ -147,11 +147,12 @@ async def get_job_status(job_id: str) -> dict:
 async def list_templates(
     user_id: str = Query(...),
     status: Optional[str] = Query(default=None),
+    format_family: Optional[str] = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """List all templates for a user."""
     store = TemplateStore(db)
-    templates = await store.list_user_templates(user_id, status=status)
+    templates = await store.list_user_templates(user_id, status=status, format_family=format_family)
     return {
         "templates": [
             {
@@ -162,6 +163,8 @@ async def list_templates(
                 "source_pdf_name": t.source_pdf_name,
                 "page_count": t.page_count,
                 "is_global": t.is_global,
+                "format_family": t.format_family,
+                "format_variant": t.format_variant,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
             for t in templates
@@ -170,10 +173,13 @@ async def list_templates(
 
 
 @router.get("/library")
-async def list_global_templates(db: AsyncSession = Depends(get_db)) -> dict:
+async def list_global_templates(
+    format_family: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
     """List globally shared templates."""
     store = TemplateStore(db)
-    templates = await store.list_global_templates()
+    templates = await store.list_global_templates(format_family=format_family)
     return {
         "templates": [
             {
@@ -182,6 +188,8 @@ async def list_global_templates(db: AsyncSession = Depends(get_db)) -> dict:
                 "status": t.status,
                 "confidence": t.confidence_score,
                 "source_pdf_name": t.source_pdf_name,
+                "format_family": t.format_family,
+                "format_variant": t.format_variant,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
             for t in templates
@@ -210,6 +218,8 @@ async def get_template(
         "source_pdf_name": tmpl.source_pdf_name,
         "page_count": tmpl.page_count,
         "is_global": tmpl.is_global,
+        "format_family": tmpl.format_family,
+        "format_variant": tmpl.format_variant,
         "created_at": tmpl.created_at.isoformat() if tmpl.created_at else None,
     }
 
@@ -257,6 +267,8 @@ async def update_template_config(
         raise HTTPException(status_code=400, detail="config field required")
 
     new_name = payload.get("name", tmpl.name)
+    new_format_family = payload.get("format_family")
+    new_format_variant = payload.get("format_variant")
 
     report = _verifier.generate_report(new_config)
     new_status = "verified" if report["overall_passed"] else "needs_review"
@@ -268,6 +280,8 @@ async def update_template_config(
         status=new_status,
         confidence_score=report["confidence"],
         verification_report=json.dumps(report),
+        format_family=new_format_family,
+        format_variant=new_format_variant,
     )
 
     return {

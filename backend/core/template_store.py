@@ -29,6 +29,8 @@ class TemplateStore:
         page_count: Optional[int] = None,
         source_pdf_name: Optional[str] = None,
         template_id: Optional[str] = None,
+        format_family: str = "custom",
+        format_variant: Optional[str] = None,
     ) -> Template:
         """Create or replace a template."""
         config_json = json.dumps(config)
@@ -47,6 +49,8 @@ class TemplateStore:
                     verification_report=verification_report,
                     page_count=page_count,
                     source_pdf_name=source_pdf_name,
+                    format_family=format_family,
+                    format_variant=format_variant,
                     updated_at=now,
                 )
             )
@@ -63,6 +67,8 @@ class TemplateStore:
                 verification_report=verification_report,
                 page_count=page_count,
                 source_pdf_name=source_pdf_name,
+                format_family=format_family,
+                format_variant=format_variant,
             )
             self.session.add(tmpl)
             await self.session.commit()
@@ -77,23 +83,25 @@ class TemplateStore:
         return result.scalar_one_or_none()
 
     async def list_user_templates(
-        self, user_id: str, status: Optional[str] = None
+        self, user_id: str, status: Optional[str] = None, format_family: Optional[str] = None
     ) -> List[Template]:
-        """List all templates for a user, optionally filtered by status."""
+        """List all templates for a user, optionally filtered by status and/or format_family."""
         q = select(Template).where(Template.user_id == user_id)
         if status:
             q = q.where(Template.status == status)
+        if format_family:
+            q = q.where(Template.format_family == format_family)
         q = q.order_by(Template.updated_at.desc())
         result = await self.session.execute(q)
         return list(result.scalars().all())
 
-    async def list_global_templates(self) -> List[Template]:
-        """List globally shared templates."""
-        result = await self.session.execute(
-            select(Template)
-            .where(Template.is_global == True)
-            .order_by(Template.updated_at.desc())
-        )
+    async def list_global_templates(self, format_family: Optional[str] = None) -> List[Template]:
+        """List globally shared templates, optionally filtered by format_family."""
+        q = select(Template).where(Template.is_global == True)
+        if format_family:
+            q = q.where(Template.format_family == format_family)
+        q = q.order_by(Template.updated_at.desc())
+        result = await self.session.execute(q)
         return list(result.scalars().all())
 
     async def publish_global(self, template_id: str) -> Optional[Template]:
@@ -123,19 +131,26 @@ class TemplateStore:
         status: str,
         confidence_score: float,
         verification_report: Optional[str] = None,
+        format_family: Optional[str] = None,
+        format_variant: Optional[str] = None,
     ) -> None:
         """Update config, name, status, and confidence of an existing template."""
+        values: dict = dict(
+            config_json=json.dumps(config),
+            name=name,
+            status=status,
+            confidence_score=confidence_score,
+            verification_report=verification_report,
+            updated_at=datetime.now(timezone.utc),
+        )
+        if format_family is not None:
+            values["format_family"] = format_family
+        if format_variant is not None:
+            values["format_variant"] = format_variant
         stmt = (
             update(Template)
             .where(Template.id == template_id)
-            .values(
-                config_json=json.dumps(config),
-                name=name,
-                status=status,
-                confidence_score=confidence_score,
-                verification_report=verification_report,
-                updated_at=datetime.now(timezone.utc),
-            )
+            .values(**values)
         )
         await self.session.execute(stmt)
         await self.session.commit()
