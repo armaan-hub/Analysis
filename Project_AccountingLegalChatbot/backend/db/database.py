@@ -71,3 +71,6 @@ async def get_db() -> AsyncSession:
             raise
         finally:
             await session.close()
+
+
+AsyncSessionLocal = async_session

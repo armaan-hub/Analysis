@@ -336,3 +336,44 @@ class TemplateFeedback(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     template = relationship("Template", back_populates="feedback")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Audit Studio – Versioning / Chat / Output Models
+# ═══════════════════════════════════════════════════════════════════
+
+class ProfileVersion(Base):
+    __tablename__ = "profile_versions"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    profile_id = Column(String(36), ForeignKey("audit_profiles.id"), nullable=False)
+    branch_name = Column(String(255), nullable=False)
+    profile_json = Column(Text, nullable=False)
+    is_current = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class AuditChatMessage(Base):
+    __tablename__ = "audit_chat_messages"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    profile_id = Column(String(36), ForeignKey("audit_profiles.id"), nullable=False)
+    version_id = Column(String(36), ForeignKey("profile_versions.id"), nullable=True)
+    role = Column(String(20), nullable=False)      # user | assistant
+    content = Column(Text, nullable=False)
+    citations = Column(Text, nullable=True)        # JSON string
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class GeneratedOutput(Base):
+    __tablename__ = "generated_outputs"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    profile_id = Column(String(36), ForeignKey("audit_profiles.id"), nullable=False)
+    version_id = Column(String(36), ForeignKey("profile_versions.id"), nullable=True)
+    output_type = Column(String(50), nullable=False)   # audit_report | profit_loss | ...
+    template_id = Column(String(36), ForeignKey("templates.id"), nullable=True)
+    status = Column(String(20), default="pending")     # pending|processing|ready|failed
+    output_path = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
