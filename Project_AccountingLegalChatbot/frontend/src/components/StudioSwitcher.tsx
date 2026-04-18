@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, BarChart2, Bell, Settings, Sun, Moon, BookOpen } from 'lucide-react';
+import { MessageSquare, BarChart2, Bell, Settings, Sun, Moon, BookOpen, Layout } from 'lucide-react';
 import { useStudio, type Studio } from '../context/StudioProvider';
 import { useTheme } from '../context/ThemeContext';
 
@@ -25,6 +25,7 @@ export function StudioSwitcher({ alertCount = 0 }: Props) {
     { icon: <MessageSquare size={20} />, label: 'Legal Intelligence', path: '/', studio: 'legal' },
     { icon: <BarChart2 size={20} />, label: 'Financial Reporting', path: '/reports', studio: 'financial' },
     { icon: <BookOpen size={20} />, label: 'Audit Profiles', path: '/profiles', studio: 'profiles' },
+    { icon: <Layout size={20} />, label: 'Template Learning', path: '/templates', studio: 'templates' },
     { icon: <Bell size={20} />, label: 'Regulatory Center', path: '/monitoring', studio: 'regulatory' },
     { icon: <Settings size={20} />, label: 'Settings', path: '/settings', studio: 'settings' },
   ];
