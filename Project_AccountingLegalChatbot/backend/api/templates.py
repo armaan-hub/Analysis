@@ -1,0 +1,255 @@
+"""
+FastAPI routes for Template Learning System.
+Provides upload, learn, list, get, delete, and publish endpoints.
+"""
+import json
+import os
+import uuid
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.template_analyzer import TemplateAnalyzer
+from core.template_verifier import TemplateVerifier
+from core.template_store import TemplateStore
+from db.database import get_db
+
+router = APIRouter(prefix="/api/templates", tags=["templates"])
+
+_analyzer = TemplateAnalyzer()
+_verifier = TemplateVerifier()
+
+# In-memory job tracking (adequate for single-process; replace with Redis at scale)
+_jobs: dict = {}
+
+
+@router.post("/upload-reference")
+async def upload_reference(
+    file: UploadFile = File(...),
+    name: Optional[str] = Query(default=None),
+    user_id: Optional[str] = Query(default=None),
+) -> dict:
+    """
+    Upload a reference PDF to learn its format.
+    Saves the PDF and returns a job_id for tracking progress.
+    """
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    job_id = str(uuid.uuid4())
+    template_name = name or (file.filename or "").replace(".pdf", "") or f"template-{job_id[:8]}"
+
+    temp_dir = os.path.join(os.path.dirname(__file__), "..", "uploads", "temp_templates")
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_path = os.path.join(temp_dir, f"{job_id}_{file.filename}")
+
+    content = await file.read()
+    with open(temp_path, "wb") as f:
+        f.write(content)
+
+    _jobs[job_id] = {
+        "status": "pending",
+        "template_name": template_name,
+        "user_id": user_id,
+        "pdf_path": temp_path,
+        "progress": 0,
+    }
+
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "message": "Reference PDF uploaded. Call POST /api/templates/learn/{job_id} to start analysis.",
+    }
+
+
+@router.post("/learn/{job_id}")
+async def start_learning(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Start background template learning for an uploaded PDF.
+    """
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = _jobs[job_id]
+    if job["status"] not in ("pending", "failed"):
+        return {"job_id": job_id, "status": job["status"], "message": "Job already running or complete"}
+
+    _jobs[job_id]["status"] = "processing"
+
+    async def _learn():
+        store = TemplateStore(db)
+        try:
+            _jobs[job_id]["progress"] = 20
+            config = _analyzer.analyze(_jobs[job_id]["pdf_path"])
+            _jobs[job_id]["progress"] = 60
+
+            report = _verifier.generate_report(config)
+            _jobs[job_id]["progress"] = 80
+
+            status = "verified" if report["overall_passed"] else "needs_review"
+
+            tmpl = await store.save(
+                name=_jobs[job_id]["template_name"],
+                config=config,
+                user_id=_jobs[job_id]["user_id"],
+                status=status,
+                confidence_score=report["confidence"],
+                verification_report=json.dumps(report),
+                page_count=config.get("page_count"),
+                source_pdf_name=config.get("source"),
+            )
+
+            _jobs[job_id].update({
+                "status": status,
+                "template_id": tmpl.id,
+                "confidence": report["confidence"],
+                "progress": 100,
+            })
+
+            # Clean up temp file
+            try:
+                os.remove(_jobs[job_id]["pdf_path"])
+            except OSError:
+                pass
+
+        except Exception as exc:
+            _jobs[job_id]["status"] = "failed"
+            _jobs[job_id]["error"] = str(exc)
+            _jobs[job_id]["progress"] = 100
+
+    background_tasks.add_task(_learn)
+
+    return {"job_id": job_id, "status": "processing", "message": "Template learning started"}
+
+
+@router.get("/status/{job_id}")
+async def get_job_status(job_id: str) -> dict:
+    """Get the current status of a learning job."""
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = _jobs[job_id]
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "progress": job.get("progress", 0),
+        "template_id": job.get("template_id"),
+        "confidence": job.get("confidence"),
+        "error": job.get("error"),
+    }
+
+
+@router.get("/list")
+async def list_templates(
+    user_id: str = Query(...),
+    status: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """List all templates for a user."""
+    store = TemplateStore(db)
+    templates = await store.list_user_templates(user_id, status=status)
+    return {
+        "templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "status": t.status,
+                "confidence": t.confidence_score,
+                "source_pdf_name": t.source_pdf_name,
+                "page_count": t.page_count,
+                "is_global": t.is_global,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in templates
+        ]
+    }
+
+
+@router.get("/library")
+async def list_global_templates(db: AsyncSession = Depends(get_db)) -> dict:
+    """List globally shared templates."""
+    store = TemplateStore(db)
+    templates = await store.list_global_templates()
+    return {
+        "templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "status": t.status,
+                "confidence": t.confidence_score,
+                "source_pdf_name": t.source_pdf_name,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in templates
+        ]
+    }
+
+
+@router.get("/{template_id}")
+async def get_template(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get full template config by ID."""
+    store = TemplateStore(db)
+    tmpl = await store.load(template_id)
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return {
+        "id": tmpl.id,
+        "name": tmpl.name,
+        "status": tmpl.status,
+        "confidence": tmpl.confidence_score,
+        "config": store.get_config(tmpl),
+        "verification_report": json.loads(tmpl.verification_report) if tmpl.verification_report else None,
+        "source_pdf_name": tmpl.source_pdf_name,
+        "page_count": tmpl.page_count,
+        "is_global": tmpl.is_global,
+        "created_at": tmpl.created_at.isoformat() if tmpl.created_at else None,
+    }
+
+
+@router.post("/publish/{template_id}")
+async def publish_to_library(
+    template_id: str,
+    user_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Publish a verified template to the global library."""
+    store = TemplateStore(db)
+    tmpl = await store.load(template_id)
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if tmpl.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized: not the template owner")
+    if tmpl.status not in ("verified", "ready"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Template status '{tmpl.status}' cannot be published; must be verified or ready",
+        )
+
+    await store.publish_global(template_id)
+    return {"message": "Template published to global library", "template_id": template_id}
+
+
+@router.delete("/{template_id}")
+async def delete_template(
+    template_id: str,
+    user_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Delete a template (owner only)."""
+    store = TemplateStore(db)
+    tmpl = await store.load(template_id)
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if tmpl.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized: not the template owner")
+
+    await store.delete(template_id)
+    return {"message": "Template deleted", "template_id": template_id}
