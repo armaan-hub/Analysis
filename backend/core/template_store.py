@@ -179,12 +179,12 @@ class TemplateStore:
 
         Retuning formula:
           score_map = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}
-          - If total feedback count (including new) < 3: 70% original / 30% feedback avg
-          - Otherwise: 40% original / 60% feedback avg
+          - If total feedback count (including new) < 3: 70% current / 30% feedback avg
+          - Otherwise: 40% current / 60% feedback avg
         Status update:
           - new_confidence >= 0.85  → "verified"
-          - new_confidence >= 0.60  → "needs_review"
-          - new_confidence < 0.60   → "needs_review"
+          - new_confidence < 0.85 and template is global or "ready" → "verified" (no demotion)
+          - otherwise → "needs_review"
         """
         VALID_TYPES = {"correct", "partial", "incorrect"}
         if feedback_type not in VALID_TYPES:
@@ -216,15 +216,20 @@ class TemplateStore:
         feedback_scores = [score_map[f.feedback_type] for f in all_feedback]
         feedback_avg = sum(feedback_scores) / len(feedback_scores)
 
-        original_confidence = tmpl.confidence_score or 0.0
+        current_confidence = tmpl.confidence_score or 0.0
         n = len(all_feedback)
         if n < 3:
-            new_confidence = 0.70 * original_confidence + 0.30 * feedback_avg
+            new_confidence = 0.70 * current_confidence + 0.30 * feedback_avg
         else:
-            new_confidence = 0.40 * original_confidence + 0.60 * feedback_avg
+            new_confidence = 0.40 * current_confidence + 0.60 * feedback_avg
 
         new_confidence = max(0.0, min(1.0, new_confidence))
-        new_status = "verified" if new_confidence >= 0.85 else "needs_review"
+        if new_confidence >= 0.85:
+            new_status = "verified"
+        elif tmpl.is_global or tmpl.status == "ready":
+            new_status = "verified"  # don't demote published templates
+        else:
+            new_status = "needs_review"
 
         await self.session.execute(
             update(Template)
@@ -242,7 +247,7 @@ class TemplateStore:
             "template_id": template_id,
             "feedback_count": n,
             "feedback_avg": feedback_avg,
-            "original_confidence": original_confidence,
+            "current_confidence": current_confidence,
             "new_confidence": new_confidence,
             "new_status": new_status,
         }

@@ -3,6 +3,15 @@ Integration tests for /api/templates routes.
 Uses the existing conftest.py fixtures (client, db_session).
 """
 import pytest
+from core.template_store import TemplateStore
+
+_MINIMAL_CONFIG = {
+    "page": {"width": 612, "height": 792, "unit": "points"},
+    "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
+    "fonts": {},
+    "tables": [],
+    "sections": [],
+}
 
 
 @pytest.mark.asyncio
@@ -84,5 +93,58 @@ async def test_delete_template_not_found(client):
     resp = await client.delete(
         "/api/templates/nonexistent-id",
         params={"user_id": "user1"},
+    )
+    assert resp.status_code == 404
+
+
+# ── Feedback endpoint tests ───────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_feedback_correct_increases_confidence(client, db_session):
+    """Happy path: 'correct' feedback → 200 with new_confidence field."""
+    store = TemplateStore(db_session)
+    tmpl = await store.save(
+        name="Feedback Test Template",
+        config=_MINIMAL_CONFIG,
+        user_id="user_fb",
+        status="needs_review",
+        confidence_score=0.5,
+    )
+
+    resp = await client.post(
+        f"/api/templates/{tmpl.id}/feedback",
+        json={"feedback_type": "correct", "user_id": "user_fb"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "new_confidence" in data
+    assert data["new_confidence"] > 0.5
+
+
+@pytest.mark.asyncio
+async def test_feedback_invalid_type_returns_400(client, db_session):
+    """Invalid feedback_type → 400."""
+    store = TemplateStore(db_session)
+    tmpl = await store.save(
+        name="Feedback 400 Test",
+        config=_MINIMAL_CONFIG,
+        user_id="user_fb2",
+        status="needs_review",
+        confidence_score=0.5,
+    )
+
+    resp = await client.post(
+        f"/api/templates/{tmpl.id}/feedback",
+        json={"feedback_type": "excellent"},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_feedback_nonexistent_template_returns_404(client):
+    """Feedback on non-existent template → 404."""
+    resp = await client.post(
+        "/api/templates/nonexistent-template-xyz/feedback",
+        json={"feedback_type": "correct"},
     )
     assert resp.status_code == 404
