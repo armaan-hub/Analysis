@@ -9,16 +9,13 @@ import { ContextualSidebar } from './components/ContextualSidebar';
 const LegalStudio = React.lazy(() =>
   import('./components/studios/LegalStudio/LegalStudio').then(m => ({ default: m.LegalStudio }))
 );
-const FinancialStudio = React.lazy(() =>
-  import('./components/studios/FinancialStudio/FinancialStudio').then(m => ({ default: m.FinancialStudio }))
+const FinanceStudio = React.lazy(() =>
+  import('./components/studios/FinanceStudio/FinanceStudio').then(m => ({ default: m.FinanceStudio }))
 );
 const RegulatoryStudio = React.lazy(() =>
   import('./components/studios/RegulatoryStudio/RegulatoryStudio').then(m => ({ default: m.RegulatoryStudio }))
 );
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
-const AuditProfileStudio = React.lazy(() =>
-  import('./components/studios/AuditProfileStudio/AuditProfileStudio').then(m => ({ default: m.AuditProfileStudio }))
-);
 const TemplateStudio = React.lazy(() =>
   import('./components/studios/TemplateStudio/TemplateStudio').then(m => ({ default: m.TemplateStudio }))
 );
@@ -48,7 +45,6 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [chatKey, setChatKey] = useState(0);
-  const [wizardEditState, setWizardEditState] = useState<Record<string, unknown> | null>(null);
 
   const handleNewChat = () => {
     setChatKey(k => k + 1);
@@ -70,7 +66,7 @@ export default function App() {
       <StudioProvider>
         <div className="app-shell">
           <StudioSwitcher alertCount={alertCount} />
-          <ContextualSidebar conversations={conversations} onLoadConversation={setActiveConvId} onNewChat={handleNewChat} onEditReport={setWizardEditState} />
+          <ContextualSidebar conversations={conversations} onLoadConversation={setActiveConvId} onNewChat={handleNewChat} />
           <main className="studio-main">
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -84,17 +80,8 @@ export default function App() {
                     />
                   }
                 />
-                <Route
-                  path="/reports"
-                  element={
-                    <FinancialStudio
-                      initialEditState={wizardEditState ?? undefined}
-                      onEditConsumed={() => setWizardEditState(null)}
-                    />
-                  }
-                />
+                <Route path="/finance" element={<FinanceStudio />} />
                 <Route path="/monitoring" element={<RegulatoryStudio />} />
-                <Route path="/profiles" element={<AuditProfileStudio />} />
                 <Route path="/templates" element={<TemplateStudio />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
