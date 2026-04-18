@@ -115,6 +115,31 @@ class TemplateStore:
             return True
         return False
 
+    async def update_config(
+        self,
+        template_id: str,
+        config: dict,
+        name: str,
+        status: str,
+        confidence_score: float,
+        verification_report: Optional[str] = None,
+    ) -> None:
+        """Update config, name, status, and confidence of an existing template."""
+        stmt = (
+            update(Template)
+            .where(Template.id == template_id)
+            .values(
+                config_json=json.dumps(config),
+                name=name,
+                status=status,
+                confidence_score=confidence_score,
+                verification_report=verification_report,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
     def get_config(self, template: Template) -> dict:
         """Deserialize template config_json to dict."""
         return json.loads(template.config_json)
