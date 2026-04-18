@@ -318,3 +318,21 @@ class Template(Base):
     confidence_score = Column(Float, default=0.0)
     format_family = Column(String(20), default="custom", nullable=False, server_default="custom")
     format_variant = Column(String(255), nullable=True)
+
+    feedback = relationship("TemplateFeedback", back_populates="template", cascade="all, delete-orphan")
+
+
+class TemplateFeedback(Base):
+    """User correction feedback on a template's accuracy."""
+    __tablename__ = "template_feedback"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    template_id = Column(String(36), ForeignKey("templates.id"), nullable=False)
+    user_id = Column(String(36), nullable=True)
+    feedback_type = Column(String(20), nullable=False)  # "correct" | "incorrect" | "partial"
+    element = Column(String(50), nullable=True)  # which element: "page", "margins", "fonts", "tables", "sections"
+    correction_json = Column(JSON, nullable=True)  # the corrected value
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    template = relationship("Template", back_populates="feedback")
