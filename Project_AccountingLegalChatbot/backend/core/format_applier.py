@@ -989,10 +989,10 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     # Net movements in current account = closing CA - opening CA
     _ca_mvmt = _ca_close - _ca_open
 
-    _soce_desc_w2 = 155
+    _soce_desc_w2 = 140
     _soce_val_w = (avail_w - _soce_desc_w2) / 4
 
-    _soce_hdr = ["", "Share\nCapital", "Shareholders'\nCurrent Account", "Retained\nEarnings", "Total"]
+    _soce_hdr = ["", "Share\nCapital", "Shareholders'\nCurrent\nAccount", "Retained\nEarnings", "Total"]
     _soce_sub = ["", "AED", "AED", "AED", "AED"]
 
     _soce_year = nice_dt[-4:]
@@ -1025,6 +1025,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
         ("FONTNAME", (0, -1), (-1, -1), "Times-Bold"),         # closing balance bold
         ("FONTSIZE", (0, 0), (-1, -1), FS),
         ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("ALIGN", (1, 0), (-1, 1), "CENTER"),                  # center header rows
         ("ALIGN", (0, 4), (-1, 4), "LEFT"),                    # "Changes" label left-aligned
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -1547,7 +1548,6 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     ]))
     story.append(_depr_tbl)
     story.append(Spacer(1, 4))
-    story.append(PageBreak())
 
     story.append(Paragraph("<b>4. Significant Accounting Policies (continued)</b>", s_note_title))
     story.append(Spacer(1, 4))
