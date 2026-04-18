@@ -18,10 +18,6 @@ httpx==0.28.1
 
 # RAG / Embeddings
 chromadb==0.5.15
-langchain==0.3.14
-langchain-community==0.3.14
-langchain-openai==0.3.0
-langchain-text-splitters==0.3.4
 
 # Document Parsing
 PyMuPDF==1.25.3
@@ -62,7 +58,6 @@ websockets==14.1
 starlette==0.41.3
 
 # Utilities
-uuid6==2024.7.10
 python-dateutil==2.9.0
 
 # Requests dependency pins (W2 fix: silence RequestsDependencyWarning)

@@ -7,12 +7,12 @@ import json
 import logging
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
@@ -237,7 +237,7 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
         prev_conv = prev_conv_result.scalar_one_or_none()
         if prev_conv:
             idle_minutes = (
-                datetime.utcnow() - prev_conv.updated_at.replace(tzinfo=None)
+                datetime.now(timezone.utc).replace(tzinfo=None) - prev_conv.updated_at
             ).total_seconds() / 60
             if idle_minutes >= 30:
                 prev_msgs_result = await db.execute(
@@ -519,11 +519,11 @@ async def list_conversations(
 
     response = []
     for conv in conversations:
-        # Count messages
+        # Count messages efficiently
         msg_count_result = await db.execute(
-            select(Message).where(Message.conversation_id == conv.id)
+            select(func.count()).select_from(Message).where(Message.conversation_id == conv.id)
         )
-        msg_count = len(msg_count_result.scalars().all())
+        msg_count = msg_count_result.scalar_one()
 
         response.append(ConversationResponse(
             id=conv.id,

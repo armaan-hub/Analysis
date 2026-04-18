@@ -39,6 +39,14 @@ PREBUILT_FORMATS = [
                 },
             },
         },
+        "fingerprint": {
+            "page_size": "A4",
+            "currency": "USD",
+            "section_count": 4,
+            "has_notes": True,
+            "col_count": 2,
+            "format_family": "IFRS",
+        },
     },
     {
         "id": "prebuilt-gaap-standard",
@@ -74,6 +82,14 @@ PREBUILT_FORMATS = [
                 },
             },
         },
+        "fingerprint": {
+            "page_size": "US_LETTER",
+            "currency": "USD",
+            "section_count": 5,
+            "has_notes": True,
+            "col_count": 2,
+            "format_family": "GAAP",
+        },
     },
     {
         "id": "prebuilt-local-tax",
@@ -108,6 +124,14 @@ PREBUILT_FORMATS = [
                 },
             },
         },
+        "fingerprint": {
+            "page_size": "A4",
+            "currency": "AED",
+            "section_count": 4,
+            "has_notes": False,
+            "col_count": 2,
+            "format_family": "local-tax",
+        },
     },
     {
         "id": "prebuilt-uk-frs102",
@@ -137,6 +161,14 @@ PREBUILT_FORMATS = [
                 "source": "prebuilt",
                 "confidence_per_element": {"page_size": 1.0, "margins": 1.0, "fonts": 0.9, "tables": 0.8},
             },
+        },
+        "fingerprint": {
+            "page_size": "A4",
+            "currency": "GBP",
+            "section_count": 5,
+            "has_notes": True,
+            "col_count": 2,
+            "format_family": "IFRS",
         },
     },
     {
@@ -168,6 +200,14 @@ PREBUILT_FORMATS = [
                 "confidence_per_element": {"page_size": 1.0, "margins": 1.0, "fonts": 0.9, "tables": 0.8},
             },
         },
+        "fingerprint": {
+            "page_size": "A4",
+            "currency": "SAR",
+            "section_count": 5,
+            "has_notes": True,
+            "col_count": 2,
+            "format_family": "local-tax",
+        },
     },
     {
         "id": "prebuilt-gcc-standard",
@@ -198,6 +238,15 @@ PREBUILT_FORMATS = [
                 "source": "prebuilt",
                 "confidence_per_element": {"page_size": 1.0, "margins": 1.0, "fonts": 0.9, "tables": 0.8},
             },
+        },
+        "fingerprint": {
+            "page_size": "A4",
+            "page_size_alts": ["US_LETTER"],
+            "currency": "AED",
+            "section_count": 6,
+            "has_notes": True,
+            "col_count": 3,
+            "format_family": "IFRS",
         },
     },
 ]
