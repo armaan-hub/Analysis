@@ -3,6 +3,7 @@ Pre-built format library shipped with the app.
 Provides ready-to-use IFRS, GAAP, and Local Tax templates without requiring
 a reference PDF upload.
 """
+from typing import Optional
 
 PREBUILT_FORMATS = [
     {
@@ -111,7 +112,7 @@ PREBUILT_FORMATS = [
 ]
 
 
-def get_prebuilt_by_id(format_id: str) -> dict | None:
+def get_prebuilt_by_id(format_id: str) -> Optional[dict]:
     """Return prebuilt format dict by id, or None."""
     return next((f for f in PREBUILT_FORMATS if f["id"] == format_id), None)
 
