@@ -5,7 +5,7 @@ Provides upload, learn, list, get, delete, and publish endpoints.
 import json
 import os
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -235,6 +235,139 @@ async def publish_to_library(
 
     await store.publish_global(template_id)
     return {"message": "Template published to global library", "template_id": template_id}
+
+
+@router.put("/{template_id}")
+async def update_template_config(
+    template_id: str,
+    payload: dict,
+    user_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update template config (manual fine-tuning)."""
+    store = TemplateStore(db)
+    tmpl = await store.load(template_id)
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if tmpl.user_id and tmpl.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    new_config = payload.get("config")
+    if not new_config:
+        raise HTTPException(status_code=400, detail="config field required")
+
+    new_name = payload.get("name", tmpl.name)
+
+    report = _verifier.generate_report(new_config)
+    new_status = "verified" if report["overall_passed"] else "needs_review"
+
+    await store.update_config(
+        template_id=template_id,
+        config=new_config,
+        name=new_name,
+        status=new_status,
+        confidence_score=report["confidence"],
+        verification_report=json.dumps(report),
+    )
+
+    return {
+        "message": "Template updated",
+        "template_id": template_id,
+        "status": new_status,
+        "confidence": report["confidence"],
+    }
+
+
+@router.post("/batch-learn")
+async def batch_learn(
+    files: List[UploadFile] = File(...),
+    name: str = Query(...),
+    user_id: Optional[str] = Query(default=None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Upload multiple reference PDFs and produce a consensus template config.
+    Returns job_id for polling.
+    """
+    from core.batch_template_learner import BatchTemplateLearner
+
+    if len(files) < 1:
+        raise HTTPException(status_code=400, detail="At least one PDF required")
+
+    job_id = str(uuid.uuid4())
+    temp_dir = os.path.join(os.path.dirname(__file__), "..", "uploads", "temp_templates")
+    os.makedirs(temp_dir, exist_ok=True)
+
+    pdf_paths = []
+    for f in files:
+        if not (f.filename or "").lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail=f"{f.filename} is not a PDF")
+        temp_path = os.path.join(temp_dir, f"{job_id}_{f.filename}")
+        content = await f.read()
+        with open(temp_path, "wb") as fp:
+            fp.write(content)
+        pdf_paths.append(temp_path)
+
+    _jobs[job_id] = {
+        "status": "processing",
+        "template_name": name,
+        "user_id": user_id,
+        "pdf_paths": pdf_paths,
+        "progress": 0,
+        "pdf_count": len(files),
+    }
+
+    async def _batch_learn_task():
+        store = TemplateStore(db)
+        try:
+            _jobs[job_id]["progress"] = 20
+            learner = BatchTemplateLearner()
+            config = learner.learn_from_multiple(pdf_paths)
+            _jobs[job_id]["progress"] = 70
+
+            report = _verifier.generate_report(config)
+            _jobs[job_id]["progress"] = 85
+
+            status = "verified" if report["overall_passed"] else "needs_review"
+
+            tmpl = await store.save(
+                name=name,
+                config=config,
+                user_id=user_id,
+                status=status,
+                confidence_score=report["confidence"],
+                verification_report=json.dumps(report),
+                page_count=config.get("page_count"),
+                source_pdf_name=config.get("source"),
+            )
+
+            _jobs[job_id].update({
+                "status": status,
+                "template_id": tmpl.id,
+                "confidence": report["confidence"],
+                "progress": 100,
+            })
+
+            for p in pdf_paths:
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+
+        except Exception as exc:
+            _jobs[job_id]["status"] = "failed"
+            _jobs[job_id]["error"] = str(exc)
+            _jobs[job_id]["progress"] = 100
+
+    background_tasks.add_task(_batch_learn_task)
+
+    return {
+        "job_id": job_id,
+        "status": "processing",
+        "message": f"Batch learning started for {len(files)} PDF(s)",
+        "pdf_count": len(files),
+    }
 
 
 @router.delete("/{template_id}")
