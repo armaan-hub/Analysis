@@ -385,6 +385,48 @@ async def batch_learn(
     }
 
 
+@router.post("/{template_id}/feedback")
+async def submit_feedback(
+    template_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Submit user feedback on template accuracy.
+    Recomputes confidence_score based on feedback history.
+
+    Payload: {
+        "user_id": str (optional),
+        "feedback_type": "correct" | "incorrect" | "partial",
+        "element": "page" | "margins" | "fonts" | "tables" | "sections" (optional),
+        "correction_json": dict (optional, the corrected value),
+        "notes": str (optional)
+    }
+    """
+    feedback_type = payload.get("feedback_type")
+    if feedback_type not in ("correct", "incorrect", "partial"):
+        raise HTTPException(
+            status_code=400,
+            detail="feedback_type must be 'correct', 'incorrect', or 'partial'",
+        )
+
+    store = TemplateStore(db)
+    tmpl = await store.load(template_id)
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    result = await store.submit_feedback(
+        template_id=template_id,
+        feedback_type=feedback_type,
+        user_id=payload.get("user_id"),
+        element=payload.get("element"),
+        correction_json=payload.get("correction_json"),
+        notes=payload.get("notes"),
+    )
+
+    return result
+
+
 @router.delete("/{template_id}")
 async def delete_template(
     template_id: str,
