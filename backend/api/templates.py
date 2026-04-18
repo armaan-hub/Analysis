@@ -13,12 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.template_analyzer import TemplateAnalyzer
 from core.template_verifier import TemplateVerifier
 from core.template_store import TemplateStore, _UNSET
+from core.confidence_calibrator import ConfidenceCalibrator
 from db.database import get_db
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 
 _analyzer = TemplateAnalyzer()
 _verifier = TemplateVerifier()
+_calibrator = ConfidenceCalibrator()
 
 # In-memory job tracking (adequate for single-process; replace with Redis at scale)
 _jobs: dict = {}
@@ -279,6 +281,61 @@ async def apply_prebuilt_format(
         "name": tmpl.name,
         "format_family": tmpl.format_family,
         "format_variant": tmpl.format_variant,
+    }
+
+
+@router.post("/retrain")
+async def retrain_all_templates(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Retrain confidence scores for ALL templates using accumulated feedback."""
+    from sqlalchemy import select as sa_select
+    from db.models import TemplateFeedback
+    from sqlalchemy import update as sa_update
+
+    tmpl_result = await db.execute(sa_select(Template))
+    templates = tmpl_result.scalars().all()
+
+    results = []
+    for tmpl in templates:
+        fb_result = await db.execute(
+            sa_select(TemplateFeedback).where(TemplateFeedback.template_id == tmpl.id)
+        )
+        feedbacks = fb_result.scalars().all()
+        if not feedbacks:
+            results.append({
+                "template_id": tmpl.id,
+                "name": tmpl.name,
+                "action": "skipped",
+                "reason": "no_feedback",
+            })
+            continue
+
+        history = [
+            {"feedback_type": f.feedback_type, "original_confidence": tmpl.confidence_score}
+            for f in feedbacks
+        ]
+        old_score = tmpl.confidence_score
+        new_score = _calibrator.calibrate(old_score, history)
+
+        if tmpl.is_global and new_score < 0.5:
+            new_score = max(new_score, 0.5)
+
+        await db.execute(
+            sa_update(Template).where(Template.id == tmpl.id).values(confidence_score=new_score)
+        )
+        results.append({
+            "template_id": tmpl.id,
+            "name": tmpl.name,
+            "action": "retrained",
+            "old_confidence": round(old_score, 4),
+            "new_confidence": round(new_score, 4),
+        })
+
+    await db.commit()
+    return {
+        "retrained": len([r for r in results if r["action"] == "retrained"]),
+        "results": results,
     }
 
 

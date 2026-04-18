@@ -592,6 +592,22 @@
 /* Muted helper */
 .ts-muted { color: var(--s-muted, #888); font-size: 12px; }
 
+/* ── Prebuilt Formats Tab ─────────────────────────────────────── */
+
+.ts-prebuilt-tab { padding: 16px 0; }
+.ts-prebuilt-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.ts-filter-btn { padding: 6px 14px; border: 1px solid var(--s-border, #444); border-radius: 20px; background: transparent; cursor: pointer; font-size: 13px; color: var(--s-text, #eee); }
+.ts-filter-btn--active { background: var(--accent, #6c5ce7); color: white; border-color: var(--accent, #6c5ce7); }
+.ts-prebuilt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.ts-prebuilt-card { border: 1px solid var(--s-border, #444); border-radius: 8px; display: flex; flex-direction: column; padding: 16px; background: var(--s-surface, rgba(255,255,255,0.03)); }
+.ts-prebuilt-card-body { flex: 1; }
+.ts-prebuilt-name { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.ts-prebuilt-variant { font-size: 12px; margin: 0 0 8px; }
+.ts-prebuilt-desc { font-size: 13px; margin: 0; color: var(--s-muted, #888); }
+.ts-prebuilt-card-footer { margin-top: 16px; display: flex; justify-content: flex-end; }
+.ts-applied-badge { color: #5cb85c; font-size: 13px; font-weight: 500; }
+.ts-error { color: #d9534f; font-size: 13px; margin-bottom: 12px; }
+
 /* ── Light mode overrides ─────────────────────────────────────── */
 
 [data-theme="light"] .ts-root {
