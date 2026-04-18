@@ -94,6 +94,7 @@ from api.monitoring import router as monitoring_router
 from api.settings import router as settings_router
 from api.audit_profiles import router as audit_profiles_router
 from api.templates import router as templates_router
+from api import audit_studio
 
 app.include_router(chat_router)
 app.include_router(documents_router)
@@ -102,6 +103,7 @@ app.include_router(monitoring_router)
 app.include_router(settings_router)
 app.include_router(audit_profiles_router)
 app.include_router(templates_router)
+app.include_router(audit_studio.router)
 
 
 # ── Root Endpoint ─────────────────────────────────────────────────
