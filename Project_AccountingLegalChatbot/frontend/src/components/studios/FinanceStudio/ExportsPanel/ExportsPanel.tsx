@@ -1,5 +1,6 @@
 import { FormatPicker } from './FormatPicker';
 import { ExportCard } from './ExportCard';
+import { VersionCompare } from './VersionCompare';
 import type { OutputType } from '../types';
 
 const OUTPUTS: { type: OutputType; label: string }[] = [
@@ -19,6 +20,7 @@ export function ExportsPanel() {
       <div className="exports-panel__cards">
         {OUTPUTS.map(o => <ExportCard key={o.type} outputType={o.type} label={o.label} />)}
       </div>
+      <VersionCompare />
     </div>
   );
 }
