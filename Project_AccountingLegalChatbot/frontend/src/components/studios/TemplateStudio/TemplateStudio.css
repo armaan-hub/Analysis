@@ -516,6 +516,82 @@
   animation: spin 1s linear infinite;
 }
 
+/* ── Batch Upload / Drop zone ────────────────────────────────── */
+
+.ts-dropzone {
+  border: 2px dashed var(--s-border, #444);
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--s-text-muted, #888);
+  transition: border-color 0.2s, background 0.2s;
+  margin: 12px 0;
+}
+
+.ts-dropzone:hover,
+.ts-dropzone--active {
+  border-color: var(--accent, #6c5ce7);
+  background: rgba(108, 92, 231, 0.06);
+}
+
+/* File list */
+.ts-file-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ts-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--s-surface, rgba(255,255,255,0.04));
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.ts-btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--s-muted, #888);
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.ts-btn-icon:hover { color: #d9534f; }
+
+/* Job status */
+.ts-job-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  border-left: 3px solid;
+}
+
+.ts-job-status--processing { border-color: var(--accent, #6c5ce7); background: rgba(108,92,231,0.08); }
+.ts-job-status--verified   { border-color: #28a745; background: rgba(40,167,69,0.08); }
+.ts-job-status--needs_review { border-color: #ffc107; background: rgba(255,193,7,0.08); }
+.ts-job-status--failed     { border-color: #d9534f; background: rgba(217,83,79,0.08); }
+
+/* Muted helper */
+.ts-muted { color: var(--s-muted, #888); font-size: 12px; }
+
 /* ── Light mode overrides ─────────────────────────────────────── */
 
 [data-theme="light"] .ts-root {

@@ -78,7 +78,7 @@ export function TemplateEditor({ template, onSave, onCancel }: Props) {
     setSaving(true);
     setError('');
     try {
-      await API.put(`/api/templates/${template.id}`, { config });
+      await API.put(`/api/templates/${template.id}?user_id=default-user`, { config, name: template.name });
       onSave();
     } catch (e) {
       setError(getErrMsg(e, 'Save failed'));
@@ -90,16 +90,18 @@ export function TemplateEditor({ template, onSave, onCancel }: Props) {
   /* ── Form fields for common config ────────────────────────────── */
 
   const formFields: Array<{ label: string; path: string; placeholder: string }> = [
-    { label: 'Page Width (pt)', path: 'page_size.width', placeholder: 'e.g. 595' },
-    { label: 'Page Height (pt)', path: 'page_size.height', placeholder: 'e.g. 842' },
-    { label: 'Margin Top (pt)', path: 'margins.top', placeholder: 'e.g. 72' },
-    { label: 'Margin Bottom (pt)', path: 'margins.bottom', placeholder: 'e.g. 72' },
-    { label: 'Margin Left (pt)', path: 'margins.left', placeholder: 'e.g. 72' },
-    { label: 'Margin Right (pt)', path: 'margins.right', placeholder: 'e.g. 72' },
-    { label: 'Primary Font', path: 'fonts.primary', placeholder: 'e.g. Times New Roman' },
-    { label: 'Body Font Size', path: 'fonts.body_size', placeholder: 'e.g. 12' },
-    { label: 'Heading Font', path: 'fonts.heading', placeholder: 'e.g. Arial Bold' },
-    { label: 'Heading Font Size', path: 'fonts.heading_size', placeholder: 'e.g. 16' },
+    { label: 'Page Width (pt)',     path: 'page.width',           placeholder: '612' },
+    { label: 'Page Height (pt)',    path: 'page.height',          placeholder: '792' },
+    { label: 'Margin Top (pt)',     path: 'margins.top',          placeholder: '72' },
+    { label: 'Margin Bottom (pt)',  path: 'margins.bottom',       placeholder: '72' },
+    { label: 'Margin Left (pt)',    path: 'margins.left',         placeholder: '72' },
+    { label: 'Margin Right (pt)',   path: 'margins.right',        placeholder: '72' },
+    { label: 'Heading Font Family', path: 'fonts.heading.family', placeholder: 'Helvetica-Bold' },
+    { label: 'Heading Font Size',   path: 'fonts.heading.size',   placeholder: '12' },
+    { label: 'Body Font Family',    path: 'fonts.body.family',    placeholder: 'Helvetica' },
+    { label: 'Body Font Size',      path: 'fonts.body.size',      placeholder: '9' },
+    { label: 'Footer Font Family',  path: 'fonts.footer.family',  placeholder: 'Helvetica' },
+    { label: 'Footer Font Size',    path: 'fonts.footer.size',    placeholder: '8' },
   ];
 
   return (
