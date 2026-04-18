@@ -55,8 +55,9 @@ async def init_db():
         ):
             try:
                 await conn.execute(text(stmt))
-            except OperationalError:
-                pass  # Column already exists
+            except OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
 
 
 async def get_db() -> AsyncSession:

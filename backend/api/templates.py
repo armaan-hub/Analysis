@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.template_analyzer import TemplateAnalyzer
 from core.template_verifier import TemplateVerifier
-from core.template_store import TemplateStore
+from core.template_store import TemplateStore, _UNSET
 from db.database import get_db
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
@@ -268,7 +268,8 @@ async def update_template_config(
 
     new_name = payload.get("name", tmpl.name)
     new_format_family = payload.get("format_family")
-    new_format_variant = payload.get("format_variant")
+    # Distinguish "key absent" (don't touch) from "key present and null" (clear)
+    new_format_variant = payload["format_variant"] if "format_variant" in payload else _UNSET
 
     report = _verifier.generate_report(new_config)
     new_status = "verified" if report["overall_passed"] else "needs_review"
