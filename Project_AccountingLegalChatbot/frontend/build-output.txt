@@ -1,0 +1,10 @@
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+src/components/studios/AuditProfileStudio/AuditProfileStudio.tsx(769,7): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/studios/AuditProfileStudio/AuditProfileStudio.tsx(783,7): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/studios/LegalStudio/LegalStudio.tsx(138,30): error TS2352: Conversion of type '{ type: string; content?: string | undefined; conversation_id?: string | undefined; detected_domain?: string | undefined; sources?: Source[] | undefined; message?: string | undefined; }' to type '{ message_id: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'message_id' is missing in type '{ type: string; content?: string | undefined; conversation_id?: string | undefined; detected_domain?: string | undefined; sources?: Source[] | undefined; message?: string | undefined; }' but required in type '{ message_id: string; }'.
+src/components/studios/LegalStudio/LegalStudio.tsx(168,30): error TS2352: Conversion of type '{ type: string; content?: string | undefined; conversation_id?: string | undefined; detected_domain?: string | undefined; sources?: Source[] | undefined; message?: string | undefined; }' to type '{ queries: string[]; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'queries' is missing in type '{ type: string; content?: string | undefined; conversation_id?: string | undefined; detected_domain?: string | undefined; sources?: Source[] | undefined; message?: string | undefined; }' but required in type '{ queries: string[]; }'.
