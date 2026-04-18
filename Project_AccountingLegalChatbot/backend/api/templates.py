@@ -197,6 +197,71 @@ async def list_global_templates(
     }
 
 
+@router.get("/prebuilt")
+async def list_prebuilt_formats(
+    format_family: Optional[str] = Query(default=None),
+) -> dict:
+    """List pre-built format templates shipped with the app."""
+    from core.prebuilt_formats import PREBUILT_FORMATS, get_prebuilt_by_family
+
+    if format_family:
+        formats = get_prebuilt_by_family(format_family)
+    else:
+        formats = PREBUILT_FORMATS
+
+    return {
+        "formats": [
+            {
+                "id": f["id"],
+                "name": f["name"],
+                "format_family": f["format_family"],
+                "format_variant": f["format_variant"],
+                "description": f["description"],
+            }
+            for f in formats
+        ]
+    }
+
+
+@router.post("/prebuilt/{format_id}/apply")
+async def apply_prebuilt_format(
+    format_id: str,
+    user_id: str = Query(...),
+    name: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Apply (save) a pre-built format as a user's template.
+    Creates a DB template entry from the prebuilt config.
+    """
+    from core.prebuilt_formats import get_prebuilt_by_id
+
+    prebuilt = get_prebuilt_by_id(format_id)
+    if not prebuilt:
+        raise HTTPException(status_code=404, detail="Pre-built format not found")
+
+    store = TemplateStore(db)
+    template_name = name or prebuilt["name"]
+
+    tmpl = await store.save(
+        name=template_name,
+        config=prebuilt["config"],
+        user_id=user_id,
+        status="verified",
+        confidence_score=1.0,
+        format_family=prebuilt["format_family"],
+        format_variant=prebuilt["format_variant"],
+    )
+
+    return {
+        "message": f"Pre-built format '{prebuilt['name']}' applied as template",
+        "template_id": tmpl.id,
+        "name": tmpl.name,
+        "format_family": tmpl.format_family,
+        "format_variant": tmpl.format_variant,
+    }
+
+
 @router.get("/{template_id}")
 async def get_template(
     template_id: str,

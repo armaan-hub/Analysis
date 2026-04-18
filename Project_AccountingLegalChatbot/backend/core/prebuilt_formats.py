@@ -1,0 +1,121 @@
+"""
+Pre-built format library shipped with the app.
+Provides ready-to-use IFRS, GAAP, and Local Tax templates without requiring
+a reference PDF upload.
+"""
+
+PREBUILT_FORMATS = [
+    {
+        "id": "prebuilt-ifrs-standard",
+        "name": "IFRS Standard",
+        "format_family": "IFRS",
+        "format_variant": "IFRS 2023",
+        "description": "Standard IFRS financial statement format",
+        "config": {
+            "page": {"width": 595.28, "height": 841.89, "unit": "points", "detected_size": "A4", "confidence": 1.0},
+            "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
+            "fonts": {
+                "heading": {"family": "Helvetica-Bold", "size": 12},
+                "body": {"family": "Helvetica", "size": 9},
+                "footer": {"family": "Helvetica", "size": 8},
+            },
+            "tables": [],
+            "sections": [
+                {"name": "cover", "page": 1, "layout": "static"},
+                {"name": "sofp", "page": 2, "layout": "flow"},
+                {"name": "sopl", "page": 3, "layout": "flow"},
+                {"name": "notes", "pages": [4, 5, 6, 7, 8], "layout": "flow"},
+            ],
+            "substitutions": {},
+            "extraction_metadata": {
+                "analyzer_version": "prebuilt",
+                "source": "prebuilt",
+                "confidence_per_element": {
+                    "page_size": 1.0,
+                    "margins": 1.0,
+                    "fonts": 0.9,
+                    "tables": 0.8,
+                },
+            },
+        },
+    },
+    {
+        "id": "prebuilt-gaap-standard",
+        "name": "GAAP Standard",
+        "format_family": "GAAP",
+        "format_variant": "US GAAP",
+        "description": "Standard US GAAP financial statement format",
+        "config": {
+            "page": {"width": 612, "height": 792, "unit": "points", "detected_size": "US_LETTER", "confidence": 1.0},
+            "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
+            "fonts": {
+                "heading": {"family": "Helvetica-Bold", "size": 12},
+                "body": {"family": "Helvetica", "size": 10},
+                "footer": {"family": "Helvetica", "size": 8},
+            },
+            "tables": [],
+            "sections": [
+                {"name": "cover", "page": 1, "layout": "static"},
+                {"name": "balance_sheet", "page": 2, "layout": "flow"},
+                {"name": "income_statement", "page": 3, "layout": "flow"},
+                {"name": "cash_flow", "page": 4, "layout": "flow"},
+                {"name": "notes", "pages": [5, 6, 7, 8], "layout": "flow"},
+            ],
+            "substitutions": {},
+            "extraction_metadata": {
+                "analyzer_version": "prebuilt",
+                "source": "prebuilt",
+                "confidence_per_element": {
+                    "page_size": 1.0,
+                    "margins": 1.0,
+                    "fonts": 0.9,
+                    "tables": 0.8,
+                },
+            },
+        },
+    },
+    {
+        "id": "prebuilt-local-tax",
+        "name": "Local Tax Return",
+        "format_family": "local-tax",
+        "format_variant": "UAE Corporate Tax 2024",
+        "description": "UAE Corporate Tax return format",
+        "config": {
+            "page": {"width": 595.28, "height": 841.89, "unit": "points", "detected_size": "A4", "confidence": 1.0},
+            "margins": {"top": 56, "bottom": 56, "left": 72, "right": 72},
+            "fonts": {
+                "heading": {"family": "Helvetica-Bold", "size": 11},
+                "body": {"family": "Helvetica", "size": 9},
+                "footer": {"family": "Helvetica", "size": 7},
+            },
+            "tables": [],
+            "sections": [
+                {"name": "tax_period", "page": 1, "layout": "static"},
+                {"name": "revenue", "page": 2, "layout": "flow"},
+                {"name": "deductions", "page": 3, "layout": "flow"},
+                {"name": "tax_computation", "page": 4, "layout": "flow"},
+            ],
+            "substitutions": {},
+            "extraction_metadata": {
+                "analyzer_version": "prebuilt",
+                "source": "prebuilt",
+                "confidence_per_element": {
+                    "page_size": 1.0,
+                    "margins": 1.0,
+                    "fonts": 0.9,
+                    "tables": 0.8,
+                },
+            },
+        },
+    },
+]
+
+
+def get_prebuilt_by_id(format_id: str) -> dict | None:
+    """Return prebuilt format dict by id, or None."""
+    return next((f for f in PREBUILT_FORMATS if f["id"] == format_id), None)
+
+
+def get_prebuilt_by_family(format_family: str) -> list:
+    """Return all prebuilt formats for a format_family."""
+    return [f for f in PREBUILT_FORMATS if f["format_family"] == format_family]
