@@ -143,6 +143,15 @@ def _nice_date(period_end: str) -> str:
         return str(period_end)
 
 
+def _safe_prior_year(nice_date_str: str, fallback: str = "prior year") -> str:
+    """Extract year from 'Month DD, YYYY' and return the prior year string."""
+    try:
+        year = int(nice_date_str.strip()[-4:])
+        return str(year - 1)
+    except (ValueError, TypeError, IndexError):
+        return fallback
+
+
 def _condense_sofp(sections: list) -> list:
     """
     Collapse individual Tally ledger accounts into auditor-standard SOFP summary lines.
@@ -1057,7 +1066,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     _soce_sub = ["", "AED", "AED", "AED", "AED"]
 
     _soce_year = nice_dt[-4:]
-    _prior_year_str = str(int(_soce_year) - 1)
+    _prior_year_str = _safe_prior_year(nice_dt)
     _soce_data = [
         _soce_hdr,
         _soce_sub,
@@ -1136,7 +1145,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     ]
 
     # Build the CFS — use pre-calculated statement_of_cash_flows when available
-    _scf_data  = statements.get("statement_of_cash_flows", {})
+    _scf_data  = statements.get("statement_of_cash_flows") or {}
     _scf_secs  = _scf_data.get("sections", [])
     _scf_total = _scf_data.get("total", {})
 
@@ -2150,7 +2159,7 @@ def _generate_pdf(report: dict, tpl: dict) -> bytes:  # noqa: C901
     story.append(Spacer(1, 8))
 
     story.append(Paragraph("<b>23. Comparative Figures</b>", s_note_title))
-    _prior_year_str = str(int(nice_dt[-4:]) - 1)
+    _prior_year_str = _safe_prior_year(nice_dt)
     story.append(Paragraph(
         f"Certain figures for the previous year ended December 31, {_prior_year_str} have been "
         "regrouped / reclassified to conform with the presentation made during the current year.",
