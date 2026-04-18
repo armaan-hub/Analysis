@@ -293,3 +293,26 @@ class UserMemory(Base):
     source_conversation_id = Column(String(36), nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Template Models
+# ═══════════════════════════════════════════════════════════════════
+
+class Template(Base):
+    """A learned audit format template."""
+    __tablename__ = "templates"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    user_id = Column(String(36), nullable=True)
+    name = Column(String(255), nullable=False)
+    config_json = Column(Text, nullable=False)
+    embedding = Column(JSON, nullable=True)
+    status = Column(String(20), default="draft")  # draft | verified | needs_review | ready
+    verification_report = Column(Text, nullable=True)
+    page_count = Column(Integer, nullable=True)
+    source_pdf_name = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    is_global = Column(Boolean, default=False)
+    confidence_score = Column(Float, default=0.0)
