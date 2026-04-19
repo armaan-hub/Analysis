@@ -97,17 +97,28 @@ async def run_deep_research(job_id: str, query: str) -> None:
             "message": f"Research plan: {len(sub_questions)} sub-questions",
         })
 
-        # Phase 2: Gather
+        # Phase 2: Gather (concurrent)
         await emit(job_id, {"phase": "gathering", "message": "Searching sources..."})
-        gathered: dict[str, str] = {}
-        for i, sq in enumerate(sub_questions):
+
+        async def _gather_with_progress(i: int, sq: str) -> tuple[str, str]:
             await emit(job_id, {
                 "phase": "gathering",
                 "progress": i + 1,
                 "total": len(sub_questions),
                 "message": f"Researching: {sq[:60]}...",
             })
-            gathered[sq] = await _gather_one(sq)
+            return sq, await _gather_one(sq)
+
+        results = await asyncio.gather(
+            *[_gather_with_progress(i, sq) for i, sq in enumerate(sub_questions)],
+            return_exceptions=True,
+        )
+        gathered: dict[str, str] = {}
+        for r in results:
+            if isinstance(r, Exception):
+                logger.warning("Gather task failed: %s", r)
+            else:
+                gathered[r[0]] = r[1]
 
         # Phase 3: Synthesize
         await emit(job_id, {"phase": "synthesizing", "message": "Writing report..."})

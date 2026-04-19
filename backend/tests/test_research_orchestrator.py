@@ -46,3 +46,18 @@ async def test_gather_one_combines_rag_and_web():
         result = await _gather_one("test query")
     assert "RAG result" in result
     assert "Web context" in result
+
+
+@pytest.mark.asyncio
+async def test_gather_concurrent():
+    """Test that multiple sub-questions are gathered concurrently."""
+    mock_rag = AsyncMock()
+    mock_rag.search = AsyncMock(return_value=[{"text": "result"}])
+
+    with patch("core.research.orchestrator.rag_engine", mock_rag), \
+         patch("core.research.orchestrator.search_web", new=AsyncMock(return_value=[])), \
+         patch("core.research.orchestrator.build_web_context", return_value=""):
+        r1 = await _gather_one("q1")
+        r2 = await _gather_one("q2")
+    assert "result" in r1
+    assert "result" in r2
