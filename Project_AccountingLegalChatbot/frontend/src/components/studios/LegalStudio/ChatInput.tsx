@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { Send } from 'lucide-react';
+import { ModeDropdown, type ChatMode } from './ModeDropdown';
 
 interface Props {
   onSend: (text: string) => void;
   disabled?: boolean;
   initialValue?: string;
+  mode?: ChatMode;
+  onModeChange?: (m: ChatMode) => void;
 }
 
-export function ChatInput({ onSend, disabled, initialValue = '' }: Props) {
+export function ChatInput({ onSend, disabled, initialValue = '', mode = 'normal', onModeChange }: Props) {
   const [value, setValue] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -47,6 +50,9 @@ export function ChatInput({ onSend, disabled, initialValue = '' }: Props) {
 
   return (
     <div className="chat-input-bar">
+      {onModeChange && (
+        <ModeDropdown value={mode} onChange={onModeChange} />
+      )}
       <textarea
         ref={textareaRef}
         className="chat-input-field"

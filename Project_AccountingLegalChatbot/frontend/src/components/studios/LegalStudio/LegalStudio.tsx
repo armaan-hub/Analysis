@@ -4,6 +4,8 @@ import { API_BASE, API, fmtTime, type Message, type Source } from '../../../lib/
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { SourcePeeker } from './SourcePeeker';
+import { type ChatMode } from './ModeDropdown';
+import { DomainChip, type DomainLabel } from './DomainChip';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax';
 
@@ -43,6 +45,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [webSearching, setWebSearching] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [domain, setDomain] = useState<Domain>('law');
+  const [mode, setMode] = useState<ChatMode>('normal');
+  const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [searchParams] = useSearchParams();
 
   const initialValue = searchParams.get('q') ?? '';
@@ -97,6 +101,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           conversation_id: conversationId,
           stream: true,
           domain,
+          mode,
+          domain_override: domain || undefined,
         }),
         signal: controller.signal,
       });
@@ -133,9 +139,12 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
           if (evt.type === 'meta') {
             if (evt.conversation_id && !conversationId) setConversationId(evt.conversation_id);
-            if (evt.detected_domain) setDomain(evt.detected_domain as Domain);
-            if ((evt as { message_id?: string }).message_id) {
-              const msgId = (evt as { message_id: string }).message_id;
+            if (evt.detected_domain) {
+              setDomain(evt.detected_domain as Domain);
+              setDetectedDomain(evt.detected_domain as DomainLabel);
+            }
+            if ((evt as unknown as { message_id?: string }).message_id) {
+              const msgId = (evt as unknown as { message_id: string }).message_id;
               setMessages(prev => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
@@ -143,7 +152,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                 return updated;
               });
             }
-          } else if (evt.type === 'status' && (evt as { type: string; status?: string }).status === 'searching_web') {
+          } else if (evt.type === 'status' && (evt as unknown as { type: string; status?: string }).status === 'searching_web') {
             setWebSearching(true);
           } else if (evt.type === 'chunk' && evt.content) {
             setWebSearching(false);
@@ -164,15 +173,15 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             });
           } else if (evt.type === 'error') {
             throw new Error(evt.message || 'Streaming error');
-          } else if (evt.type === 'queries_run' && (evt as { queries?: string[] }).queries) {
-            const queries = (evt as { queries: string[] }).queries;
+          } else if (evt.type === 'queries_run' && (evt as unknown as { queries?: string[] }).queries) {
+            const queries = (evt as unknown as { queries: string[] }).queries;
             setMessages(prev => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
               updated[updated.length - 1] = { ...last, queriesRun: queries };
               return updated;
             });
-          } else if (evt.type === 'status' && (evt as { status?: string }).status === 'researching') {
+          } else if (evt.type === 'status' && (evt as unknown as { status?: string }).status === 'researching') {
             setMessages(prev => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
@@ -198,7 +207,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       setLoading(false);
       setWebSearching(false);
     }
-  }, [loading, conversationId, domain]);
+  }, [loading, conversationId, domain, mode]);
 
   const handleSourceClick = (source: Source) => {
     if (activeSource?.source === source.source) {
@@ -233,47 +242,22 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     prevLoadingRef.current = loading;
   }, [loading]);
 
-  const DOMAINS: { key: Domain; label: string }[] = [
-    { key: 'vat', label: 'VAT' },
-    { key: 'corporate_tax', label: 'Corp Tax' },
-    { key: 'aml', label: 'AML/CFT' },
-    { key: 'legal', label: 'Legal' },
-    { key: 'law', label: 'Law (General)' },
-    { key: 'finance', label: 'Finance' },
-    { key: 'audit', label: 'Audit' },
-    { key: 'general', label: 'General' },
-  ];
-
   return (
     <div className="legal-studio">
       <div className={`legal-studio__chat ${sourcePanelOpen ? 'legal-studio__chat--peeked' : ''}`}>
-        {/* Domain selector */}
-        <div style={{
-          display: 'flex',
-          gap: '6px',
-          padding: '16px 40px 0',
-          flexShrink: 0,
-        }}>
-          {DOMAINS.map(d => (
-            <button
-              key={d.key}
-              onClick={() => setDomain(d.key)}
-              style={{
-                padding: '4px 12px',
-                borderRadius: 'var(--s-r-sm)',
-                border: `1px solid ${domain === d.key ? 'var(--s-accent)' : 'var(--s-border)'}`,
-                background: domain === d.key ? 'var(--s-accent-dim)' : 'transparent',
-                color: domain === d.key ? 'var(--s-accent)' : 'var(--s-text-2)',
-                fontFamily: 'var(--s-font-ui)',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'var(--s-ease)',
+        {/* Domain chip (shown once classifier detects a domain) */}
+        {detectedDomain && (
+          <div style={{ padding: '16px 40px 0', flexShrink: 0 }}>
+            <DomainChip
+              value={detectedDomain}
+              editable
+              onChange={(d) => {
+                setDetectedDomain(d);
+                setDomain(d);
               }}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
+            />
+          </div>
+        )}
 
         <ChatMessages
           messages={messages}
@@ -286,6 +270,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           onSend={sendMessage}
           disabled={loading}
           initialValue={initialValue}
+          mode={mode}
+          onModeChange={setMode}
         />
       </div>
       <SourcePeeker
