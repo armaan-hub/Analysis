@@ -6,7 +6,7 @@ import { VersionSwitcher } from './VersionSwitcher';
 import { Plus, Upload } from 'lucide-react';
 
 export function SourceDocsSidebar() {
-  const { profileId, sourceDocs, refreshDocs } = useFinanceStudio();
+  const { profileId, sourceDocs, refreshDocs, selectedSourceIds, toggleSource } = useFinanceStudio();
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -62,7 +62,7 @@ export function SourceDocsSidebar() {
       <input ref={fileInput} type="file" hidden onChange={onUpload} />
 
       <div className="doc-list">
-        {sourceDocs.map(d => <DocumentCard key={d.id} doc={d} onDelete={onDelete} />)}
+        {sourceDocs.map(d => <DocumentCard key={d.id} doc={d} onDelete={onDelete} selected={selectedSourceIds.includes(d.id)} onToggle={toggleSource} />)}
         {sourceDocs.length === 0 && <div className="muted">No documents yet.</div>}
       </div>
 

@@ -18,6 +18,8 @@ interface FinanceStudioState {
 
   sourceDocs: SourceDoc[];
   refreshDocs: () => Promise<void>;
+  selectedSourceIds: string[];
+  toggleSource: (id: string) => void;
 
   chatHistory: ChatMessage[];
   sendMessage: (text: string) => Promise<void>;
@@ -45,12 +47,14 @@ export function FinanceStudioProvider({ children }: { children: ReactNode }) {
   const [outputs, setOutputs] = useState<GeneratedOutput[]>([]);
   const [selectedTemplateId, setSelectedTemplate] = useState<string | null>(null);
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>(1);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
 
   const activeVersionId = versions.find(v => v.is_current)?.id ?? null;
 
   // Load core data whenever profile changes.
   useEffect(() => {
     if (!profileId) return;
+    setSelectedSourceIds([]);
     (async () => {
       setActiveProfile(await api.getProfile(profileId));
       setVersions((await api.listVersions(profileId)).versions);
@@ -77,16 +81,22 @@ export function FinanceStudioProvider({ children }: { children: ReactNode }) {
     setVersions((await api.listVersions(profileId)).versions);
   }, [profileId]);
 
+  const toggleSource = useCallback((id: string) => {
+    setSelectedSourceIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }, []);
+
   const sendMessage = useCallback(async (text: string) => {
     if (!profileId) return;
     setChatLoading(true);
     try {
-      await api.chatSend(profileId, text);
+      await api.chatSend(profileId, text, selectedSourceIds.length > 0 ? selectedSourceIds : undefined);
       setChatHistory((await api.chatHistory(profileId)).messages);
     } finally {
       setChatLoading(false);
     }
-  }, [profileId]);
+  }, [profileId, selectedSourceIds]);
 
   const clearChat = useCallback(async () => {
     if (!profileId) return;
@@ -104,7 +114,7 @@ export function FinanceStudioProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{
       profileId, setProfileId, activeProfile,
       versions, activeVersionId, switchVersion, branchVersion,
-      sourceDocs, refreshDocs,
+      sourceDocs, refreshDocs, selectedSourceIds, toggleSource,
       chatHistory, sendMessage, clearChat, chatLoading,
       outputs, generateOutput,
       selectedTemplateId, setSelectedTemplate,

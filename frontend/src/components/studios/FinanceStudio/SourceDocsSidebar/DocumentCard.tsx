@@ -1,7 +1,7 @@
 import type { SourceDoc } from '../types';
 import { FileSpreadsheet, FileText, File, X } from 'lucide-react';
 
-interface Props { doc: SourceDoc; onDelete: (id: string) => void; }
+interface Props { doc: SourceDoc; onDelete: (id: string) => void; selected: boolean; onToggle: (id: string) => void; }
 
 const DOC_ICONS: Record<string, typeof FileText> = {
   trial_balance: FileSpreadsheet,
@@ -10,12 +10,15 @@ const DOC_ICONS: Record<string, typeof FileText> = {
   report_template: FileText,
 };
 
-export function DocumentCard({ doc, onDelete }: Props) {
+export function DocumentCard({ doc, onDelete, selected, onToggle }: Props) {
   const warn = doc.confidence !== null && doc.confidence < 0.7;
   const Icon = DOC_ICONS[doc.document_type] ?? File;
 
   return (
     <div className="doc-card" data-testid={`doc-card-${doc.id}`}>
+      <div className="doc-card__select">
+        <input type="checkbox" checked={selected} onChange={() => onToggle(doc.id)} aria-label="Select doc" />
+      </div>
       <div className="doc-card__icon">
         <Icon size={16} />
       </div>

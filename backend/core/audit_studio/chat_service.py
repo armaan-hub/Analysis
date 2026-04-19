@@ -1,8 +1,11 @@
 """Chat service for audit studio. Wraps existing LLM + profile context."""
 import json
+import logging
 from db.database import AsyncSessionLocal
 from db.models import ProfileVersion, AuditChatMessage
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 
 async def _current_profile_json(profile_id: str) -> str:
@@ -16,9 +19,45 @@ async def _current_profile_json(profile_id: str) -> str:
     return v.profile_json if v else "{}"
 
 
-async def run_chat(profile_id: str, user_message: str) -> dict:
+async def _load_history(profile_id: str) -> list[dict]:
+    """Return last 10 messages for this profile as [{role, content}]."""
+    async with AsyncSessionLocal() as s:
+        rows = (await s.execute(
+            select(AuditChatMessage)
+            .where(AuditChatMessage.profile_id == profile_id)
+            .order_by(AuditChatMessage.created_at.asc())
+            .limit(10)
+        )).scalars().all()
+    return [{"role": r.role, "content": r.content} for r in rows]
+
+
+async def run_chat(profile_id: str, user_message: str, source_ids: list[str] | None = None) -> dict:
     """Return {'content': str, 'citations': list}. Mocked in tests."""
     ctx = await _current_profile_json(profile_id)
+    history = await _load_history(profile_id)
+
+    # RAG retrieval with graceful fallback
+    from core.rag_engine import rag_engine
+    rag_results = []
+    try:
+        rag_filter = {"doc_id": {"$in": source_ids}} if source_ids else None
+        rag_results = await rag_engine.search(user_message, top_k=5, filter=rag_filter)
+    except Exception:
+        logger.warning("RAG search failed; continuing without retrieved context.", exc_info=True)
+
+    # Build system message
+    rag_context = "\n\n".join(
+        f"Source: {r['source']}, Page: {r.get('page', 1)}\n\nExcerpt: {r['excerpt']}"
+        for r in rag_results
+    )
+    system_content = (
+        "You are an AI audit assistant. Use the profile JSON and any retrieved "
+        "document excerpts below as context, and answer with citations where possible.\n\n"
+        f"PROFILE:\n{ctx}"
+    )
+    if rag_context:
+        system_content += f"\n\nRELEVANT DOCUMENTS:\n{rag_context}"
+
     from config import settings
     from core.llm_manager import NvidiaProvider, OpenAIProvider, ClaudeProvider
     provider = settings.llm_provider.lower()
@@ -32,13 +71,16 @@ async def run_chat(profile_id: str, user_message: str) -> dict:
             model=settings.nvidia_model,
             base_url=settings.nvidia_base_url,
         )
-    prompt = [{"role": "user", "content": (
-        "You are an AI audit assistant. Use the following profile JSON as context "
-        "and answer the question with citations where possible.\n\n"
-        f"PROFILE:\n{ctx}\n\nUSER: {user_message}"
-    )}]
+
+    prompt = (
+        [{"role": "system", "content": system_content}]
+        + history
+        + [{"role": "user", "content": user_message}]
+    )
     resp = await llm.chat(prompt)
-    return {"content": resp.content, "citations": []}
+
+    citations = [{"source": r["source"], "page": r.get("page", 1)} for r in rag_results]
+    return {"content": resp.content, "citations": citations}
 
 
 async def persist_exchange(profile_id: str, user_msg: str, assistant_reply: dict) -> None:
