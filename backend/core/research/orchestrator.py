@@ -139,6 +139,12 @@ async def run_deep_research(job_id: str, query: str) -> None:
             "report": report,
         })
 
+        # Save report as a virtual document
+        try:
+            await _save_as_document(job_id, query, report)
+        except Exception as e:
+            logger.warning("Failed to save research as document: %s", e)
+
     except Exception as e:
         logger.exception("Deep research failed for job %s", job_id)
         async with async_session() as session:
@@ -149,3 +155,25 @@ async def run_deep_research(job_id: str, query: str) -> None:
                 job.completed_at = datetime.now(timezone.utc)
                 await session.commit()
         await emit(job_id, {"phase": "failed", "message": f"Research failed: {e}"})
+
+
+async def _save_as_document(job_id: str, query: str, report: str) -> None:
+    """Save the research report as a virtual document in the DB."""
+    from db.models import Document
+
+    short_title = query[:80].replace(" ", "_")
+
+    async with async_session() as session:
+        doc = Document(
+            filename=f"research_{job_id[:8]}.md",
+            original_name=f"Research: {short_title}",
+            file_type="md",
+            file_size=len(report.encode()),
+            chunk_count=0,
+            status="indexed",
+            summary=report[:300],
+            key_terms=[],
+            source="research",
+        )
+        session.add(doc)
+        await session.commit()
