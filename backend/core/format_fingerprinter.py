@@ -54,75 +54,75 @@ class FormatFingerprinter:
         if not path.exists():
             return default
 
+        doc = None
         try:
             doc = fitz.open(str(path))
+            if len(doc) == 0:
+                return default
+
+            pages_to_scan = list(doc)[:min(3, len(doc))]
+
+            # Page size from first page
+            rect = doc[0].rect
+            page_size = _detect_page_size(rect.width, rect.height)
+
+            full_text = " ".join(
+                span.get("text", "")
+                for page in pages_to_scan
+                for block in page.get_text("dict", flags=0).get("blocks", [])
+                if block.get("type") == 0
+                for line in block.get("lines", [])
+                for span in line.get("spans", [])
+            )
+
+            # Currency detection
+            currency_match = _CURRENCY_PATTERNS.search(full_text)
+            currency = currency_match.group(0) if currency_match else "unknown"
+
+            # Extended currency scan: if not found in first 3 pages, scan up to page 10
+            if currency == "unknown" and len(doc) > 3:
+                for extra_page in list(doc)[3:min(10, len(doc))]:
+                    extra_text = extra_page.get_text()
+                    extra_match = _CURRENCY_PATTERNS.search(extra_text)
+                    if extra_match:
+                        currency = extra_match.group(0)
+                        break
+
+            # Section count
+            section_count = sum(
+                1 for pattern in _AUDIT_SECTION_PATTERNS if pattern.search(full_text)
+            )
+
+            # Notes detection
+            has_notes = bool(re.search(r"notes?\s+to\s+(the\s+)?financial", full_text, re.IGNORECASE))
+
+            # Column count: count distinct year headers
+            years_found = set(_YEAR_PATTERN.findall(full_text))
+            col_count = min(len(years_found) + 1, 3) if years_found else 2
+
+            # Format family heuristic
+            if re.search(r"\bifrs\b", full_text, re.IGNORECASE):
+                format_family = "IFRS"
+            elif re.search(r"\bgaap\b", full_text, re.IGNORECASE):
+                format_family = "GAAP"
+            elif re.search(r"\btax\b", full_text, re.IGNORECASE):
+                format_family = "local-tax"
+            else:
+                format_family = "IFRS"  # Default for UAE/GCC audits
+
+            return {
+                "page_size": page_size,
+                "currency": currency,
+                "section_count": section_count,
+                "has_notes": has_notes,
+                "col_count": col_count,
+                "format_family": format_family,
+            }
         except Exception:
             return default
-
-        if len(doc) == 0:
-            doc.close()
-            return default
-
-        pages_to_scan = list(doc)[:min(3, len(doc))]
-
-        # Page size from first page
-        rect = doc[0].rect
-        page_size = _detect_page_size(rect.width, rect.height)
-
-        full_text = " ".join(
-            span.get("text", "")
-            for page in pages_to_scan
-            for block in page.get_text("dict", flags=0).get("blocks", [])
-            if block.get("type") == 0
-            for line in block.get("lines", [])
-            for span in line.get("spans", [])
-        )
-
-        # Currency detection
-        currency_match = _CURRENCY_PATTERNS.search(full_text)
-        currency = currency_match.group(0) if currency_match else "unknown"
-
-        # Extended currency scan: if not found in first 3 pages, scan up to page 10
-        if currency == "unknown" and len(doc) > 3:
-            for extra_page in list(doc)[3:min(10, len(doc))]:
-                extra_text = extra_page.get_text()
-                extra_match = _CURRENCY_PATTERNS.search(extra_text)
-                if extra_match:
-                    currency = extra_match.group(0)
-                    break
-
-        # Section count
-        section_count = sum(
-            1 for pattern in _AUDIT_SECTION_PATTERNS if pattern.search(full_text)
-        )
-
-        # Notes detection
-        has_notes = bool(re.search(r"notes?\s+to\s+(the\s+)?financial", full_text, re.IGNORECASE))
-
-        # Column count: count distinct year headers
-        years_found = set(_YEAR_PATTERN.findall(full_text))
-        col_count = min(len(years_found) + 1, 3) if years_found else 2
-
-        # Format family heuristic
-        if re.search(r"\bifrs\b", full_text, re.IGNORECASE):
-            format_family = "IFRS"
-        elif re.search(r"\bgaap\b", full_text, re.IGNORECASE):
-            format_family = "GAAP"
-        elif re.search(r"\btax\b", full_text, re.IGNORECASE):
-            format_family = "local-tax"
-        else:
-            format_family = "IFRS"  # Default for UAE/GCC audits
-
-        doc.close()
-
-        return {
-            "page_size": page_size,
-            "currency": currency,
-            "section_count": section_count,
-            "has_notes": has_notes,
-            "col_count": col_count,
-            "format_family": format_family,
-        }
+        finally:
+            if doc:
+                doc.close()
 
     def _score(self, fp: Dict[str, Any], candidate: Dict[str, Any]) -> int:
         """

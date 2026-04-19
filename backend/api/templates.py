@@ -10,6 +10,7 @@ import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.template_analyzer import TemplateAnalyzer
@@ -46,15 +47,15 @@ async def _fast_learn_pipeline(
     start = time.time()
 
     fingerprinter = FormatFingerprinter()
-    match_config, match_score, match_source = fingerprinter.match(pdf_path)
+    match_config, match_score, match_source = await run_in_threadpool(fingerprinter.match, pdf_path)
 
     if match_score >= 88 and match_config is not None:
         config = copy.deepcopy(match_config)
     else:
-        config = _analyzer.analyze_precise(pdf_path)
+        config = await run_in_threadpool(_analyzer.analyze_precise, pdf_path)
 
     verifier = AutoVerifier()
-    verify_result = verifier.verify(config, pdf_path)
+    verify_result = await run_in_threadpool(verifier.verify, config, pdf_path)
 
     calibrated_confidence = _calibrator.calibrate(verify_result["confidence"], [])
 

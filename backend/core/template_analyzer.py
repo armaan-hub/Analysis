@@ -387,14 +387,13 @@ class TemplateAnalyzer:
                     bbox = line.get("bbox", [0, 0, 0, 0])
                     line_y0s.append(float(bbox[1]))
             if line_y0s:
-                y0_by_page.extend(sorted(line_y0s))
+                # Round and deduplicate on a per-page basis to avoid cross-page noise
+                y0_by_page.extend(sorted(set(round(y, 1) for y in line_y0s)))
 
         if len(y0_by_page) < 4:
             return self._fallback_spacing()
 
-        # Deduplicate close y-values (spans on same line) by rounding to 1 pt
-        rounded = sorted(set(round(y, 1) for y in y0_by_page))
-        arr = np.array(rounded, dtype=float)
+        arr = np.array(sorted(y0_by_page), dtype=float)
         gaps = np.diff(arr)
         gaps = gaps[gaps > 1.5]
 
