@@ -8,6 +8,7 @@ import { SourcesSidebar, type SourceDoc } from './SourcesSidebar';
 import { PreviewPane } from './PreviewPane';
 import { type ChatMode } from './ModeDropdown';
 import { DomainChip, type DomainLabel } from './DomainChip';
+import { AuditorResultBubble } from './AuditorResultBubble';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax';
 
@@ -55,6 +56,14 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
 
+  const [auditResult, setAuditResult] = useState<{
+    risk_flags: { severity: string; document: string; finding: string }[];
+    anomalies: { severity: string; document: string; finding: string }[];
+    compliance_gaps: { severity: string; document: string; finding: string }[];
+    summary: string;
+  } | null>(null);
+  const [auditing, setAuditing] = useState(false);
+
   const initialValue = searchParams.get('q') ?? '';
 
   // --- Document handlers for SourcesSidebar ---
@@ -99,6 +108,20 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const handleDocPreview = useCallback((id: string) => {
     setPreviewDocId(prev => prev === id ? null : id);
   }, []);
+
+  const handleRunAudit = useCallback(async () => {
+    if (selectedDocIds.length === 0 || auditing) return;
+    setAuditing(true);
+    setAuditResult(null);
+    try {
+      const resp = await API.post('/api/legal-studio/auditor', { document_ids: selectedDocIds });
+      setAuditResult(resp.data);
+    } catch {
+      setAuditResult({ risk_flags: [], anomalies: [], compliance_gaps: [], summary: 'Audit failed. Please try again.' });
+    } finally {
+      setAuditing(false);
+    }
+  }, [selectedDocIds, auditing]);
 
   // Load documents on mount
   useEffect(() => {
@@ -273,6 +296,21 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     }
   }, [loading, conversationId, domain, mode]);
 
+  const handleAnalystHandoff = useCallback(async () => {
+    try {
+      const recentMsgs = messages.slice(-4).map(m => `${m.role}: ${m.text.slice(0, 200)}`).join('\n');
+      const resp = await API.post('/api/legal-studio/sessions', {
+        title: 'Analyst handoff from Legal Studio',
+        domain: 'finance',
+        context_summary: recentMsgs || 'Legal analysis session',
+      });
+      const { conversation_id } = resp.data;
+      window.open(`/finance-studio?conversation=${conversation_id}`, '_blank');
+    } catch {
+      // Silently fail - user can try again
+    }
+  }, [messages]);
+
   const handleSourceClick = (source: Source) => {
     if (activeSource?.source === source.source) {
       setActiveSource(null);
@@ -331,6 +369,27 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
               />
             </div>
           )}
+
+          {/* Toolbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 40px 0', flexShrink: 0 }}>
+            {mode === 'analyst' && (
+              <button
+                onClick={handleAnalystHandoff}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 'var(--s-r-sm)',
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  color: '#a78bfa',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--s-font-ui)',
+                }}
+              >
+                📊 Hand off to Finance Studio
+              </button>
+            )}
+          </div>
 
           <ChatMessages
             messages={messages}
