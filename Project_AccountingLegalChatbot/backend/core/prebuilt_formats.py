@@ -211,10 +211,10 @@ PREBUILT_FORMATS = [
     },
     {
         "id": "prebuilt-gcc-standard",
-        "name": "GCC Standard",
+        "name": "GCC IFRS Standard",
         "format_family": "IFRS",
-        "format_variant": "GCC IFRS",
-        "description": "Gulf Cooperation Council standard financial statement format (IAS-compliant)",
+        "format_variant": "IFRS 2023 GCC",
+        "description": "Standard IFRS financial statement format for UAE/GCC (AED)",
         "config": {
             "page": {"width": 595.28, "height": 841.89, "unit": "points", "detected_size": "A4", "confidence": 1.0},
             "margins": {"top": 72, "bottom": 72, "left": 72, "right": 72},
@@ -222,6 +222,21 @@ PREBUILT_FORMATS = [
                 "heading": {"family": "Helvetica-Bold", "size": 12},
                 "body": {"family": "Helvetica", "size": 9},
                 "footer": {"family": "Helvetica", "size": 8},
+            },
+            "columns": {
+                "label_col_x": 72.0,
+                "notes_col_x": 310.0,
+                "year1_col_x": 380.0,
+                "year2_col_x": 460.0,
+                "currency_label_y": 0.0,
+            },
+            "spacing": {
+                "heading_after": 18.0,
+                "row_height": 14.0,
+                "section_gap": 24.0,
+                "subtotal_gap": 6.0,
+                "indent_level_1": 90.0,
+                "indent_level_2": 108.0,
             },
             "tables": [],
             "sections": [

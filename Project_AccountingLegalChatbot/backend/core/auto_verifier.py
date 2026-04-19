@@ -79,23 +79,29 @@ class AutoVerifier:
 
     def _pdf_page_to_image(self, pdf_path: str, page_num: int = 0) -> Image.Image:
         import fitz
-        doc = fitz.open(pdf_path)
-        page = doc[page_num]
-        mat = fitz.Matrix(self.RENDER_DPI / 72, self.RENDER_DPI / 72)
-        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
-        img = Image.frombytes("L", [pix.width, pix.height], pix.samples)
-        doc.close()
-        return img
+        doc = None
+        try:
+            doc = fitz.open(pdf_path)
+            page = doc[page_num]
+            mat = fitz.Matrix(self.RENDER_DPI / 72, self.RENDER_DPI / 72)
+            pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
+            return Image.frombytes("L", [pix.width, pix.height], pix.samples)
+        finally:
+            if doc:
+                doc.close()
 
     def _pdf_bytes_to_image(self, pdf_bytes: bytes, page_num: int = 0) -> Image.Image:
         import fitz
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        page = doc[page_num]
-        mat = fitz.Matrix(self.RENDER_DPI / 72, self.RENDER_DPI / 72)
-        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
-        img = Image.frombytes("L", [pix.width, pix.height], pix.samples)
-        doc.close()
-        return img
+        doc = None
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            page = doc[page_num]
+            mat = fitz.Matrix(self.RENDER_DPI / 72, self.RENDER_DPI / 72)
+            pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
+            return Image.frombytes("L", [pix.width, pix.height], pix.samples)
+        finally:
+            if doc:
+                doc.close()
 
     def _render_test_page(self, config: Dict[str, Any]) -> bytes:
         """Render a representative financial page using the extracted config."""
