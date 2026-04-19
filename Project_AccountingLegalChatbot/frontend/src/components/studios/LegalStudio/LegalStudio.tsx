@@ -9,6 +9,7 @@ import { PreviewPane } from './PreviewPane';
 import { type ChatMode } from './ModeDropdown';
 import { DomainChip, type DomainLabel } from './DomainChip';
 import { AuditorResultBubble } from './AuditorResultBubble';
+import { ResearchBubble } from './ResearchBubble';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax';
 
@@ -56,6 +57,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
 
+  const [researchPhases, setResearchPhases] = useState<Array<{ phase: string; message: string; sub_questions?: string[]; progress?: number; total?: number; report?: string }>>([]);
+  const [researchReport, setResearchReport] = useState<string | null>(null);
+  const [researching, setResearching] = useState(false);
+
   const [auditResult, setAuditResult] = useState<{
     risk_flags: { severity: string; document: string; finding: string }[];
     anomalies: { severity: string; document: string; finding: string }[];
@@ -63,6 +68,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
+  const [handingOff, setHandingOff] = useState(false);
 
   const initialValue = searchParams.get('q') ?? '';
 
@@ -175,6 +181,50 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
     // Placeholder assistant message for streaming
     setMessages(prev => [...prev, { role: 'ai', text: '', time: fmtTime() }]);
+
+    // Deep research mode — use research pipeline instead of normal chat
+    if (mode === 'deep_research') {
+      setResearching(true);
+      setResearchPhases([]);
+      setResearchReport(null);
+      try {
+        const startResp = await API.post('/api/legal-studio/research', { query: text });
+        const jobId = startResp.data.job_id;
+
+        // Connect to SSE stream
+        const evtSource = new EventSource(`${API_BASE}/api/legal-studio/research/${jobId}/stream`);
+        evtSource.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.type === 'heartbeat') return;
+            setResearchPhases(prev => [...prev, data]);
+            if (data.report) {
+              setResearchReport(data.report);
+              setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                updated[updated.length - 1] = { ...last, text: data.report };
+                return updated;
+              });
+            }
+            if (data.phase === 'completed' || data.phase === 'failed') {
+              evtSource.close();
+              setResearching(false);
+              setLoading(false);
+            }
+          } catch { /* ignore parse errors */ }
+        };
+        evtSource.onerror = () => {
+          evtSource.close();
+          setResearching(false);
+          setLoading(false);
+        };
+      } catch {
+        setResearching(false);
+        setLoading(false);
+      }
+      return; // Skip normal chat flow
+    }
 
     try {
       const controller = new AbortController();
@@ -297,6 +347,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }, [loading, conversationId, domain, mode]);
 
   const handleAnalystHandoff = useCallback(async () => {
+    if (handingOff) return;
+    setHandingOff(true);
     try {
       const recentMsgs = messages.slice(-4).map(m => `${m.role}: ${m.text.slice(0, 200)}`).join('\n');
       const resp = await API.post('/api/legal-studio/sessions', {
@@ -308,8 +360,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       window.open(`/finance-studio?conversation=${conversation_id}`, '_blank');
     } catch {
       // Silently fail - user can try again
+    } finally {
+      setHandingOff(false);
     }
-  }, [messages]);
+  }, [messages, handingOff]);
 
   const handleSourceClick = (source: Source) => {
     if (activeSource?.source === source.source) {
@@ -425,6 +479,11 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             onSourceClick={handleSourceClick}
             activeSourceId={activeSource?.source}
           />
+          {(researching || researchReport) && (
+            <div style={{ padding: '8px 40px' }}>
+              <ResearchBubble phases={researchPhases} report={researchReport} />
+            </div>
+          )}
           <ChatInput
             onSend={sendMessage}
             disabled={loading}
