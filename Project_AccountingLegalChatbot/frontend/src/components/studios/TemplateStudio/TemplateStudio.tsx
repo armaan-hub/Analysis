@@ -7,6 +7,7 @@ import {
 import { TemplateEditor } from './TemplateEditor';
 import { BatchUploadForm } from './BatchUploadForm';
 import { PrebuiltFormatsTab } from './PrebuiltFormatsTab';
+import { TemplatePreviewModal } from '../TemplatePreviewModal';
 import './TemplateStudio.css';
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -61,6 +62,9 @@ export function TemplateStudio() {
 
   // Editor
   const [editingTemplate, setEditingTemplate] = useState<TemplateDetail | null>(null);
+
+  // Template preview modal
+  const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
 
   // Tabs & search
   const [activeTab, setActiveTab] = useState<'my' | 'library' | 'batch' | 'prebuilt'>('my');
@@ -127,6 +131,10 @@ export function TemplateStudio() {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           fetchTemplates();
+          // Auto-open preview modal for the newly learned template
+          if (data.status !== 'failed' && data.template_id) {
+            setPreviewTemplateId(data.template_id);
+          }
         }
       } catch {
         if (pollRef.current) clearInterval(pollRef.current);
@@ -412,7 +420,7 @@ export function TemplateStudio() {
                     </td>
                     <td>
                       <div className="ts-actions">
-                        <button className="ts-btn ts-btn--ghost" onClick={() => viewDetail(t.id)} title="View">
+                        <button className="ts-btn ts-btn--ghost" onClick={() => setPreviewTemplateId(t.id)} title="Preview">
                           <Eye size={14} />
                         </button>
                         {(t.status === 'verified' || t.status === 'needs_review') && (
@@ -426,7 +434,7 @@ export function TemplateStudio() {
                           >
                             <FileText size={14} />
                           </button>
-                        )}
+                        )}}
                         {(t.status === 'verified') && !t.is_global && (
                           <button className="ts-btn ts-btn--ghost" onClick={() => publishTemplate(t.id)} title="Publish">
                             <Send size={14} />
@@ -471,7 +479,7 @@ export function TemplateStudio() {
                       {t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}
                     </td>
                     <td>
-                      <button className="ts-btn ts-btn--ghost" onClick={() => viewDetail(t.id)} title="View">
+                      <button className="ts-btn ts-btn--ghost" onClick={() => setPreviewTemplateId(t.id)} title="Preview">
                         <Eye size={14} />
                       </button>
                     </td>
@@ -536,6 +544,14 @@ export function TemplateStudio() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Template Preview Modal */}
+      {previewTemplateId && (
+        <TemplatePreviewModal
+          templateId={previewTemplateId}
+          onClose={() => setPreviewTemplateId(null)}
+        />
       )}
     </div>
   );
