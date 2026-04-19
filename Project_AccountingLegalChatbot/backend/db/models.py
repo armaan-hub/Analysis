@@ -2,6 +2,7 @@
 SQLAlchemy ORM models for the Accounting & Legal AI Chatbot.
 """
 
+import enum
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
@@ -70,6 +71,9 @@ class Document(Base):
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     metadata_json = Column(JSON, nullable=True)
+    summary = Column(Text, nullable=True)
+    key_terms = Column(JSON, nullable=True)  # list of strings
+    source = Column(String(50), nullable=True, default="upload")  # "upload" | "research"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -377,3 +381,28 @@ class GeneratedOutput(Base):
     output_path = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Deep Research Models
+# ═══════════════════════════════════════════════════════════════════
+
+class ResearchJobStatus(str, enum.Enum):
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class ResearchJob(Base):
+    """A deep-research background job."""
+    __tablename__ = "research_jobs"
+
+    id = Column(String(36), primary_key=True, default=_new_id)
+    user_id = Column(String(36), nullable=True)  # No FK — no users table
+    thread_id = Column(String(36), nullable=True)
+    query = Column(Text, nullable=False)
+    status = Column(String(20), default="running", nullable=False)
+    plan_json = Column(JSON, nullable=True)
+    result_json = Column(JSON, nullable=True)
+    started_at = Column(DateTime, default=_utcnow, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
