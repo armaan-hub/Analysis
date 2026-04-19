@@ -19,6 +19,7 @@ from db.database import get_db
 from db.models import Document
 from core.document_processor import document_processor
 from core.rag_engine import rag_engine
+from core.documents.summarizer import summarize_document_text
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ class DocumentResponse(BaseModel):
     status: str
     error_message: Optional[str] = None
     created_at: str
+    summary: Optional[str] = None
+    key_terms: Optional[list[str]] = None
+    source: Optional[str] = None
 
 class DocumentSearchResult(BaseModel):
     text: str
@@ -117,6 +121,19 @@ async def upload_document(
                 doc.status = "indexed"
                 logger.info(f"Document '{original_name}' indexed: {chunk_count} chunks")
 
+                # Auto-summarize in background (non-blocking)
+                try:
+                    full_text = " ".join(
+                        c.get("text", "") if isinstance(c, dict) else getattr(c, "text", "")
+                        for c in chunks
+                    )
+                    if full_text.strip():
+                        result = await summarize_document_text(full_text)
+                        doc.summary = result.summary
+                        doc.key_terms = result.key_terms
+                except Exception as e:
+                    logger.warning(f"Auto-summary failed for {doc_id}: {e}")
+
     except Exception as e:
         doc.status = "error"
         err_msg = str(e).strip()
@@ -134,6 +151,9 @@ async def upload_document(
             status=doc.status,
             error_message=doc.error_message,
             created_at=str(doc.created_at),
+            summary=doc.summary,
+            key_terms=doc.key_terms,
+            source=doc.source,
         ),
         message=f"Document '{original_name}' uploaded and {'indexed' if doc.status == 'indexed' else 'failed'}.",
     )
@@ -158,6 +178,9 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
             status=d.status,
             error_message=d.error_message,
             created_at=str(d.created_at),
+            summary=d.summary,
+            key_terms=d.key_terms,
+            source=d.source,
         )
         for d in docs
     ]
