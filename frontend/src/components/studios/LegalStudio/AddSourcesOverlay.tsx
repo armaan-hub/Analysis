@@ -59,7 +59,16 @@ export function AddSourcesOverlay({ onUpload, onClose }: Props) {
       <button
         type="button"
         className="add-sources-url-btn"
-        onClick={() => { /* URL paste modal - future */ }}
+        onClick={() => {
+          const url = window.prompt('Enter a URL to add as source:');
+          if (url && url.trim()) {
+            const dt = new DataTransfer();
+            const blob = new Blob([url.trim()], { type: 'text/plain' });
+            dt.items.add(new File([blob], `url-${Date.now()}.txt`, { type: 'text/plain' }));
+            onUpload(dt.files);
+            onClose();
+          }
+        }}
       >
         🔗 Paste a URL
       </button>

@@ -2372,3 +2372,59 @@ body {
   border-top: 1px solid var(--s-border);
   margin: 4px 0;
 }
+
+/* ── Legal Studio layout helpers ── */
+.legal-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 40px 0;
+  flex-shrink: 0;
+}
+
+.legal-toolbar__btn {
+  padding: 6px 14px;
+  border-radius: var(--s-r-sm);
+  border: none;
+  font-size: 12px;
+  font-family: var(--s-font-ui);
+  cursor: pointer;
+  transition: opacity var(--s-ease);
+}
+
+.legal-toolbar__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.legal-toolbar__btn--handoff {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.legal-toolbar__btn--audit {
+  background: var(--s-accent);
+  color: #fff;
+}
+
+.legal-toolbar__btn--audit:disabled {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.legal-domain-chip-wrapper {
+  padding: 16px 40px 0;
+  flex-shrink: 0;
+}
+
+.legal-section-pad {
+  padding: 8px 40px;
+}
+
+.legal-studio__chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}

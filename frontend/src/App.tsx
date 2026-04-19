@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { API, type Alert } from './lib/api';
 import { StudioProvider } from './context/StudioProvider';
@@ -42,7 +42,6 @@ function PageLoader() {
 }
 
 function NotebookPage({ onConversationsChange }: {
-  conversations: Conversation[];
   onConversationsChange: (c: Conversation[]) => void;
 }) {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +49,7 @@ function NotebookPage({ onConversationsChange }: {
 
   return (
     <LegalStudio
-      key={convId ?? `new-${Date.now()}`}
+      key={convId ?? 'new'}
       onConversationsChange={onConversationsChange}
       initialConversationId={convId}
     />
@@ -60,6 +59,7 @@ function NotebookPage({ onConversationsChange }: {
 function AppInner() {
   const [alertCount, setAlertCount] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const newKeyRef = useRef(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -70,6 +70,7 @@ function AppInner() {
   };
 
   const handleNewChat = () => {
+    newKeyRef.current += 1;
     navigate('/notebook/new');
   };
 
@@ -94,7 +95,7 @@ function AppInner() {
               path="/notebook/new"
               element={
                 <LegalStudio
-                  key={`new-${Date.now()}`}
+                  key={`new-${newKeyRef.current}`}
                   onConversationsChange={setConversations}
                 />
               }
@@ -103,7 +104,6 @@ function AppInner() {
               path="/notebook/:id"
               element={
                 <NotebookPage
-                  conversations={conversations}
                   onConversationsChange={setConversations}
                 />
               }

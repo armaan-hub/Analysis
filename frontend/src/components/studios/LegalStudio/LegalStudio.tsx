@@ -12,7 +12,8 @@ import { DomainChip, type DomainLabel } from './DomainChip';
 import { AuditorResultBubble } from './AuditorResultBubble';
 import { ResearchBubble } from './ResearchBubble';
 
-type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax';
+type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax'
+  | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law';
 
 const DOMAIN_KEYWORDS: Array<{ keywords: string[]; domain: Domain }> = [
   { keywords: ['vat', 'trn', 'fta', '5%', 'zero-rated', 'zero rated', 'exempt supply', 'input tax', 'output tax', 'export service', 'export of services', 'zero-rated supply', 'zero rated export', 'place of supply', 'recipient outside uae', 'import of services', 'designated zone', 'reverse charge', 'article 29', 'article 31'], domain: 'vat' },
@@ -60,9 +61,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [researching, setResearching] = useState(false);
 
   const [auditResult, setAuditResult] = useState<{
-    risk_flags: { severity: string; document: string; finding: string }[];
-    anomalies: { severity: string; document: string; finding: string }[];
-    compliance_gaps: { severity: string; document: string; finding: string }[];
+    risk_flags: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
+    anomalies: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
+    compliance_gaps: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
@@ -114,9 +115,13 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     }
   }, []);
 
-  const handleDocPreview = useCallback((_id: string) => {
-    // Preview handled by SourcePeeker or StudioPanel now
-  }, []);
+  const handleDocPreview = useCallback((id: string) => {
+    const doc = docs.find(d => d.id === id);
+    if (doc) {
+      setActiveSource({ source: doc.filename, page: '', score: 0, excerpt: doc.summary ?? '' });
+      setSourcePanelOpen(true);
+    }
+  }, [docs]);
 
   // --- Load docs + conversations on mount ---
   useEffect(() => {
@@ -346,64 +351,51 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const centerContent = (
     <>
       {detectedDomain && (
-        <div style={{ padding: '16px 40px 0', flexShrink: 0 }}>
+        <div className="legal-domain-chip-wrapper">
           <DomainChip
             value={detectedDomain}
             editable
-            onChange={(d) => { setDetectedDomain(d); setDomain(d as unknown as Domain); }}
+            onChange={(d) => { setDetectedDomain(d); setDomain(d as Domain); }}
           />
         </div>
       )}
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 40px 0', flexShrink: 0 }}>
+      <div className="legal-toolbar">
         {mode === 'analyst' && (
           <button
             type="button"
+            className="legal-toolbar__btn legal-toolbar__btn--handoff"
             onClick={handleAnalystHandoff}
             disabled={handingOff}
             aria-label="Hand off conversation to Finance Studio"
-            style={{
-              padding: '6px 14px', borderRadius: 'var(--s-r-sm)',
-              background: 'rgba(168, 85, 247, 0.15)', color: '#a78bfa',
-              border: '1px solid rgba(168, 85, 247, 0.3)', fontSize: 12,
-              cursor: handingOff ? 'default' : 'pointer',
-              opacity: handingOff ? 0.5 : 1, fontFamily: 'var(--s-font-ui)',
-            }}
           >
             {handingOff ? '⏳ Handing off…' : '📊 Hand off to Finance Studio'}
           </button>
         )}
         <button
           type="button"
+          className="legal-toolbar__btn legal-toolbar__btn--audit"
           onClick={handleRunAudit}
           disabled={selectedDocIds.length === 0 || auditing}
           aria-label={`Run audit on ${selectedDocIds.length} selected documents`}
-          style={{
-            padding: '6px 14px', borderRadius: 'var(--s-r-sm)',
-            background: selectedDocIds.length > 0 ? 'var(--s-accent)' : 'rgba(255,255,255,0.06)',
-            color: '#fff', border: 'none', fontSize: 12,
-            cursor: selectedDocIds.length > 0 ? 'pointer' : 'default',
-            opacity: selectedDocIds.length > 0 ? 1 : 0.5, fontFamily: 'var(--s-font-ui)',
-          }}
         >
           {auditing ? '⏳ Auditing…' : `🔎 Run Audit (${selectedDocIds.length})`}
         </button>
       </div>
 
       {auditResult && (
-        <div style={{ padding: '8px 40px' }}>
+        <div className="legal-section-pad">
           <AuditorResultBubble
-            risk_flags={auditResult.risk_flags as any}
-            anomalies={auditResult.anomalies as any}
-            compliance_gaps={auditResult.compliance_gaps as any}
+            risk_flags={auditResult.risk_flags}
+            anomalies={auditResult.anomalies}
+            compliance_gaps={auditResult.compliance_gaps}
             summary={auditResult.summary}
           />
         </div>
       )}
 
-      <div className={`legal-studio__chat ${sourcePanelOpen ? 'legal-studio__chat--peeked' : ''}`}
-           style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      <div className={`legal-studio__chat ${sourcePanelOpen ? 'legal-studio__chat--peeked' : ''} legal-studio__chat-area`}>
         <ChatMessages
           messages={messages}
           loading={loading}
@@ -412,7 +404,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           activeSourceId={activeSource?.source}
         />
         {(researching || researchReport) && (
-          <div style={{ padding: '8px 40px' }}>
+          <div className="legal-section-pad">
             <ResearchBubble phases={researchPhases} report={researchReport} />
           </div>
         )}
