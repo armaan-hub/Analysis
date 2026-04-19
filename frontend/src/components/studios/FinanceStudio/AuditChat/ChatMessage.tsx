@@ -1,4 +1,5 @@
 import type { ChatMessage as CM } from '../types';
+import { FileText } from 'lucide-react';
 
 export function ChatMessage({ msg }: { msg: CM }) {
   return (
@@ -8,6 +9,7 @@ export function ChatMessage({ msg }: { msg: CM }) {
         <div className="chat-msg__citations">
           {msg.citations.map((c, i) => (
             <span key={i} className="citation-chip">
+              <FileText size={10} />
               {c.doc_id}{c.page ? ` p.${c.page}` : ''}
             </span>
           ))}
