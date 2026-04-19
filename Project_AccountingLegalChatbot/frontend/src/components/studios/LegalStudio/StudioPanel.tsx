@@ -6,9 +6,10 @@ import { ReportPreview } from './ReportPreview';
 
 interface Props {
   sourceIds: string[];
+  companyName?: string;
 }
 
-export function StudioPanel({ sourceIds }: Props) {
+export function StudioPanel({ sourceIds, companyName = 'Analysis' }: Props) {
   const [format, setFormat] = useState<AuditorFormat>('standard');
   const [activeReport, setActiveReport] = useState<ReportType | null>(null);
   const [reportContent, setReportContent] = useState('');
@@ -26,7 +27,7 @@ export function StudioPanel({ sourceIds }: Props) {
         requirements: {},
         source_ids: sourceIds,
         auditor_format: backendFormat,
-        company_name: 'Analysis',
+        company_name: companyName,
       });
       setReportContent(res.data.report_text ?? res.data.draft ?? 'Report generated.');
     } catch (err) {
@@ -34,7 +35,7 @@ export function StudioPanel({ sourceIds }: Props) {
     } finally {
       setGenerating(false);
     }
-  }, [format, sourceIds]);
+  }, [format, sourceIds, companyName]);
 
   const handleExport = useCallback(async () => {
     if (!reportContent) return;
