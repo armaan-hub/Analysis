@@ -26,3 +26,27 @@ def test_classifier_result_shape():
     assert r.domain == DomainLabel.VAT
     assert r.confidence == 0.92
     assert r.alternatives[0][0] == DomainLabel.CORPORATE_TAX
+
+
+import json
+import pytest
+from unittest.mock import patch, AsyncMock
+from core.chat.domain_classifier import classify_domain
+
+
+@pytest.mark.asyncio
+async def test_classify_vat_query():
+    fake_json = '{"domain": "vat", "confidence": 0.95, "alternatives": [["corporate_tax", 0.03]]}'
+    with patch("core.chat.domain_classifier._llm_complete", new=AsyncMock(return_value=fake_json)):
+        r = await classify_domain("How do I reclaim input VAT on UAE imports?")
+    assert r.domain == DomainLabel.VAT
+    assert r.confidence == 0.95
+    assert r.alternatives[0][0] == DomainLabel.CORPORATE_TAX
+
+
+@pytest.mark.asyncio
+async def test_classify_fallback_on_bad_json():
+    with patch("core.chat.domain_classifier._llm_complete", new=AsyncMock(return_value="not json")):
+        r = await classify_domain("ambiguous query")
+    assert r.domain == DomainLabel.GENERAL_LAW
+    assert r.confidence <= 0.5
