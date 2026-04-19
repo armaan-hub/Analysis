@@ -33,6 +33,8 @@ class Conversation(Base):
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
     llm_provider = Column(String(50), default="nvidia")
+    domain = Column(String(50), nullable=True)
+    is_pinned = Column(Boolean, default=False)
     llm_model = Column(String(100), default="")
 
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
