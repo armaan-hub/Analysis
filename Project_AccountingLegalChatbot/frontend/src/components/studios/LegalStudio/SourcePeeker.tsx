@@ -98,7 +98,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
         <div style={{ fontFamily: 'var(--s-font-ui)', fontSize: '13px', fontWeight: 600, color: 'var(--s-text-1)' }}>
           Sources ({sources.length})
         </div>
-        <button className="source-peeker__close" onClick={onClose} title="Close (Esc)">
+        <button type="button" className="source-peeker__close" onClick={onClose} title="Close (Esc)">
           <X size={16} />
         </button>
       </div>
@@ -151,6 +151,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
               {/* Actions */}
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <button
+                  type="button"
                   onClick={() => handleCopy(text, key)}
                   style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: 'var(--s-r-sm)', border: '1px solid var(--s-border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--s-font-ui)', fontSize: '11px', color: 'var(--s-text-2)' }}
                   title="Copy to clipboard"
@@ -159,6 +160,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
                   {copying === key ? 'Copied!' : 'Copy'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleWordDownload(text, displayName)}
                   style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: 'var(--s-r-sm)', border: '1px solid var(--s-border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--s-font-ui)', fontSize: '11px', color: 'var(--s-text-2)' }}
                   title="Download as Word"
@@ -168,6 +170,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
                 </button>
                 {showExcel && (
                   <button
+                    type="button"
                     onClick={() => handleExcelDownload(text, displayName)}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: 'var(--s-r-sm)', border: '1px solid var(--s-border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--s-font-ui)', fontSize: '11px', color: 'var(--s-text-2)' }}
                     title="Download as Excel"

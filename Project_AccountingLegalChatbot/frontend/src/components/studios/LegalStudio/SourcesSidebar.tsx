@@ -39,7 +39,9 @@ export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload
           onChange={e => e.target.files && onUpload(e.target.files)}
         />
         <button
+          type="button"
           onClick={() => fileRef.current?.click()}
+          aria-label="Upload documents"
           style={{
             width: '100%',
             padding: '8px 12px',
@@ -73,7 +75,9 @@ export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <button
+                type="button"
                 onClick={() => onPreview(d.id)}
+                aria-label={`Preview ${d.filename}`}
                 style={{
                   textAlign: 'left',
                   width: '100%',
@@ -128,7 +132,9 @@ export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload
               </button>
             </div>
             <button
+              type="button"
               onClick={() => onDelete(d.id)}
+              aria-label={`Delete ${d.filename}`}
               style={{
                 background: 'transparent',
                 border: 'none',

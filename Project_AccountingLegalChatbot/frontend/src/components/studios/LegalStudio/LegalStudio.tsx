@@ -428,7 +428,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 40px 0', flexShrink: 0 }}>
             {mode === 'analyst' && (
               <button
+                type="button"
                 onClick={handleAnalystHandoff}
+                disabled={handingOff}
+                aria-label="Hand off conversation to Finance Studio"
                 style={{
                   padding: '6px 14px',
                   borderRadius: 'var(--s-r-sm)',
@@ -436,16 +439,19 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                   color: '#a78bfa',
                   border: '1px solid rgba(168, 85, 247, 0.3)',
                   fontSize: 12,
-                  cursor: 'pointer',
+                  cursor: handingOff ? 'default' : 'pointer',
+                  opacity: handingOff ? 0.5 : 1,
                   fontFamily: 'var(--s-font-ui)',
                 }}
               >
-                📊 Hand off to Finance Studio
+                {handingOff ? '⏳ Handing off…' : '📊 Hand off to Finance Studio'}
               </button>
             )}
             <button
+              type="button"
               onClick={handleRunAudit}
               disabled={selectedDocIds.length === 0 || auditing}
+              aria-label={`Run audit on ${selectedDocIds.length} selected documents`}
               style={{
                 padding: '6px 14px',
                 borderRadius: 'var(--s-r-sm)',

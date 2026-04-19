@@ -38,7 +38,9 @@ export function PreviewPane({ docId, onClose }: Props) {
           Preview
         </span>
         <button
+          type="button"
           onClick={onClose}
+          aria-label="Close preview"
           style={{
             background: 'transparent',
             border: 'none',
