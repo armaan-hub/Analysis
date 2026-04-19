@@ -1,14 +1,19 @@
 """Legal Studio API — auditor, sessions, and research endpoints."""
+import asyncio
+import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
-from db.models import Conversation
+from db.models import Conversation, Message, ResearchJob
 from core.chat.auditor_agent import run_audit
+from core.research.orchestrator import run_deep_research
+from core.research.event_bus import create_channel, get_channel, remove_channel
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/legal-studio", tags=["Legal Studio"])
@@ -78,3 +83,70 @@ async def create_cross_domain_session(
         title=conv.title,
         domain=req.domain,
     )
+
+
+# ── Deep Research ─────────────────────────────────────────────────
+
+class ResearchRequest(BaseModel):
+    query: str
+    thread_id: Optional[str] = None
+
+
+class ResearchJobResponse(BaseModel):
+    job_id: str
+    status: str
+
+
+@router.post("/research", response_model=ResearchJobResponse)
+async def start_research(req: ResearchRequest, db: AsyncSession = Depends(get_db)):
+    """Start a deep research job."""
+    job = ResearchJob(query=req.query, thread_id=req.thread_id)
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Create event channel and launch background task
+    create_channel(job.id)
+    asyncio.create_task(run_deep_research(job.id, req.query))
+
+    return ResearchJobResponse(job_id=job.id, status="running")
+
+
+@router.get("/research/{job_id}")
+async def get_research(job_id: str, db: AsyncSession = Depends(get_db)):
+    """Get research job status and result."""
+    job = await db.get(ResearchJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Research job not found")
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "query": job.query,
+        "plan": job.plan_json,
+        "result": job.result_json,
+        "started_at": str(job.started_at) if job.started_at else None,
+        "completed_at": str(job.completed_at) if job.completed_at else None,
+    }
+
+
+@router.get("/research/{job_id}/stream")
+async def stream_research(job_id: str):
+    """SSE stream of research progress events."""
+    channel = get_channel(job_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="No active channel for this job")
+
+    async def event_generator():
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(channel.get(), timeout=60.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("phase") in ("completed", "failed"):
+                        break
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        finally:
+            remove_channel(job_id)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
