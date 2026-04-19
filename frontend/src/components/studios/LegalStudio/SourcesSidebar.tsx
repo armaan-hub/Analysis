@@ -1,4 +1,8 @@
-import { useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { SourceTypeIcon } from './SourceTypeIcon';
+import { SourceSearch } from './SourceSearch';
+import { EmptySourcesState } from './EmptySourcesState';
+import { AddSourcesOverlay } from './AddSourcesOverlay';
 
 export interface SourceDoc {
   id: string;
@@ -7,6 +11,8 @@ export interface SourceDoc {
   key_terms?: string[];
   source: string;
   status?: 'uploading' | 'processing' | 'summarizing' | 'ready' | 'error';
+  file_size?: number;
+  created_at?: string;
 }
 
 interface Props {
@@ -18,138 +24,127 @@ interface Props {
   onPreview: (id: string) => void;
 }
 
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload, onPreview }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState('');
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  const filteredDocs = useMemo(() => {
+    if (!search.trim()) return docs;
+    const q = search.toLowerCase();
+    return docs.filter(d => d.filename.toLowerCase().includes(q));
+  }, [docs, search]);
+
+  const allSelected = docs.length > 0 && docs.every(d => selectedIds.includes(d.id));
+
+  const handleSelectAll = useCallback(() => {
+    if (allSelected) {
+      docs.forEach(d => {
+        if (selectedIds.includes(d.id)) onSelect(d.id);
+      });
+    } else {
+      docs.forEach(d => {
+        if (!selectedIds.includes(d.id)) onSelect(d.id);
+      });
+    }
+  }, [docs, selectedIds, allSelected, onSelect]);
+
+  const handleUpload = useCallback((files: FileList) => {
+    onUpload(files);
+    setShowOverlay(false);
+  }, [onUpload]);
 
   return (
-    <aside style={{
-      width: 260,
-      borderRight: '1px solid var(--s-border)',
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--s-bg-2, #111)',
-      overflow: 'hidden',
-    }}>
-      <div style={{ padding: 12, borderBottom: '1px solid var(--s-border)' }}>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          style={{ display: 'none' }}
-          onChange={e => e.target.files && onUpload(e.target.files)}
-        />
+    <aside className="sources-panel">
+      <div className="sources-header">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span className="sources-header__title">
+            {showOverlay ? 'Add Sources' : 'Sources'}
+          </span>
+          {!showOverlay && (
+            <span className="sources-header__count">({docs.length})</span>
+          )}
+        </div>
         <button
           type="button"
-          onClick={() => fileRef.current?.click()}
-          aria-label="Upload documents"
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            borderRadius: 'var(--s-r-sm)',
-            background: 'var(--s-accent)',
-            color: '#fff',
-            border: 'none',
-            fontSize: 13,
-            cursor: 'pointer',
-            fontFamily: 'var(--s-font-ui)',
-          }}
+          className="sources-add-btn"
+          onClick={() => setShowOverlay(!showOverlay)}
+          aria-label={showOverlay ? 'Close' : 'Add sources'}
+          title={showOverlay ? 'Close' : 'Add sources'}
         >
-          + Upload (multi-select)
+          {showOverlay ? '✕' : '+'}
         </button>
       </div>
-      <ul style={{ flex: 1, overflow: 'auto', listStyle: 'none', margin: 0, padding: 0 }}>
-        {docs.map(d => (
-          <li key={d.id} style={{
-            padding: 12,
-            borderBottom: '1px solid var(--s-border)',
-            display: 'flex',
-            gap: 8,
-            alignItems: 'flex-start',
-          }}>
-            <input
-              type="checkbox"
-              checked={selectedIds.includes(d.id)}
-              onChange={() => onSelect(d.id)}
-              aria-label={`Select ${d.filename}`}
-              style={{ marginTop: 3 }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <button
-                type="button"
+
+      {showOverlay ? (
+        <AddSourcesOverlay onUpload={handleUpload} onClose={() => setShowOverlay(false)} />
+      ) : docs.length === 0 ? (
+        <EmptySourcesState onAddSources={() => setShowOverlay(true)} />
+      ) : (
+        <>
+          <SourceSearch value={search} onChange={setSearch} />
+          <button
+            type="button"
+            className="sources-select-all"
+            onClick={handleSelectAll}
+          >
+            {allSelected ? 'Deselect all' : 'Select all'}
+          </button>
+          <ul className="source-list">
+            {filteredDocs.map(d => (
+              <li
+                key={d.id}
+                className={`source-item${selectedIds.includes(d.id) ? ' source-item--selected' : ''}`}
                 onClick={() => onPreview(d.id)}
-                aria-label={`Preview ${d.filename}`}
-                style={{
-                  textAlign: 'left',
-                  width: '100%',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
               >
-                <div style={{
-                  fontSize: 13,
-                  color: 'var(--s-text-1, #fff)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {d.filename}
-                </div>
-                {d.status && d.status !== 'ready' && (
-                  <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 2 }}>
-                    {d.status}…
-                  </div>
-                )}
-                {d.summary && (
-                  <div style={{
-                    fontSize: 11,
-                    color: 'var(--s-text-2)',
-                    marginTop: 4,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}>
-                    {d.summary}
-                  </div>
-                )}
-                {d.key_terms && d.key_terms.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                    {d.key_terms.map(k => (
-                      <span key={k} style={{
-                        fontSize: 10,
-                        padding: '2px 6px',
-                        borderRadius: 'var(--s-r-sm)',
-                        background: 'rgba(255,255,255,0.08)',
-                        color: 'var(--s-text-2)',
-                      }}>
-                        {k}
+                <input
+                  type="checkbox"
+                  className="source-checkbox"
+                  checked={selectedIds.includes(d.id)}
+                  onChange={e => { e.stopPropagation(); onSelect(d.id); }}
+                  onClick={e => e.stopPropagation()}
+                  aria-label={`Select ${d.filename}`}
+                />
+                <SourceTypeIcon filename={d.filename} />
+                <div className="source-info">
+                  <div className="source-info__name">{d.filename}</div>
+                  <div className="source-info__meta">
+                    {formatFileSize(d.file_size)}
+                    {d.status && d.status !== 'ready' && (
+                      <span style={{ color: 'var(--s-warning)', marginLeft: 6 }}>
+                        {d.status}…
                       </span>
-                    ))}
+                    )}
                   </div>
-                )}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => onDelete(d.id)}
-              aria-label={`Delete ${d.filename}`}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--s-text-2)',
-                cursor: 'pointer',
-                fontSize: 14,
-                padding: 0,
-              }}
-              title="Delete"
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
+                </div>
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); onDelete(d.id); }}
+                  aria-label={`Delete ${d.filename}`}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--s-text-3)',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    padding: 0,
+                    flexShrink: 0,
+                  }}
+                  title="Delete"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </aside>
   );
 }
