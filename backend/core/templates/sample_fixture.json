@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "company": {
+    "name": "Sample Trading LLC",
+    "trn": "100000000000003",
+    "license_no": "CN-1234567",
+    "address": "Office 12, Sample Tower, Dubai, UAE"
+  },
+  "period": "2025",
+  "trial_balance": [
+    {"account": "Cash and Bank", "debit": 150000, "credit": 0},
+    {"account": "Accounts Receivable", "debit": 75000, "credit": 0},
+    {"account": "Inventory", "debit": 60000, "credit": 0},
+    {"account": "Accounts Payable", "debit": 0, "credit": 40000},
+    {"account": "Revenue", "debit": 0, "credit": 300000},
+    {"account": "Cost of Sales", "debit": 180000, "credit": 0},
+    {"account": "Operating Expenses", "debit": 45000, "credit": 0},
+    {"account": "Retained Earnings", "debit": 0, "credit": 170000}
+  ],
+  "balance_sheet": {
+    "total_assets": 285000,
+    "total_liabilities": 40000,
+    "total_equity": 245000
+  },
+  "profit_loss": {
+    "revenue": 300000,
+    "cost_of_sales": 180000,
+    "gross_profit": 120000,
+    "operating_expenses": 45000,
+    "net_profit": 75000
+  },
+  "opinion_text": "In our opinion, the financial statements present fairly, in all material respects, the financial position of Sample Trading LLC as at 31 December 2025 and its financial performance for the year then ended."
+}
