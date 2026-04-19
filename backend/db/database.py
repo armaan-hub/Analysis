@@ -52,6 +52,9 @@ async def init_db():
         for stmt in (
             "ALTER TABLE templates ADD COLUMN format_family TEXT NOT NULL DEFAULT 'custom'",
             "ALTER TABLE templates ADD COLUMN format_variant TEXT",
+            "ALTER TABLE documents ADD COLUMN summary TEXT",
+            "ALTER TABLE documents ADD COLUMN key_terms JSON",
+            "ALTER TABLE documents ADD COLUMN source TEXT DEFAULT 'upload'",
         ):
             try:
                 await conn.execute(text(stmt))
