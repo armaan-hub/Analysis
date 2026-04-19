@@ -52,10 +52,21 @@ async def db_session():
 @pytest_asyncio.fixture()
 async def client(db_session):
     """HTTP test client that uses the in-memory test DB."""
+    from contextlib import asynccontextmanager
+    from unittest.mock import patch
+
     async def override_get_db():
         yield db_session
 
+    @asynccontextmanager
+    async def _mock_session():
+        yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
+    with patch("api.audit_studio.AsyncSessionLocal", _mock_session), \
+         patch("core.audit_studio.versioning.AsyncSessionLocal", _mock_session), \
+         patch("core.audit_studio.chat_service.AsyncSessionLocal", _mock_session), \
+         patch("core.audit_studio.generation_service.AsyncSessionLocal", _mock_session):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            yield ac
     app.dependency_overrides.clear()
