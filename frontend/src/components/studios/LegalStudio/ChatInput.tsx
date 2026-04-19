@@ -64,9 +64,11 @@ export function ChatInput({ onSend, disabled, initialValue = '', mode = 'normal'
         rows={1}
       />
       <button
+        type="button"
         className="chat-input-send"
         onClick={submit}
         disabled={disabled || !value.trim()}
+        aria-label="Send message"
         title="Send"
       >
         <Send size={16} />

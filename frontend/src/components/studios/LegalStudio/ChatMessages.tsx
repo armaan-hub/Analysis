@@ -40,6 +40,7 @@ function SearchIndicator({ queries }: { queries: string[] }) {
   return (
     <div style={{ marginBottom: '6px' }}>
       <button
+        type="button"
         onClick={() => setExpanded(e => !e)}
         style={{
           display: 'flex',
@@ -81,7 +82,7 @@ function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: So
           )}
           {parsed && (
             <>
-              <button className="chat-thinking-toggle" onClick={() => setShowThinking(v => !v)}>
+              <button type="button" className="chat-thinking-toggle" onClick={() => setShowThinking(v => !v)}>
                 <span>◆</span> Show thinking {showThinking ? '▲' : '▾'}
               </button>
               {showThinking && (
@@ -93,6 +94,7 @@ function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: So
         </div>
         {msg.sources && msg.sources.length > 0 && (
           <button
+            type="button"
             className="chat-sources-btn"
             onClick={() => onSourceClick(msg.sources![0])}
           >
@@ -166,6 +168,7 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
             {SUGGESTIONS.map(s => (
               <button
                 key={s}
+                type="button"
                 className="chat-suggestion-chip"
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('studio:suggest', { detail: s }));
