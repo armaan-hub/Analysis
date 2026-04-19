@@ -30,7 +30,9 @@ export function StudioSwitcher({ alertCount = 0 }: Props) {
   ];
 
   const isActive = (path: string) =>
-    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+    path === '/'
+      ? location.pathname === '/' || location.pathname.startsWith('/notebook')
+      : location.pathname.startsWith(path);
 
   useEffect(() => {
     const match = items.find(i => isActive(i.path));
