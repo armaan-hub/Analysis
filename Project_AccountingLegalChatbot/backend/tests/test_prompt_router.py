@@ -1,8 +1,4 @@
 """Tests for the route_prompt function."""
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from core.prompt_router import route_prompt
 from core.chat.domain_classifier import DomainLabel

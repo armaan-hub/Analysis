@@ -85,6 +85,24 @@ session_summary_2026-04-15.md
 *.metadata.json
 *.resolved
 
+# Development one-off scripts (versioned audit generators, analysis scripts)
+generate_audit_v*.py
+compare_pdfs.py
+detailed_pdf_analysis.py
+extract_format_config.py
+
+# Development documentation artifacts
+AUTOMATION_SUMMARY.txt
+AUTOMATION_SETUP.md
+AUTO_PUSH_QUICK_START.md
+FINETUNING_EXPLANATION.md
+FINETUNING_TOOLS_SUMMARY.md
+FORMAT_CHANGE_STRATEGY.md
+FORMAT_GAP_ANALYSIS.md
+REQUIREMENTS_AND_ISSUES.md
+SCALABLE_SOLUTION.md
+SETUP_COMPLETE.txt
+
 # Brain documentation (development only)
 brain/ERROR_AUDIT.md
 brain/PENDING_PROJECT_WORK.md

@@ -1,8 +1,4 @@
 """Tests for template renderer."""
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from core.templates.renderer import render_template, load_sample_data, _flatten
 

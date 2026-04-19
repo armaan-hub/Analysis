@@ -128,39 +128,81 @@ async def _generate_by_type(profile_id: str, output_type: str, template_id, job_
         company_info=company_info,
     )
 
-    # 6. Write PDF; fall back to JSON if PDF generation fails
+    # 6. Write PDF
     out_path = out_dir / f"{job_id}.pdf"
     try:
         _write_report_pdf(report_data, out_path)
-    except Exception:  # noqa: BLE001
-        out_path = out_dir / f"{job_id}.json"
-        out_path.write_text(_json.dumps(report_data, indent=2, default=str), encoding="utf-8")
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            "PDF rendering failed for job %s; marking as failed.", job_id, exc_info=True
+        )
+        raise
 
     return str(out_path)
 
 
 def _write_report_pdf(report_data: dict, out_path) -> None:
-    """Render report_data dict to a ReportLab PDF at out_path."""
-    import json as _json
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    """Render report_data dict to a professional PDF at out_path using tables."""
+    import logging as _logging
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
 
+    _logger = _logging.getLogger(__name__)
     doc = SimpleDocTemplate(str(out_path), pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
 
     meta = report_data.get("metadata", {})
     title = f"Audit Report: {meta.get('company_name', 'Unknown')}"
+    period = meta.get("period_end", "")
     story.append(Paragraph(title, styles["Title"]))
+    if period:
+        story.append(Paragraph(f"Period: {period}", styles["Normal"]))
     story.append(Spacer(1, 12))
 
-    for section_key, section_val in report_data.items():
-        story.append(Paragraph(section_key.replace("_", " ").title(), styles["Heading2"]))
-        story.append(Paragraph(
-            _json.dumps(section_val, indent=2, default=str)[:2000].replace("\n", "<br/>"),
-            styles["Code"],
-        ))
-        story.append(Spacer(1, 8))
+    table_style = TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563EB")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F3F4F6")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D1D5DB")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ])
 
+    for section_key, section_val in report_data.items():
+        if section_key == "metadata":
+            continue
+        story.append(Paragraph(section_key.replace("_", " ").title(), styles["Heading2"]))
+
+        if isinstance(section_val, list) and section_val and isinstance(section_val[0], dict):
+            # List of dicts — render as a table
+            headers = list(section_val[0].keys())
+            data = [[str(h).replace("_", " ").title() for h in headers]]
+            for row in section_val:
+                data.append([str(row.get(h, "")) for h in headers])
+            col_width = (A4[0] - 80) / len(headers)
+            tbl = Table(data, colWidths=[col_width] * len(headers), repeatRows=1)
+            tbl.setStyle(table_style)
+            story.append(tbl)
+        elif isinstance(section_val, dict):
+            # Dict — render as key/value table
+            data = [["Field", "Value"]]
+            for k, v in section_val.items():
+                data.append([str(k).replace("_", " ").title(), str(v)])
+            tbl = Table(data, colWidths=[(A4[0] - 80) * 0.35, (A4[0] - 80) * 0.65], repeatRows=1)
+            tbl.setStyle(table_style)
+            story.append(tbl)
+        else:
+            story.append(Paragraph(str(section_val)[:1000], styles["Normal"]))
+
+        story.append(Spacer(1, 10))
+
+    _logger.info("PDF written to %s", out_path)
     doc.build(story)

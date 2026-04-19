@@ -25,10 +25,10 @@ async def _load_history(profile_id: str) -> list[dict]:
         rows = (await s.execute(
             select(AuditChatMessage)
             .where(AuditChatMessage.profile_id == profile_id)
-            .order_by(AuditChatMessage.created_at.asc())
+            .order_by(AuditChatMessage.created_at.desc())
             .limit(10)
         )).scalars().all()
-    return [{"role": r.role, "content": r.content} for r in rows]
+    return [{"role": r.role, "content": r.content} for r in reversed(rows)]
 
 
 async def run_chat(profile_id: str, user_message: str, source_ids: list[str] | None = None) -> dict:
@@ -79,7 +79,15 @@ async def run_chat(profile_id: str, user_message: str, source_ids: list[str] | N
     )
     resp = await llm.chat(prompt)
 
-    citations = [{"source": r["source"], "page": r.get("page", 1)} for r in rag_results]
+    citations = [
+        {
+            "doc_id": r["metadata"].get("doc_id", r["source"]),
+            "source": r["source"],
+            "page": r.get("page", 1),
+        }
+        for r in rag_results
+        if r.get("score", 1.0) >= 0.6
+    ]
     return {"content": resp.content, "citations": citations}
 
 

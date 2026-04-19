@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,8 +68,6 @@ async def create_cross_domain_session(
 
     # If context_summary provided, add it as a system message for continuity
     if req.context_summary:
-        from db.models import Message
-
         msg = Message(
             conversation_id=conv.id,
             role="system",
@@ -98,16 +96,19 @@ class ResearchJobResponse(BaseModel):
 
 
 @router.post("/research", response_model=ResearchJobResponse)
-async def start_research(req: ResearchRequest, db: AsyncSession = Depends(get_db)):
+async def start_research(
+    req: ResearchRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     """Start a deep research job."""
     job = ResearchJob(query=req.query, thread_id=req.thread_id)
     db.add(job)
     await db.commit()
     await db.refresh(job)
 
-    # Create event channel and launch background task
     create_channel(job.id)
-    asyncio.create_task(run_deep_research(job.id, req.query))
+    background_tasks.add_task(run_deep_research, job.id, req.query)
 
     return ResearchJobResponse(job_id=job.id, status="running")
 

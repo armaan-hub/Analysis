@@ -1,10 +1,5 @@
 """Tests for chat sliding window memory."""
 import pytest
-import sys
-import os
-
-# Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.chat import _build_sliding_context
 

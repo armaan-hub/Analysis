@@ -11,8 +11,12 @@ _FIXTURE_PATH = Path(__file__).parent / "sample_fixture.json"
 
 def load_sample_data() -> dict:
     """Load the sample fixture data."""
-    with open(_FIXTURE_PATH, "r") as f:
-        return json.load(f)
+    try:
+        with open(_FIXTURE_PATH, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.error("sample_fixture.json missing or invalid: %s", e)
+        return {}
 
 
 def render_template(template_body: str, data: dict | None = None) -> str:
