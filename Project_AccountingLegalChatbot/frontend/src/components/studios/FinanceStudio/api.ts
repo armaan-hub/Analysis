@@ -42,10 +42,10 @@ export const compareVersions = (id: string, v1: string, v2: string) =>
 export const chatHistory = (id: string) =>
   fetch(`${BASE}/api/audit-profiles/${id}/chat/history`).then(json<{ messages: ChatMessage[] }>);
 
-export const chatSend = (id: string, message: string) =>
+export const chatSend = (id: string, message: string, sourceIds?: string[]) =>
   fetch(`${BASE}/api/audit-profiles/${id}/chat`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, source_ids: sourceIds ?? null }),
   }).then(json<{ content: string; citations: unknown[] }>);
 
 export const chatClear = (id: string) =>

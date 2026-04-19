@@ -97,12 +97,13 @@ async def compare(profile_id: str, v1_id: str, v2_id: str):
 
 class ChatRequest(BaseModel):
     message: str
+    source_ids: list[str] | None = None
 
 
 @router.post("/{profile_id}/chat")
 async def chat(profile_id: str, req: ChatRequest):
     await _require_profile(profile_id)
-    reply = await chat_service.run_chat(profile_id, req.message)
+    reply = await chat_service.run_chat(profile_id, req.message, source_ids=req.source_ids)
     await chat_service.persist_exchange(profile_id, req.message, reply)
     return reply
 
