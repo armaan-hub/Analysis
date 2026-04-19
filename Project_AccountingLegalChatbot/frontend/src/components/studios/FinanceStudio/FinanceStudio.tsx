@@ -4,19 +4,42 @@ import { SourceDocsSidebar } from './SourceDocsSidebar/SourceDocsSidebar';
 import { AuditChat } from './AuditChat/AuditChat';
 import { ReportPreview } from './ReportPreview/ReportPreview';
 import { ExportsPanel } from './ExportsPanel/ExportsPanel';
+import { Files, MessageSquare, Eye, LayoutGrid } from 'lucide-react';
+
+function PanelHeader({ icon, title, children }: {
+  icon: React.ReactNode;
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="fs-panel-header">
+      <span className="fs-panel-header__icon">{icon}</span>
+      <span className="fs-panel-header__title">{title}</span>
+      {children}
+    </div>
+  );
+}
 
 export function FinanceStudio() {
   return (
     <FinanceStudioProvider>
       <div className="finance-studio">
         <aside className="finance-studio__left">
+          <PanelHeader icon={<Files size={18} />} title="Sources" />
           <SourceDocsSidebar />
         </aside>
         <section className="finance-studio__center">
-          <AuditChat />
-          <ReportPreview />
+          <div>
+            <PanelHeader icon={<MessageSquare size={18} />} title="Chat" />
+            <AuditChat />
+          </div>
+          <div>
+            <PanelHeader icon={<Eye size={18} />} title="Preview" />
+            <ReportPreview />
+          </div>
         </section>
         <aside className="finance-studio__right">
+          <PanelHeader icon={<LayoutGrid size={18} />} title="Studio" />
           <ExportsPanel />
         </aside>
       </div>

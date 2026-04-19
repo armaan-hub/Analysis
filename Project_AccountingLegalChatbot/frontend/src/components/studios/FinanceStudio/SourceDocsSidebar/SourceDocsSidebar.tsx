@@ -3,6 +3,7 @@ import { useFinanceStudio } from '../FinanceStudioContext';
 import { DocumentCard } from './DocumentCard';
 import { LearnedProfileTree } from './LearnedProfileTree';
 import { VersionSwitcher } from './VersionSwitcher';
+import { Plus, Upload } from 'lucide-react';
 
 export function SourceDocsSidebar() {
   const { profileId, sourceDocs, refreshDocs } = useFinanceStudio();
@@ -31,9 +32,13 @@ export function SourceDocsSidebar() {
 
   return (
     <div className="source-docs">
-      <VersionSwitcher />
+      <button
+        className="source-docs__add-btn"
+        onClick={() => fileInput.current?.click()}
+      >
+        <Plus size={16} /> Add sources
+      </button>
 
-      <h4>Source Documents</h4>
       <div
         className="dropzone"
         onClick={() => fileInput.current?.click()}
@@ -51,6 +56,7 @@ export function SourceDocsSidebar() {
           await refreshDocs();
         }}
       >
+        <Upload size={18} />
         Drop file or click to upload
       </div>
       <input ref={fileInput} type="file" hidden onChange={onUpload} />
@@ -61,6 +67,7 @@ export function SourceDocsSidebar() {
       </div>
 
       <LearnedProfileTree />
+      <VersionSwitcher />
     </div>
   );
 }

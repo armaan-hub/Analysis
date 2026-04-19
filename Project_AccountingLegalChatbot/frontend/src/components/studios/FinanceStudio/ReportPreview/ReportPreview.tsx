@@ -8,10 +8,12 @@ export function ReportPreview() {
   if (!readyReport) {
     return (
       <div className="report-preview report-preview--empty">
-        <PreviewPage pageNumber={1}>
-          <h3>No report generated yet.</h3>
-          <p className="muted">Generate an Audit Report from the Exports panel to preview it here.</p>
-        </PreviewPage>
+        <div className="report-preview__body">
+          <PreviewPage pageNumber={1}>
+            <h3>No report generated yet.</h3>
+            <p className="muted">Generate an Audit Report from the Studio panel to preview it here.</p>
+          </PreviewPage>
+        </div>
       </div>
     );
   }
