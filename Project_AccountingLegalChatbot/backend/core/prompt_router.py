@@ -129,3 +129,30 @@ def get_system_prompt(domain: str | None, question: str | None = None) -> str:
     if question and detect_vat_peppol_topic(question):
         return DOMAIN_PROMPTS["vat_peppol"]
     return DOMAIN_PROMPTS.get(domain or "general", DOMAIN_PROMPTS["general"])
+
+
+from core.chat.domain_classifier import DomainLabel
+
+# Map DomainLabel enum → system prompt. Reuses existing domain prompts where possible,
+# with new entries for domains that didn't have dedicated prompts before.
+_DOMAIN_LABEL_PROMPTS: dict[DomainLabel, str] = {
+    DomainLabel.VAT: DOMAIN_PROMPTS["vat"],
+    DomainLabel.CORPORATE_TAX: DOMAIN_PROMPTS["corporate_tax"],
+    DomainLabel.PEPPOL: DOMAIN_PROMPTS["vat_peppol"],
+    DomainLabel.E_INVOICING: DOMAIN_PROMPTS["vat_peppol"],
+    DomainLabel.LABOUR: DOMAIN_PROMPTS["law"],
+    DomainLabel.COMMERCIAL: DOMAIN_PROMPTS["law"],
+    DomainLabel.IFRS: DOMAIN_PROMPTS["finance"],
+    DomainLabel.GENERAL_LAW: DOMAIN_PROMPTS["general"],
+}
+
+
+def route_prompt(domain: DomainLabel) -> str:
+    """Return the system prompt for a DomainLabel enum value.
+
+    Raises TypeError if domain is not a DomainLabel.
+    Raises KeyError if the label is not mapped (should never happen).
+    """
+    if not isinstance(domain, DomainLabel):
+        raise TypeError(f"domain must be DomainLabel, got {type(domain)}")
+    return _DOMAIN_LABEL_PROMPTS[domain]
