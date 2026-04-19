@@ -19,6 +19,8 @@ from core.template_store import TemplateStore, _UNSET
 from core.confidence_calibrator import ConfidenceCalibrator
 from core.format_fingerprinter import FormatFingerprinter
 from core.auto_verifier import AutoVerifier
+from core.templates.renderer import render_template, load_sample_data
+from core.templates.structure_analyzer import analyze_structure
 from db.database import get_db
 from db.models import Template
 
@@ -757,3 +759,50 @@ async def delete_template(
 
     await store.delete(template_id)
     return {"message": "Template deleted", "template_id": template_id}
+
+
+@router.get("/{template_id}/preview")
+async def preview_template(template_id: str, db: AsyncSession = Depends(get_db)):
+    """Render a template with sample data for preview."""
+    tpl = await db.get(Template, template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    config = json.loads(tpl.config_json) if tpl.config_json else {}
+    body = config.get("body", "")
+    if not body:
+        raise HTTPException(status_code=400, detail="Template has no body")
+
+    rendered = render_template(body)
+    structure = analyze_structure(body)
+
+    return {
+        "template_id": template_id,
+        "rendered": rendered,
+        "structure": structure.model_dump(),
+        "sample_data": load_sample_data(),
+    }
+
+
+@router.post("/{template_id}/preview")
+async def preview_template_with_data(
+    template_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    """Render a template with custom data for preview."""
+    tpl = await db.get(Template, template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    config = json.loads(tpl.config_json) if tpl.config_json else {}
+    body = config.get("body", "")
+    if not body:
+        raise HTTPException(status_code=400, detail="Template has no body")
+
+    rendered = render_template(body, data)
+
+    return {
+        "template_id": template_id,
+        "rendered": rendered,
+    }
