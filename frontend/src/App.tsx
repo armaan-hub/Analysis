@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { API, type Alert } from './lib/api';
 import { StudioProvider } from './context/StudioProvider';
 import { ThemeProvider } from './context/ThemeContext';
@@ -19,6 +19,7 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const TemplateStudio = React.lazy(() =>
   import('./components/studios/TemplateStudio/TemplateStudio').then(m => ({ default: m.TemplateStudio }))
 );
+const HomePage = React.lazy(() => import('./pages/HomePage'));
 
 interface Conversation {
   id: string;
@@ -40,15 +41,36 @@ function PageLoader() {
   );
 }
 
-export default function App() {
+function NotebookPage({ onConversationsChange }: {
+  conversations: Conversation[];
+  onConversationsChange: (c: Conversation[]) => void;
+}) {
+  const { id } = useParams<{ id: string }>();
+  const convId = id === 'new' ? undefined : id;
+
+  return (
+    <LegalStudio
+      key={convId ?? `new-${Date.now()}`}
+      onConversationsChange={onConversationsChange}
+      initialConversationId={convId}
+    />
+  );
+}
+
+function AppInner() {
   const [alertCount, setAlertCount] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [chatKey, setChatKey] = useState(0);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isLegalRoute = location.pathname === '/' || location.pathname.startsWith('/notebook');
+
+  const handleLoadConversation = (id: string) => {
+    navigate(`/notebook/${id}`);
+  };
 
   const handleNewChat = () => {
-    setChatKey(k => k + 1);
-    setActiveConvId(null);
+    navigate('/notebook/new');
   };
 
   useEffect(() => {
@@ -61,33 +83,48 @@ export default function App() {
   }, []);
 
   return (
+    <div className={`app-shell ${isLegalRoute ? 'app-shell--legal' : ''}`}>
+      <StudioSwitcher alertCount={alertCount} />
+      <ContextualSidebar conversations={conversations} onLoadConversation={handleLoadConversation} onNewChat={handleNewChat} />
+      <main className="studio-main">
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/notebook/new"
+              element={
+                <LegalStudio
+                  key={`new-${Date.now()}`}
+                  onConversationsChange={setConversations}
+                />
+              }
+            />
+            <Route
+              path="/notebook/:id"
+              element={
+                <NotebookPage
+                  conversations={conversations}
+                  onConversationsChange={setConversations}
+                />
+              }
+            />
+            <Route path="/finance" element={<FinanceStudio />} />
+            <Route path="/monitoring" element={<RegulatoryStudio />} />
+            <Route path="/templates" element={<TemplateStudio />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </Suspense>
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
     <ThemeProvider>
     <Router>
       <StudioProvider>
-        <div className="app-shell">
-          <StudioSwitcher alertCount={alertCount} />
-          <ContextualSidebar conversations={conversations} onLoadConversation={setActiveConvId} onNewChat={handleNewChat} />
-          <main className="studio-main">
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <LegalStudio
-                      key={activeConvId ?? `new-${chatKey}`}
-                      onConversationsChange={setConversations}
-                      initialConversationId={activeConvId ?? undefined}
-                    />
-                  }
-                />
-                <Route path="/finance" element={<FinanceStudio />} />
-                <Route path="/monitoring" element={<RegulatoryStudio />} />
-                <Route path="/templates" element={<TemplateStudio />} />
-                <Route path="/settings" element={<SettingsPage />} />
-              </Routes>
-            </Suspense>
-          </main>
-        </div>
+        <AppInner />
       </StudioProvider>
     </Router>
     </ThemeProvider>
