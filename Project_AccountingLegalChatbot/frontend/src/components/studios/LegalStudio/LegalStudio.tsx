@@ -4,6 +4,8 @@ import { API_BASE, API, fmtTime, type Message, type Source } from '../../../lib/
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { SourcePeeker } from './SourcePeeker';
+import { SourcesSidebar, type SourceDoc } from './SourcesSidebar';
+import { PreviewPane } from './PreviewPane';
 import { type ChatMode } from './ModeDropdown';
 import { DomainChip, type DomainLabel } from './DomainChip';
 
@@ -49,7 +51,69 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [searchParams] = useSearchParams();
 
+  const [docs, setDocs] = useState<SourceDoc[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+
   const initialValue = searchParams.get('q') ?? '';
+
+  // --- Document handlers for SourcesSidebar ---
+  const handleDocSelect = useCallback((id: string) => {
+    setSelectedDocIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }, []);
+
+  const handleDocDelete = useCallback(async (id: string) => {
+    try {
+      await API.delete(`/api/documents/${id}`);
+      setDocs(prev => prev.filter(d => d.id !== id));
+      setSelectedDocIds(prev => prev.filter(x => x !== id));
+      if (previewDocId === id) setPreviewDocId(null);
+    } catch { /* ignore */ }
+  }, [previewDocId]);
+
+  const handleDocUpload = useCallback(async (files: FileList) => {
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const tempId = crypto.randomUUID();
+      setDocs(prev => [...prev, { id: tempId, filename: file.name, source: 'upload', status: 'uploading' }]);
+      try {
+        const resp = await API.post('/api/documents/upload', fd);
+        const doc = resp.data.document;
+        setDocs(prev => prev.map(d => d.id === tempId ? {
+          id: doc.id,
+          filename: doc.original_name,
+          summary: doc.summary,
+          key_terms: doc.key_terms,
+          source: doc.source || 'upload',
+          status: 'ready' as const,
+        } : d));
+      } catch {
+        setDocs(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' as const } : d));
+      }
+    }
+  }, []);
+
+  const handleDocPreview = useCallback((id: string) => {
+    setPreviewDocId(prev => prev === id ? null : id);
+  }, []);
+
+  // Load documents on mount
+  useEffect(() => {
+    API.get('/api/documents').then(r => {
+      const loaded: SourceDoc[] = (r.data || []).map((d: any) => ({
+        id: d.id,
+        filename: d.original_name || d.filename,
+        summary: d.summary,
+        key_terms: d.key_terms,
+        source: d.source || 'upload',
+        status: 'ready' as const,
+      }));
+      setDocs(loaded);
+    }).catch(() => {});
+  }, []);
 
   // Load message history when an existing conversation is opened from sidebar
   useEffect(() => {
@@ -243,44 +307,55 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }, [loading]);
 
   return (
-    <div className="legal-studio">
-      <div className={`legal-studio__chat ${sourcePanelOpen ? 'legal-studio__chat--peeked' : ''}`}>
-        {/* Domain chip (shown once classifier detects a domain) */}
-        {detectedDomain && (
-          <div style={{ padding: '16px 40px 0', flexShrink: 0 }}>
-            <DomainChip
-              value={detectedDomain}
-              editable
-              onChange={(d) => {
-                setDetectedDomain(d);
-                setDomain(d);
-              }}
-            />
-          </div>
-        )}
+    <div className="legal-studio" style={{ display: 'flex', height: '100%' }}>
+      <SourcesSidebar
+        docs={docs}
+        selectedIds={selectedDocIds}
+        onSelect={handleDocSelect}
+        onDelete={handleDocDelete}
+        onUpload={handleDocUpload}
+        onPreview={handleDocPreview}
+      />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div className={`legal-studio__chat ${sourcePanelOpen ? 'legal-studio__chat--peeked' : ''}`}>
+          {/* Domain chip (shown once classifier detects a domain) */}
+          {detectedDomain && (
+            <div style={{ padding: '16px 40px 0', flexShrink: 0 }}>
+              <DomainChip
+                value={detectedDomain}
+                editable
+                onChange={(d) => {
+                  setDetectedDomain(d);
+                  setDomain(d);
+                }}
+              />
+            </div>
+          )}
 
-        <ChatMessages
-          messages={messages}
-          loading={loading}
-          webSearching={webSearching}
-          onSourceClick={handleSourceClick}
-          activeSourceId={activeSource?.source}
-        />
-        <ChatInput
-          onSend={sendMessage}
-          disabled={loading}
-          initialValue={initialValue}
-          mode={mode}
-          onModeChange={setMode}
+          <ChatMessages
+            messages={messages}
+            loading={loading}
+            webSearching={webSearching}
+            onSourceClick={handleSourceClick}
+            activeSourceId={activeSource?.source}
+          />
+          <ChatInput
+            onSend={sendMessage}
+            disabled={loading}
+            initialValue={initialValue}
+            mode={mode}
+            onModeChange={setMode}
+          />
+        </div>
+        <SourcePeeker
+          key={`source-peeker-${messages.length}`}
+          sources={activeSources}
+          isOpen={sourcePanelOpen}
+          highlightedSource={activeSource?.source}
+          onClose={() => { setSourcePanelOpen(false); setActiveSource(null); }}
         />
       </div>
-      <SourcePeeker
-        key={`source-peeker-${messages.length}`}
-        sources={activeSources}
-        isOpen={sourcePanelOpen}
-        highlightedSource={activeSource?.source}
-        onClose={() => { setSourcePanelOpen(false); setActiveSource(null); }}
-      />
+      <PreviewPane docId={previewDocId} onClose={() => setPreviewDocId(null)} />
     </div>
   );
 }
