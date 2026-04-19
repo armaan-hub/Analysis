@@ -8,7 +8,7 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -19,7 +19,8 @@ from db.database import get_db
 from db.models import Conversation, Message
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
-from core.prompt_router import get_system_prompt
+from core.prompt_router import get_system_prompt, route_prompt
+from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from config import settings
 from core.web_search import search_web, build_web_context
 
@@ -175,7 +176,9 @@ class ChatRequest(BaseModel):
     use_rag: bool = True  # Whether to search documents for context
     provider: Optional[str] = None  # Override provider for this request
     stream: bool = False
-    domain: Optional[str] = None  # finance | law | audit | general
+    domain: Optional[str] = None  # legacy — used as domain_override if set
+    mode: Literal["normal", "deep_research", "analyst"] = "normal"
+    domain_override: Optional[str] = None  # DomainLabel value e.g. "vat", "corporate_tax"
 
 class ConversationResponse(BaseModel):
     id: str
@@ -294,7 +297,22 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     sources = []
     search_results = []
 
-    system_prompt = get_system_prompt(req.domain) + memory_block
+    # Domain classification — use override if provided, else run LLM classifier
+    effective_override = req.domain_override or req.domain  # backward compat
+    if effective_override:
+        try:
+            classifier_result = ClassifierResult(
+                domain=DomainLabel(effective_override),
+                confidence=1.0,
+                alternatives=[],
+            )
+        except ValueError:
+            # Legacy domain value not in DomainLabel — fall back to LLM classifier
+            classifier_result = await classify_domain(req.message)
+    else:
+        classifier_result = await classify_domain(req.message)
+
+    system_prompt = route_prompt(classifier_result.domain) + memory_block
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
@@ -357,10 +375,13 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 nonlocal sources  # allow modification inside nested function
 
                 # First event: metadata
-                meta: dict = {"type": "meta", "conversation_id": conversation.id}
-                detected = _classify_domain(req.message)
-                if detected:
-                    meta["detected_domain"] = detected
+                meta: dict = {
+                    "type": "meta",
+                    "conversation_id": conversation.id,
+                    "detected_domain": classifier_result.domain.value,
+                    "classifier": classifier_result.model_dump(),
+                    "mode": req.mode,
+                }
                 yield f"data: {json.dumps(meta)}\n\n"
 
                 # If RAG returned nothing, try web search
