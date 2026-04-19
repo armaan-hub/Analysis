@@ -52,7 +52,8 @@ async def _fast_learn_pipeline(
     if match_score >= 88 and match_config is not None:
         config = copy.deepcopy(match_config)
     else:
-        config = await run_in_threadpool(_analyzer.analyze_precise, pdf_path)
+        analyzer = TemplateAnalyzer()
+        config = await run_in_threadpool(analyzer.analyze_precise, pdf_path)
 
     verifier = AutoVerifier()
     verify_result = await run_in_threadpool(verifier.verify, config, pdf_path)

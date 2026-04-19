@@ -133,7 +133,8 @@ class FormatFingerprinter:
           currency      25
           format_family 20
           section_count 15  (within +/-1)
-          col_count     10
+          col_count      5
+          has_notes      5
         """
         score = 0
         fp_ps = fp.get("page_size")
@@ -149,7 +150,9 @@ class FormatFingerprinter:
         if abs(fp.get("section_count", 0) - candidate.get("section_count", 0)) <= 1:
             score += 15
         if fp.get("col_count") == candidate.get("col_count"):
-            score += 10
+            score += 5
+        if fp.get("has_notes") == candidate.get("has_notes"):
+            score += 5
         return score
 
     def match(
