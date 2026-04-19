@@ -1,3 +1,8 @@
+/**
+ * @deprecated Replaced by ModePills component.
+ * Kept for backward compatibility with other studios.
+ * New code should import from './ModePills' instead.
+ */
 import { useState } from "react";
 
 export type ChatMode = "normal" | "deep_research" | "analyst";

@@ -1,3 +1,7 @@
+/**
+ * @deprecated Replaced by StudioPanel > ReportPreview.
+ * Kept for backward compatibility.
+ */
 import { useEffect, useState } from 'react';
 import { API_BASE } from '../../../lib/api';
 
