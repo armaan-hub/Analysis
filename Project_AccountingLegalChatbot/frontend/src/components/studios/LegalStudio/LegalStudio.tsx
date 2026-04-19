@@ -97,7 +97,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       fd.append('file', file);
       try {
         const res = await API.post('/api/documents/upload', fd);
-        const doc = res.data;
+        const doc = res.data.document ?? res.data;
         setDocs(prev => prev.map(d =>
           d.id === tempId ? {
             id: doc.id, filename: doc.original_name ?? doc.filename,
@@ -125,19 +125,25 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   // --- Load docs + conversations on mount ---
   useEffect(() => {
-    API.get('/api/documents/').then(r => {
-      const list = Array.isArray(r.data) ? r.data : (r.data.documents ?? []);
-      setDocs(list.map((d: any) => ({
-        id: d.id, filename: d.original_name ?? d.filename,
-        source: d.source ?? d.filename, status: d.status === 'indexed' ? 'ready' : d.status,
-        summary: d.summary, key_terms: d.key_terms,
-        file_size: d.file_size,
-      })));
-    }).catch(() => {});
+    // Only load previously uploaded docs when resuming an existing conversation
+    if (initialConversationId) {
+      API.get('/api/documents/').then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.documents ?? []);
+        setDocs(list.map((d: any) => ({
+          id: d.id, filename: d.original_name ?? d.filename,
+          source: d.source ?? d.filename, status: d.status === 'indexed' ? 'ready' : d.status,
+          summary: d.summary, key_terms: d.key_terms,
+          file_size: d.file_size,
+        })));
+      }).catch(() => {});
+    } else {
+      setDocs([]);
+      setSelectedDocIds([]);
+    }
     API.get('/api/chat/conversations').then(r => {
       onConversationsChange?.(r.data ?? []);
     }).catch(() => {});
-  }, [onConversationsChange]);
+  }, [initialConversationId, onConversationsChange]);
 
   // --- Load messages for existing conversation ---
   useEffect(() => {
@@ -193,7 +199,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         fd.append('file', file);
         try {
           const res = await API.post('/api/documents/upload', fd);
-          const doc = res.data;
+          const doc = res.data.document ?? res.data;
           setDocs(prev => [...prev, {
             id: doc.id, filename: doc.original_name ?? doc.filename,
             source: doc.source ?? doc.filename, status: 'ready',
@@ -223,7 +229,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         const evtSource = new EventSource(`${API_BASE}/api/legal-studio/research/${jobId}/stream`);
         evtSource.onmessage = (e) => {
           const data = JSON.parse(e.data);
-          if (data.phase === 'done') {
+          if (!data.phase) return; // skip heartbeat events
+          if (data.phase === 'completed') {
             setResearchReport(data.report ?? '');
             setResearching(false);
             setLoading(false);
@@ -395,7 +402,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         </div>
       )}
 
-      <div className={`legal-studio__chat ${sourcePanelOpen ? 'legal-studio__chat--peeked' : ''} legal-studio__chat-area`}>
+      <div className="legal-studio__chat legal-studio__chat-area">
         <ChatMessages
           messages={messages}
           loading={loading}
@@ -408,6 +415,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             <ResearchBubble phases={researchPhases} report={researchReport} />
           </div>
         )}
+      </div>
+
+      {sourcePanelOpen && activeSources.length > 0 && (
         <SourcePeeker
           key={`source-peeker-${messages.length}`}
           sources={activeSources}
@@ -415,7 +425,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           highlightedSource={activeSource?.source}
           onClose={() => { setSourcePanelOpen(false); setActiveSource(null); }}
         />
-      </div>
+      )}
 
       <ChatInput
         onSend={sendMessage}

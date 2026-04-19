@@ -20,8 +20,8 @@
   --amber:           #fbbf24;
   --red:             #f87171;
   --text:            #f0f0f0;
-  --text-2:          #777777;
-  --text-3:          #444444;
+  --text-2:          #999999;
+  --text-3:          #666666;
   --sidebar-w:       280px;
   --radius:          10px;
   --radius-sm:       6px;
@@ -967,7 +967,7 @@ body {
   transition: margin-right var(--s-slide);
 }
 .legal-studio__chat--peeked {
-  margin-right: 40%;
+  /* removed: no longer using side-panel peek */
 }
 .chat-messages-list {
   flex: 1;
@@ -1173,20 +1173,23 @@ body {
 
 /* ── Source Peeker ────────────────────────────────────────── */
 .source-peeker {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 40%;
-  height: 100%;
+  position: relative;
+  width: 100%;
+  max-height: 300px;
   background: var(--s-surface);
-  border-left: 1px solid var(--s-accent);
+  border-top: 1px solid var(--s-accent);
+  border-radius: 0;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform var(--s-slide);
-  z-index: 20;
+  flex-shrink: 0;
+  overflow: hidden;
+  animation: source-peeker-slide-up 0.2s ease-out;
 }
-.source-peeker--open { transform: translateX(0); }
+@keyframes source-peeker-slide-up {
+  from { max-height: 0; opacity: 0; }
+  to { max-height: 300px; opacity: 1; }
+}
+.source-peeker--open { /* kept for compatibility */ }
 .source-peeker__header {
   display: flex;
   justify-content: space-between;
@@ -2410,6 +2413,7 @@ body {
 
 .legal-toolbar__btn--audit:disabled {
   background: rgba(255, 255, 255, 0.06);
+  color: var(--text-2);
 }
 
 .legal-domain-chip-wrapper {

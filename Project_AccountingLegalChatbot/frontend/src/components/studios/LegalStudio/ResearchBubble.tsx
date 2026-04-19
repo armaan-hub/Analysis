@@ -25,7 +25,7 @@ export function ResearchBubble({ phases, report }: Props) {
       flexDirection: 'column',
       gap: 8,
     }}>
-      <div style={{ fontSize: 11, color: '#3b82f6' }}>🔬 Deep Research</div>
+      <div style={{ fontSize: 11, color: 'var(--s-accent, var(--teal))' }}>🔬 Deep Research</div>
 
       {/* Progress phases */}
       {phases.map((p, i) => (
@@ -51,7 +51,7 @@ export function ResearchBubble({ phases, report }: Props) {
 
       {/* Loading indicator */}
       {currentPhase && currentPhase.phase !== 'completed' && currentPhase.phase !== 'failed' && (
-        <div style={{ fontSize: 12, color: '#3b82f6', opacity: 0.7 }}>
+        <div style={{ fontSize: 12, color: 'var(--s-accent, var(--teal))', opacity: 0.7 }}>
           ⏳ {currentPhase.message}
         </div>
       )}

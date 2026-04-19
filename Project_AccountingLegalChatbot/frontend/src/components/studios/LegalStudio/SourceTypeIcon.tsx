@@ -1,4 +1,5 @@
-function getTypeFromFilename(filename: string): string {
+function getTypeFromFilename(filename: string | undefined | null): string {
+  if (!filename) return 'txt';
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'pdf') return 'pdf';
   if (ext === 'doc' || ext === 'docx') return 'doc';
@@ -19,7 +20,7 @@ const LABELS: Record<string, string> = {
 };
 
 interface Props {
-  filename: string;
+  filename: string | undefined;
 }
 
 export function SourceTypeIcon({ filename }: Props) {
