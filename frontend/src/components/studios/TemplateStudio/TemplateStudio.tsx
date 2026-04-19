@@ -434,7 +434,7 @@ export function TemplateStudio() {
                           >
                             <FileText size={14} />
                           </button>
-                        )}}
+                        )}
                         {(t.status === 'verified') && !t.is_global && (
                           <button className="ts-btn ts-btn--ghost" onClick={() => publishTemplate(t.id)} title="Publish">
                             <Send size={14} />
