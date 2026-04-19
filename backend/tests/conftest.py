@@ -66,7 +66,8 @@ async def client(db_session):
     with patch("api.audit_studio.AsyncSessionLocal", _mock_session), \
          patch("core.audit_studio.versioning.AsyncSessionLocal", _mock_session), \
          patch("core.audit_studio.chat_service.AsyncSessionLocal", _mock_session), \
-         patch("core.audit_studio.generation_service.AsyncSessionLocal", _mock_session):
+         patch("core.audit_studio.generation_service.AsyncSessionLocal", _mock_session), \
+         patch("core.research.orchestrator.async_session", _mock_session):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac
     app.dependency_overrides.clear()

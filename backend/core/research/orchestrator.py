@@ -34,9 +34,10 @@ async def _plan(query: str) -> list[str]:
     try:
         cleaned = raw.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
+            lines = cleaned.split("\n")
+            # Strip opening fence line (e.g. "```" or "```json") and closing fence
+            inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+            cleaned = "\n".join(inner)
         data = json.loads(cleaned.strip())
         return list(data.get("sub_questions", [query]))[:5]
     except Exception:
@@ -61,7 +62,7 @@ async def _gather_one(sub_q: str) -> str:
     except Exception as e:
         logger.warning("Web search failed for '%s': %s", sub_q, e)
 
-    return "\n".join(parts) if parts else f"No results found for: {sub_q}"
+    return "\n".join(parts) if parts else ""
 
 
 async def _synthesize(query: str, gathered: dict[str, str]) -> str:
@@ -117,7 +118,7 @@ async def run_deep_research(job_id: str, query: str) -> None:
         for r in results:
             if isinstance(r, Exception):
                 logger.warning("Gather task failed: %s", r)
-            else:
+            elif r[1]:  # skip empty results
                 gathered[r[0]] = r[1]
 
         # Phase 3: Synthesize

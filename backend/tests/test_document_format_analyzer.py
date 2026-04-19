@@ -7,14 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
 from pathlib import Path
 
 import fitz  # PyMuPDF
 import pytest
-
-# Ensure backend/ is importable
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.document_format_analyzer import analyze_audit_document
 

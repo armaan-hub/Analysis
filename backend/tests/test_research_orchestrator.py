@@ -1,8 +1,4 @@
 """Tests for the deep research orchestrator."""
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import json
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -49,8 +45,8 @@ async def test_gather_one_combines_rag_and_web():
 
 
 @pytest.mark.asyncio
-async def test_gather_concurrent():
-    """Test that multiple sub-questions are gathered concurrently."""
+async def test_gather_one_multiple_queries():
+    """Test that _gather_one works for different queries."""
     mock_rag = AsyncMock()
     mock_rag.search = AsyncMock(return_value=[{"text": "result"}])
 

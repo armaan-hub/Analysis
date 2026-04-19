@@ -1,8 +1,4 @@
 """Tests for template structure analyzer."""
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from core.templates.structure_analyzer import analyze_structure
 

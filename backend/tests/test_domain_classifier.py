@@ -1,8 +1,4 @@
 """Tests for DomainLabel enum and ClassifierResult model."""
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from core.chat.domain_classifier import DomainLabel, ClassifierResult
 
 

@@ -5,10 +5,6 @@ Legacy frontend domain values like 'law', 'finance', 'audit', 'aml',
 the /api/chat/send endpoint — the backend should fall back to the LLM
 classifier.
 """
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
 from unittest.mock import patch, AsyncMock
 from core.chat.domain_classifier import DomainLabel, ClassifierResult
