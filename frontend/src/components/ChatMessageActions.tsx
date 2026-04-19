@@ -63,12 +63,12 @@ export function ChatMessageActions({ messageId, content, hasTable = false }: Cha
       alignItems: 'center',
       gap: '2px',
       marginTop: '4px',
-      opacity: 0.5,
+      opacity: 0.7,
       transition: 'opacity 0.15s ease',
     }}
     className="chat-msg-actions"
     onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-    onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+    onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
     >
       <button title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy} style={btnStyle}>
         {copied ? '✓' : '📋'}

@@ -31,7 +31,7 @@ async def _analyze_documents(document_ids: list[str]) -> AuditResult:
             results = await rag_engine.search(
                 f"audit risk compliance anomaly",
                 top_k=5,
-                filter={"document_id": doc_id} if doc_id else None,
+                filter={"doc_id": doc_id} if doc_id else None,
             )
             for r in results:
                 context_parts.append(f"[Doc {doc_id}]: {r['text'][:500]}")

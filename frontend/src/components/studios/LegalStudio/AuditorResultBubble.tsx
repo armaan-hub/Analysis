@@ -12,9 +12,9 @@ interface Props {
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
-  high: '#ef4444',
-  medium: '#f59e0b',
-  low: '#6b7280',
+  high: 'var(--red, #ef4444)',
+  medium: 'var(--amber, #f59e0b)',
+  low: 'var(--text-2, #6b7280)',
 };
 
 function Section({ title, rows, titleColor }: { title: string; rows: Finding[]; titleColor: string }) {
@@ -57,9 +57,9 @@ export function AuditorResultBubble({ risk_flags, anomalies, compliance_gaps, su
     }}>
       <div style={{ fontSize: 11, color: 'var(--s-text-2)' }}>🔎 Auditor report</div>
       <div style={{ fontSize: 13, color: 'var(--s-text-1, #fff)' }}>{summary}</div>
-      <Section title="Risk Flags" rows={risk_flags} titleColor="#ef4444" />
-      <Section title="Anomalies" rows={anomalies} titleColor="#f59e0b" />
-      <Section title="Compliance Gaps" rows={compliance_gaps} titleColor="#a78bfa" />
+      <Section title="Risk Flags" rows={risk_flags} titleColor="var(--red, #ef4444)" />
+      <Section title="Anomalies" rows={anomalies} titleColor="var(--amber, #f59e0b)" />
+      <Section title="Compliance Gaps" rows={compliance_gaps} titleColor="var(--teal, #a78bfa)" />
     </div>
   );
 }
