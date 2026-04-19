@@ -389,7 +389,34 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                 📊 Hand off to Finance Studio
               </button>
             )}
+            <button
+              onClick={handleRunAudit}
+              disabled={selectedDocIds.length === 0 || auditing}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 'var(--s-r-sm)',
+                background: selectedDocIds.length > 0 ? 'var(--s-accent)' : 'rgba(255,255,255,0.06)',
+                color: '#fff',
+                border: 'none',
+                fontSize: 12,
+                cursor: selectedDocIds.length > 0 ? 'pointer' : 'default',
+                opacity: selectedDocIds.length > 0 ? 1 : 0.5,
+                fontFamily: 'var(--s-font-ui)',
+              }}
+            >
+              {auditing ? '⏳ Auditing…' : `🔎 Run Audit (${selectedDocIds.length})`}
+            </button>
           </div>
+          {auditResult && (
+            <div style={{ padding: '8px 40px' }}>
+              <AuditorResultBubble
+                risk_flags={auditResult.risk_flags as any}
+                anomalies={auditResult.anomalies as any}
+                compliance_gaps={auditResult.compliance_gaps as any}
+                summary={auditResult.summary}
+              />
+            </div>
+          )}
 
           <ChatMessages
             messages={messages}
