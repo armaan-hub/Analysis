@@ -273,7 +273,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                 copy[copy.length - 1] = { ...copy[copy.length - 1], sources };
                 return copy;
               });
-            } else if (evt.event === 'status' && evt.data === 'searching_web') {
+            } else if (evt.type === 'status' && evt.status === 'searching_web') {
               setWebSearching(true);
             } else if (evt.event === 'queries_run') {
               setMessages(prev => {
@@ -323,7 +323,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   // Auto-open source peeker when response finishes with sources
   const prevLoadingRef = useRef(false);
   const activeSourcesRef = useRef(activeSources);
-  activeSourcesRef.current = activeSources;
+  useEffect(() => {
+    activeSourcesRef.current = activeSources;
+  }, [activeSources]);
   useEffect(() => {
     if (prevLoadingRef.current && !loading && activeSourcesRef.current.length > 0) {
       setSourcePanelOpen(true);

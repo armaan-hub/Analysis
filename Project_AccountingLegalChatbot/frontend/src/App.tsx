@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useRef } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { API, type Alert } from './lib/api';
 import { StudioProvider } from './context/StudioProvider';
@@ -56,7 +56,7 @@ function NotebookPage({ onConversationsChange }: {
 function AppInner() {
   const [alertCount, setAlertCount] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const newKeyRef = useRef(0);
+  const [newKey, setNewKey] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -67,7 +67,7 @@ function AppInner() {
   };
 
   const handleNewChat = () => {
-    newKeyRef.current += 1;
+    setNewKey(prev => prev + 1);
     navigate('/notebook/new');
   };
 
@@ -92,7 +92,7 @@ function AppInner() {
               path="/notebook/new"
               element={
                 <LegalStudio
-                  key={`new-${newKeyRef.current}`}
+                  key={`new-${newKey}`}
                   onConversationsChange={setConversations}
                 />
               }
