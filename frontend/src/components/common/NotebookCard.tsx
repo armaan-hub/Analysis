@@ -86,7 +86,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid' }: Pro
   return (
     <div
       className={`notebook-card${isList ? ' notebook-card--list' : ''}`}
-      style={cardStyle}
+      style={{ ...cardStyle, position: 'relative' }}
       onClick={() => onClick(notebook.id)}
       role="button"
       tabIndex={0}
@@ -108,6 +108,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid' }: Pro
           aria-label="Delete notebook"
           style={deleteBtnStyle}
           onClick={handleDelete}
+          onMouseEnter={() => setHovered(true)}
         >
           <Trash2 size={16} />
         </button>
