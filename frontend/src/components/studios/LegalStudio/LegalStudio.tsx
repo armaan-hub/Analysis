@@ -358,18 +358,19 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         )}
       </div>
 
-      {auditResult && (
-        <div className="legal-section-pad">
-          <AuditorResultBubble
-            risk_flags={auditResult.risk_flags}
-            anomalies={auditResult.anomalies}
-            compliance_gaps={auditResult.compliance_gaps}
-            summary={auditResult.summary}
-          />
-        </div>
-      )}
-
+      {/* Scrollable chat area — audit result, messages, and research all scroll together */}
       <div className="legal-studio__chat legal-studio__chat-area">
+        {auditResult && (
+          <div className="legal-section-pad">
+            <AuditorResultBubble
+              risk_flags={auditResult.risk_flags}
+              anomalies={auditResult.anomalies}
+              compliance_gaps={auditResult.compliance_gaps}
+              summary={auditResult.summary}
+            />
+          </div>
+        )}
+
         <ChatMessages
           messages={messages}
           loading={loading}
@@ -377,6 +378,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           onSourceClick={handleSourceClick}
           activeSourceId={activeSource?.source}
         />
+
         {(researching || researchReport) && (
           <div className="legal-section-pad">
             <ResearchBubble phases={researchPhases} report={researchReport} />

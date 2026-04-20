@@ -2431,6 +2431,10 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  min-height: 0;
   position: relative;
 }
+.legal-studio__chat-area::-webkit-scrollbar { width: 4px; }
+.legal-studio__chat-area::-webkit-scrollbar-track { background: transparent; }
+.legal-studio__chat-area::-webkit-scrollbar-thumb { background: var(--s-border); border-radius: 2px; }
