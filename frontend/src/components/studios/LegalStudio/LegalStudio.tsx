@@ -185,7 +185,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     }
 
     const userDomain = detectDomain(text);
-    if (userDomain) { setDomain(userDomain); }
+    if (userDomain) {
+      setDomain(userDomain);
+      setDetectedDomain(userDomain as DomainLabel);
+    }
 
     const userMsg: Message = { role: 'user', text, time: fmtTime() };
     setMessages(prev => [...prev, userMsg]);

@@ -42,29 +42,27 @@ export function DomainChip({ value, editable, onChange }: Props) {
   const [open, setOpen] = useState(false);
   if (!editable) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-200 text-xs">
+      <span className="domain-chip">
         {LABELS[value]}
       </span>
     );
   }
   return (
-    <div className="relative inline-block">
+    <div className="domain-chip-wrapper">
       <button
         type="button"
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-200 text-xs hover:bg-violet-600/50"
+        className="domain-chip domain-chip--editable"
         onClick={() => setOpen(!open)}
       >
         Domain: {LABELS[value]} ✎
       </button>
       {open && (
-        <ul className="absolute z-20 mt-1 rounded-md bg-slate-900 shadow-lg text-xs">
+        <ul className="domain-chip-dropdown">
           {ALL.map((d) => (
             <li key={d}>
               <button
                 type="button"
-                className={`w-full text-left px-3 py-1.5 hover:bg-slate-800 ${
-                  d === value ? "bg-slate-800" : ""
-                }`}
+                data-active={d === value ? "true" : undefined}
                 onClick={() => {
                   onChange?.(d);
                   setOpen(false);

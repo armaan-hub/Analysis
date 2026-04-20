@@ -2438,3 +2438,61 @@ body {
 .legal-studio__chat-area::-webkit-scrollbar { width: 4px; }
 .legal-studio__chat-area::-webkit-scrollbar-track { background: transparent; }
 .legal-studio__chat-area::-webkit-scrollbar-thumb { background: var(--s-border); border-radius: 2px; }
+
+/* ── Domain Chip ── */
+.domain-chip-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.domain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--teal);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  border: none;
+}
+.domain-chip--editable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.domain-chip--editable:hover {
+  background: rgba(139, 92, 246, 0.25);
+}
+.domain-chip-dropdown {
+  position: absolute;
+  z-index: 30;
+  margin-top: 4px;
+  border-radius: 8px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 4px 0;
+  min-width: 150px;
+  list-style: none;
+}
+.domain-chip-dropdown li {
+  margin: 0;
+  padding: 0;
+}
+.domain-chip-dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.domain-chip-dropdown button:hover,
+.domain-chip-dropdown button[data-active="true"] {
+  background: var(--panel-hover);
+}
