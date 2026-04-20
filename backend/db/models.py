@@ -36,6 +36,7 @@ class Conversation(Base):
     domain = Column(String(50), nullable=True)
     is_pinned = Column(Boolean, default=False)
     llm_model = Column(String(100), default="")
+    checked_source_ids = Column(JSON, nullable=True)  # list of document IDs currently checked
 
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
 

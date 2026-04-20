@@ -56,6 +56,7 @@ async def init_db():
             "ALTER TABLE documents ADD COLUMN source TEXT DEFAULT 'upload'",
             "ALTER TABLE conversations ADD COLUMN domain TEXT",
             "ALTER TABLE conversations ADD COLUMN is_pinned BOOLEAN DEFAULT 0",
+            "ALTER TABLE conversations ADD COLUMN checked_source_ids JSON",
         ):
             try:
                 await conn.execute(text(stmt))
