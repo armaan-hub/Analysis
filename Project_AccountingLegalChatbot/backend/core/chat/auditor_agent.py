@@ -3,8 +3,12 @@ import json
 import logging
 from typing import Optional
 from pydantic import BaseModel
+from sqlalchemy import select
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
+from db.database import async_session
+from db.models import Document
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +28,30 @@ class AuditResult(BaseModel):
 
 async def _analyze_documents(document_ids: list[str]) -> AuditResult:
     """Analyze documents using LLM for risk flags, anomalies, and compliance gaps."""
+    # Resolve doc_id -> original_name from DB
+    id_to_name: dict[str, str] = {}
+    try:
+        async with async_session() as session:
+            rows = await session.execute(
+                select(Document.id, Document.original_name).where(Document.id.in_(document_ids))
+            )
+            for row in rows:
+                id_to_name[row.id] = row.original_name
+    except Exception as e:
+        logger.warning(f"Could not load document names from DB: {e}")
+
     # Gather context from each document via RAG
     context_parts = []
     for doc_id in document_ids:
+        doc_name = id_to_name.get(doc_id, doc_id)
         try:
             results = await rag_engine.search(
-                f"audit risk compliance anomaly",
-                top_k=5,
+                "audit risk compliance anomaly",
+                top_k=settings.top_k_results,
                 filter={"doc_id": doc_id} if doc_id else None,
             )
             for r in results:
-                context_parts.append(f"[Doc {doc_id}]: {r['text'][:500]}")
+                context_parts.append(f"[Doc {doc_name}]: {r['text'][:500]}")
         except Exception as e:
             logger.warning(f"RAG search failed for doc {doc_id}: {e}")
 
@@ -52,10 +69,11 @@ async def _analyze_documents(document_ids: list[str]) -> AuditResult:
         "You are a UAE audit and compliance specialist. Analyze the following document excerpts "
         "and identify: (1) risk flags, (2) anomalies, (3) compliance gaps.\n"
         "Respond ONLY with JSON:\n"
-        '{"risk_flags": [{"severity": "high|medium|low", "document": "doc_id", "finding": "..."}], '
+        '{"risk_flags": [{"severity": "high|medium|low", "document": "exact document name as provided", "finding": "..."}], '
         '"anomalies": [...same shape...], '
         '"compliance_gaps": [...same shape...], '
-        '"summary": "overall summary"}'
+        '"summary": "overall summary"}\n'
+        "In the document field, use the exact document name provided in the context."
     )
 
     llm = get_llm_provider()

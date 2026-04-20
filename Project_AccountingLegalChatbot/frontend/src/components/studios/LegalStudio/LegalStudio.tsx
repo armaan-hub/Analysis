@@ -1,5 +1,6 @@
 ﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Loader2, ScanSearch } from 'lucide-react';
 import { API_BASE, API, fmtTime, type Message, type Source } from '../../../lib/api';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -67,7 +68,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
-  const [handingOff, setHandingOff] = useState(false);
 
   const initialValue = searchParams.get('q') ?? '';
 
@@ -125,21 +125,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   // --- Load docs + conversations on mount ---
   useEffect(() => {
-    // Only load previously uploaded docs when resuming an existing conversation
-    if (initialConversationId) {
-      API.get('/api/documents/').then(r => {
-        const list = Array.isArray(r.data) ? r.data : (r.data.documents ?? []);
-        setDocs(list.map((d: any) => ({
-          id: d.id, filename: d.original_name ?? d.filename,
-          source: d.source ?? d.filename, status: d.status === 'indexed' ? 'ready' : d.status,
-          summary: d.summary, key_terms: d.key_terms,
-          file_size: d.file_size,
-        })));
-      }).catch(() => {});
-    } else {
-      setDocs([]);
-      setSelectedDocIds([]);
-    }
+    // Never auto-load docs — user explicitly selects/uploads them per session
+    setDocs([]);
+    setSelectedDocIds([]);
     API.get('/api/chat/conversations').then(r => {
       onConversationsChange?.(r.data ?? []);
     }).catch(() => {});
@@ -174,21 +162,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     } catch { /* ignore */ }
     setAuditing(false);
   }, [selectedDocIds]);
-
-  // --- Analyst handoff ---
-  const handleAnalystHandoff = useCallback(async () => {
-    setHandingOff(true);
-    try {
-      const summary = messages.slice(-6).map(m => `${m.role}: ${m.text.slice(0, 200)}`).join('\n');
-      await API.post('/api/legal-studio/sessions', {
-        title: 'Legal → Finance Handoff',
-        domain: 'finance',
-        context_summary: summary,
-      });
-      window.location.href = '/finance';
-    } catch { /* ignore */ }
-    setHandingOff(false);
-  }, [messages]);
 
   // --- Chat send ---
   const sendMessage = useCallback(async (text: string, attachedFiles?: File[]) => {
@@ -369,26 +342,20 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
       {/* Toolbar */}
       <div className="legal-toolbar">
-        {mode === 'analyst' && (
+        {(mode === 'analyst' || domain === 'audit') && (
           <button
             type="button"
-            className="legal-toolbar__btn legal-toolbar__btn--handoff"
-            onClick={handleAnalystHandoff}
-            disabled={handingOff}
-            aria-label="Hand off conversation to Finance Studio"
+            className="legal-toolbar__btn legal-toolbar__btn--audit"
+            onClick={handleRunAudit}
+            disabled={selectedDocIds.length === 0 || auditing}
+            aria-label={`Run audit on ${selectedDocIds.length} selected documents`}
           >
-            {handingOff ? '⏳ Handing off…' : '📊 Hand off to Finance Studio'}
+            {auditing
+              ? <><Loader2 size={14} className="spin" style={{ verticalAlign: 'middle', marginRight: 4 }} />Auditing…</>
+              : <><ScanSearch size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Run Audit ({selectedDocIds.length})</>
+            }
           </button>
         )}
-        <button
-          type="button"
-          className="legal-toolbar__btn legal-toolbar__btn--audit"
-          onClick={handleRunAudit}
-          disabled={selectedDocIds.length === 0 || auditing}
-          aria-label={`Run audit on ${selectedDocIds.length} selected documents`}
-        >
-          {auditing ? '⏳ Auditing…' : `🔎 Run Audit (${selectedDocIds.length})`}
-        </button>
       </div>
 
       {auditResult && (
@@ -450,7 +417,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         />
       }
       center={centerContent}
-      right={<StudioPanel sourceIds={selectedDocIds} />}
+      right={<StudioPanel sourceIds={selectedDocIds} mode={mode} />}
     />
   );
 }

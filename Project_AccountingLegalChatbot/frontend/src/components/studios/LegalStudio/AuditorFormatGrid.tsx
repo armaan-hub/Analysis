@@ -1,10 +1,13 @@
+import React from 'react';
+import { FileText, Building2, Scale, ShieldCheck, Paperclip } from 'lucide-react';
+
 export type AuditorFormat = 'standard' | 'big4' | 'legal' | 'compliance';
 
-const FORMAT_OPTIONS: { value: AuditorFormat; label: string; icon: string; desc: string }[] = [
-  { value: 'standard', label: 'Standard', icon: '📄', desc: 'Default format' },
-  { value: 'big4', label: 'Big 4', icon: '🏛️', desc: 'Deloitte/PwC style' },
-  { value: 'legal', label: 'Legal Brief', icon: '⚖️', desc: 'Court format' },
-  { value: 'compliance', label: 'Compliance', icon: '🔒', desc: 'SOX/GDPR' },
+const FORMAT_OPTIONS: { value: AuditorFormat; label: string; icon: React.ReactNode; desc: string }[] = [
+  { value: 'standard', icon: <FileText size={16} />, label: 'Standard', desc: 'Default format' },
+  { value: 'big4', icon: <Building2 size={16} />, label: 'Big 4', desc: 'Deloitte/PwC style' },
+  { value: 'legal', icon: <Scale size={16} />, label: 'Legal Brief', desc: 'Court format' },
+  { value: 'compliance', icon: <ShieldCheck size={16} />, label: 'Compliance', desc: 'SOX/GDPR' },
 ];
 
 interface Props {
@@ -25,7 +28,7 @@ export function AuditorFormatGrid({ value, onChange }: Props) {
         alignItems: 'center',
         gap: 6,
       }}>
-        📎 Auditor Format
+        <Paperclip size={13} /> Auditor Format
       </div>
       <div className="format-grid">
         {FORMAT_OPTIONS.map(opt => (

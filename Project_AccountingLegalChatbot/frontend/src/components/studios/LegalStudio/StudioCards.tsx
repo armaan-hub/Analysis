@@ -1,9 +1,12 @@
+import React from 'react';
+import { ClipboardList, FileSearch, BarChart3 } from 'lucide-react';
+
 export type ReportType = 'audit' | 'summary' | 'analysis';
 
-const CARDS: { type: ReportType; icon: string; title: string; desc: string }[] = [
-  { type: 'audit', icon: '📋', title: 'Audit Report', desc: 'Generate compliance audit from sources' },
-  { type: 'summary', icon: '📑', title: 'Case Summary', desc: 'AI brief of key findings and risks' },
-  { type: 'analysis', icon: '📊', title: 'Analysis Report', desc: 'Deep analysis with citations' },
+const CARDS: { type: ReportType; icon: React.ReactNode; title: string; desc: string }[] = [
+  { type: 'audit', icon: <ClipboardList size={18} />, title: 'Audit Report', desc: 'Generate compliance audit from sources' },
+  { type: 'summary', icon: <FileSearch size={18} />, title: 'Case Summary', desc: 'AI brief of key findings and risks' },
+  { type: 'analysis', icon: <BarChart3 size={18} />, title: 'Analysis Report', desc: 'Deep analysis with citations' },
 ];
 
 interface Props {

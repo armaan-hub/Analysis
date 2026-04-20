@@ -1,15 +1,18 @@
 import { useState, useCallback } from 'react';
+import { Search, Download } from 'lucide-react';
 import { API } from '../../../lib/api';
 import { StudioCards, type ReportType } from './StudioCards';
 import { AuditorFormatGrid, type AuditorFormat } from './AuditorFormatGrid';
 import { ReportPreview } from './ReportPreview';
+import { type ChatMode } from './ModePills';
 
 interface Props {
   sourceIds: string[];
   companyName?: string;
+  mode?: ChatMode;
 }
 
-export function StudioPanel({ sourceIds, companyName = 'Analysis' }: Props) {
+export function StudioPanel({ sourceIds, companyName = 'Analysis', mode }: Props) {
   const [format, setFormat] = useState<AuditorFormat>('standard');
   const [activeReport, setActiveReport] = useState<ReportType | null>(null);
   const [reportContent, setReportContent] = useState('');
@@ -64,6 +67,23 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis' }: Props) {
   if (activeReport) {
     return (
       <aside className="studio-panel">
+        {mode === 'analyst' && (
+          <div style={{
+            background: 'var(--s-accent-dim)',
+            border: '1px solid rgba(107,140,255,0.3)',
+            borderRadius: 8,
+            padding: '8px 12px',
+            marginBottom: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{ fontSize: 11, color: 'var(--s-accent)', fontWeight: 600, fontFamily: 'var(--s-font-ui)' }}>
+              <Search size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+              Full Auditor Mode — LLM acts as comprehensive auditor
+            </span>
+          </div>
+        )}
         <ReportPreview
           reportType={activeReport}
           format={format}
@@ -78,6 +98,23 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis' }: Props) {
 
   return (
     <aside className="studio-panel">
+      {mode === 'analyst' && (
+        <div style={{
+          background: 'var(--s-accent-dim)',
+          border: '1px solid rgba(107,140,255,0.3)',
+          borderRadius: 8,
+          padding: '8px 12px',
+          marginBottom: 4,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--s-accent)', fontWeight: 600, fontFamily: 'var(--s-font-ui)' }}>
+              <Search size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+              Full Auditor Mode — LLM acts as comprehensive auditor
+            </span>
+        </div>
+      )}
       <div className="studio-panel__title">Studio</div>
       <StudioCards onSelect={handleGenerateReport} disabled={generating} />
       <hr className="studio-divider" />
@@ -88,7 +125,7 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis' }: Props) {
         disabled={sourceIds.length === 0}
         onClick={() => handleGenerateReport('audit')}
       >
-        📥 Export PDF
+        <Download size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Export PDF
       </button>
     </aside>
   );

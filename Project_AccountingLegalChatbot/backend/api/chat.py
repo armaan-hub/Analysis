@@ -19,7 +19,7 @@ from db.database import get_db
 from db.models import Conversation, Message
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
-from core.prompt_router import get_system_prompt, route_prompt
+from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from config import settings
 from core.web_search import search_web, build_web_context
@@ -312,16 +312,21 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     else:
         classifier_result = await classify_domain(req.message)
 
-    system_prompt = route_prompt(classifier_result.domain) + memory_block
+    if req.mode == "analyst":
+        system_prompt = DOMAIN_PROMPTS.get("analyst", DOMAIN_PROMPTS["general"]) + memory_block
+    else:
+        system_prompt = route_prompt(classifier_result.domain) + memory_block
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
-        # Domain-aware RAG: filter by category when domain is finance or law
+        # Domain-aware RAG: filter by category when domain is finance or law.
+        # Analyst mode intentionally skips category filtering to search all documents.
         rag_filter = None
-        if req.domain in ("finance",):
-            rag_filter = {"category": "finance"}
-        elif req.domain in ("law", "audit"):
-            rag_filter = {"category": "law"}
+        if req.mode != "analyst":
+            if req.domain in ("finance",):
+                rag_filter = {"category": "finance"}
+            elif req.domain in ("law", "audit"):
+                rag_filter = {"category": "law"}
 
         try:
             search_results = await rag_engine.search(
