@@ -151,3 +151,52 @@ async def stream_research(job_id: str):
             remove_channel(job_id)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ── Notebook Source Persist + Delete ──────────────────────────────
+
+from sqlalchemy import select, update
+from sqlalchemy import delete as sa_delete
+
+
+class SaveSourcesRequest(BaseModel):
+    conversation_id: str
+    source_ids: list[str]
+
+
+@router.post("/save-sources")
+async def save_checked_sources(req: SaveSourcesRequest, db: AsyncSession = Depends(get_db)):
+    """Persist which source document IDs are checked for a notebook."""
+    await db.execute(
+        update(Conversation)
+        .where(Conversation.id == req.conversation_id)
+        .values(checked_source_ids=req.source_ids)
+    )
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.get("/notebook/{conversation_id}/sources")
+async def get_notebook_sources(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    """Get persisted checked source IDs for a notebook."""
+    result = await db.execute(
+        select(Conversation.checked_source_ids).where(Conversation.id == conversation_id)
+    )
+    row = result.scalar_one_or_none()
+    return {"source_ids": row or []}
+
+
+@router.delete("/notebook/{conversation_id}")
+async def delete_notebook(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a notebook (conversation) and all its messages."""
+    conv = await db.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv_obj = conv.scalar_one_or_none()
+    if not conv_obj:
+        raise HTTPException(status_code=404, detail="Notebook not found")
+
+    await db.execute(sa_delete(Message).where(Message.conversation_id == conversation_id))
+    await db.delete(conv_obj)
+    await db.commit()
+    return {"status": "deleted"}
