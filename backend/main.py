@@ -2,7 +2,7 @@
 """
 Accounting & Legal AI Chatbot – FastAPI Application Entry Point.
 
-Run with: uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 
 import logging
