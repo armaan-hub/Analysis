@@ -5,6 +5,8 @@ interface PrefilledField {
   label: string;
   value: string;
   editable: boolean;
+  placeholder?: string;
+  autoDetected?: boolean;
 }
 
 interface Props {
@@ -57,21 +59,28 @@ export function QuestionnaireMessage({ reportType, fields, onConfirm, onCancel, 
             </label>
 
             {f.editable ? (
-              <input
-                value={values[f.key] ?? ''}
-                onChange={e => handleChange(f.key, e.target.value)}
-                disabled={generating}
-                style={{
-                  flex: 1,
-                  fontSize: 12,
-                  padding: '4px 8px',
-                  borderRadius: 'var(--s-r-sm)',
-                  border: '1px solid var(--s-border, rgba(255,255,255,0.1))',
-                  background: 'rgba(255,255,255,0.05)',
-                  color: 'var(--s-text-1, #fff)',
-                  outline: 'none',
-                }}
-              />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <input
+                  value={values[f.key] ?? ''}
+                  onChange={e => handleChange(f.key, e.target.value)}
+                  disabled={generating}
+                  placeholder={f.placeholder ?? ''}
+                  style={{
+                    fontSize: 12,
+                    padding: '4px 8px',
+                    borderRadius: 'var(--s-r-sm)',
+                    border: '1px solid var(--s-border, rgba(255,255,255,0.1))',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: 'var(--s-text-1, #fff)',
+                    outline: 'none',
+                  }}
+                />
+                {f.autoDetected && values[f.key] && (
+                  <span style={{ fontSize: 11, color: 'var(--s-text-2)', fontStyle: 'italic' }}>
+                    Auto-detected from sources
+                  </span>
+                )}
+              </div>
             ) : (
               <span style={{ fontSize: 12, color: 'var(--s-text-1, #fff)' }}>
                 {values[f.key]}
