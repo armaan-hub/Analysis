@@ -3,6 +3,7 @@ Chat API – Handles conversations, messages, and RAG-augmented responses.
 """
 
 import asyncio
+import io
 import json
 import logging
 import re
@@ -653,6 +654,45 @@ async def export_message(req: ExportRequest, db: AsyncSession = Depends(get_db))
             content=file_bytes,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=response.xlsx"},
+        )
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown format: {req.format}")
+
+
+# ── Deep Research Export ──────────────────────────────────────────
+
+class DeepResearchExportRequest(BaseModel):
+    content: str
+    sources: list[dict] = Field(default_factory=list)
+    format: Literal["pdf", "docx", "xlsx"]
+    query: str
+
+
+@router.post("/export-deep-research")
+async def export_deep_research(req: DeepResearchExportRequest):
+    """Export deep-research results as a branded PDF, DOCX, or XLSX file."""
+    from core.deep_research_export import to_branded_pdf, to_branded_docx, to_branded_xlsx
+
+    if req.format == "pdf":
+        file_bytes = to_branded_pdf(req.content, req.sources, req.query)
+        return StreamingResponse(
+            io.BytesIO(file_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=deep_research_report.pdf"},
+        )
+    elif req.format == "docx":
+        file_bytes = to_branded_docx(req.content, req.sources, req.query)
+        return StreamingResponse(
+            io.BytesIO(file_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "attachment; filename=deep_research_report.docx"},
+        )
+    elif req.format == "xlsx":
+        file_bytes = to_branded_xlsx(req.content, req.sources, req.query)
+        return StreamingResponse(
+            io.BytesIO(file_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=deep_research_report.xlsx"},
         )
     else:
         raise HTTPException(status_code=400, detail=f"Unknown format: {req.format}")
