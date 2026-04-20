@@ -1048,3 +1048,39 @@
 .finance-studio ::-webkit-scrollbar-thumb:hover {
   background: var(--border-bright);
 }
+
+/* Markdown rendering for AuditChat assistant messages */
+.report-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.report-markdown th,
+.report-markdown td {
+  border: 1px solid var(--s-border, rgba(255,255,255,0.08));
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.report-markdown th {
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+}
+
+.report-markdown tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.report-markdown h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.report-markdown h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
