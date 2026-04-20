@@ -135,10 +135,13 @@ async def download_report(filename: str):
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="File not found")
 
+    import mimetypes
+    mime_type, _ = mimetypes.guess_type(filename)
+    media_type = mime_type or "application/octet-stream"
     return FileResponse(
         path=filepath,
         filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        media_type=media_type,
     )
 
 
@@ -261,11 +264,12 @@ async def extract_company_docs(files: list[UploadFile] = File(...)):
             max_tokens=500,
         )
         raw = response.content.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        return json.loads(raw.strip())
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"\s*```\s*$", "", raw, flags=re.MULTILINE)
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match:
+            raise ValueError("LLM did not return valid JSON")
+        return json.loads(match.group(0))
     except Exception as e:
         return {"company_name": "", "address": "", "shareholders": "", "activity": "",
                 "trade_license_number": "", "registration_number": "", "incorporation_date": "", "error": str(e)}
