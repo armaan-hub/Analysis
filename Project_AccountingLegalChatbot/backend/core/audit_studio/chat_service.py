@@ -13,7 +13,7 @@ async def _current_profile_json(profile_id: str) -> str:
         v = (await s.execute(
             select(ProfileVersion).where(
                 ProfileVersion.profile_id == profile_id,
-                ProfileVersion.is_current == True,  # noqa: E712
+                ProfileVersion.is_current.is_(True),
             )
         )).scalar_one_or_none()
     return v.profile_json if v else "{}"

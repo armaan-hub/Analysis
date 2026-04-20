@@ -4,12 +4,13 @@ Routes nest under each profile: /api/audit-profiles/{id}/...
 """
 from typing import Optional
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 
-from db.database import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+from db.database import AsyncSessionLocal, get_db
 from db.models import AuditProfile, ProfileVersion, AuditChatMessage, GeneratedOutput
 from sqlalchemy.orm import selectinload
 from core.audit_studio.versioning import (
@@ -23,21 +24,20 @@ from core.audit_studio.generation_service import enqueue
 router = APIRouter(prefix="/api/audit-profiles", tags=["audit-studio"])
 
 
-async def _require_profile(profile_id: str) -> AuditProfile:
-    async with AsyncSessionLocal() as s:
-        row = (await s.execute(
-            select(AuditProfile).options(selectinload(AuditProfile.source_documents)).where(AuditProfile.id == profile_id)
-        )).scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code=404, detail="Profile not found")
-        return row
+async def _require_profile(profile_id: str, db: AsyncSession) -> AuditProfile:
+    row = (await db.execute(
+        select(AuditProfile).options(selectinload(AuditProfile.source_documents)).where(AuditProfile.id == profile_id)
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return row
 
 
 # ── Task 5: list versions ─────────────────────────────────────────
 
 @router.get("/{profile_id}/versions")
-async def list_versions(profile_id: str):
-    await _require_profile(profile_id)
+async def list_versions(profile_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     async with AsyncSessionLocal() as s:
         rows = (await s.execute(
             select(ProfileVersion)
@@ -62,8 +62,8 @@ class BranchRequest(BaseModel):
 
 
 @router.post("/{profile_id}/branch")
-async def branch(profile_id: str, req: BranchRequest):
-    await _require_profile(profile_id)
+async def branch(profile_id: str, req: BranchRequest, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     try:
         new_id = await branch_version(profile_id, req.branch_name)
     except ValueError as e:
@@ -74,8 +74,8 @@ async def branch(profile_id: str, req: BranchRequest):
 # ── Task 7: activate ──────────────────────────────────────────────
 
 @router.patch("/{profile_id}/versions/{version_id}/activate")
-async def activate(profile_id: str, version_id: str):
-    await _require_profile(profile_id)
+async def activate(profile_id: str, version_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     try:
         await activate_version(profile_id, version_id)
     except ValueError as e:
@@ -86,8 +86,8 @@ async def activate(profile_id: str, version_id: str):
 # ── Task 8: compare ───────────────────────────────────────────────
 
 @router.get("/{profile_id}/versions/{v1_id}/compare/{v2_id}")
-async def compare(profile_id: str, v1_id: str, v2_id: str):
-    await _require_profile(profile_id)
+async def compare(profile_id: str, v1_id: str, v2_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     try:
         return await compare_versions(profile_id, v1_id, v2_id)
     except ValueError as e:
@@ -102,8 +102,8 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/{profile_id}/chat")
-async def chat(profile_id: str, req: ChatRequest):
-    await _require_profile(profile_id)
+async def chat(profile_id: str, req: ChatRequest, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     reply = await chat_service.run_chat(profile_id, req.message, source_ids=req.source_ids)
     await chat_service.persist_exchange(profile_id, req.message, reply)
     return reply
@@ -112,8 +112,8 @@ async def chat(profile_id: str, req: ChatRequest):
 # ── Task 10: chat history ─────────────────────────────────────────
 
 @router.get("/{profile_id}/chat/history")
-async def chat_history(profile_id: str):
-    await _require_profile(profile_id)
+async def chat_history(profile_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     async with AsyncSessionLocal() as s:
         rows = (await s.execute(
             select(AuditChatMessage)
@@ -133,8 +133,8 @@ async def chat_history(profile_id: str):
 
 
 @router.delete("/{profile_id}/chat/history")
-async def chat_clear(profile_id: str):
-    await _require_profile(profile_id)
+async def chat_clear(profile_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     async with AsyncSessionLocal() as s:
         await s.execute(
             delete(AuditChatMessage).where(AuditChatMessage.profile_id == profile_id)
@@ -151,8 +151,8 @@ class GenerateRequest(BaseModel):
 
 
 @router.post("/{profile_id}/generate/{output_type}")
-async def generate(profile_id: str, output_type: str, req: GenerateRequest):
-    await _require_profile(profile_id)
+async def generate(profile_id: str, output_type: str, req: GenerateRequest, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     try:
         job_id = await enqueue(profile_id, output_type, req.template_id)
     except ValueError as e:
@@ -163,8 +163,8 @@ async def generate(profile_id: str, output_type: str, req: GenerateRequest):
 # ── Task 12: list outputs + download ─────────────────────────────
 
 @router.get("/{profile_id}/outputs")
-async def list_outputs(profile_id: str):
-    await _require_profile(profile_id)
+async def list_outputs(profile_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     async with AsyncSessionLocal() as s:
         rows = (await s.execute(
             select(GeneratedOutput).where(GeneratedOutput.profile_id == profile_id)
@@ -180,8 +180,8 @@ async def list_outputs(profile_id: str):
 
 
 @router.get("/{profile_id}/outputs/{output_id}/download")
-async def download_output(profile_id: str, output_id: str):
-    await _require_profile(profile_id)
+async def download_output(profile_id: str, output_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_profile(profile_id, db)
     async with AsyncSessionLocal() as s:
         row = await s.get(GeneratedOutput, output_id)
     if row is None or row.profile_id != profile_id:
