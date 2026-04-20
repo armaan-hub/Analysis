@@ -1,3 +1,6 @@
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 interface ResearchPhase {
   phase: string;
   message: string;
@@ -56,16 +59,12 @@ export function ResearchBubble({ phases, report }: Props) {
         </div>
       )}
 
-      {/* Final report */}
+      {/* Final report — rendered as Markdown */}
       {report && (
-        <div style={{
-          fontSize: 13,
-          color: 'var(--s-text-1, #fff)',
-          whiteSpace: 'pre-wrap',
-          marginTop: 8,
-          lineHeight: 1.6,
-        }}>
-          {report}
+        <div className="report-markdown" style={{ marginTop: 8 }}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {report}
+          </ReactMarkdown>
         </div>
       )}
     </div>
