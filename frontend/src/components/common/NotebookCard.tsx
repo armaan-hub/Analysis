@@ -149,7 +149,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
         style={{
           position: 'absolute',
           bottom: 8,
-          right: 8,
+          right: isList ? 36 : 8,
           fontSize: 20,
           lineHeight: 1,
           pointerEvents: 'none',
