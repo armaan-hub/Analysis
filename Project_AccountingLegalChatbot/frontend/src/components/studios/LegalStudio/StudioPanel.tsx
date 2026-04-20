@@ -10,15 +10,23 @@ interface Props {
   sourceIds: string[];
   companyName?: string;
   mode?: ChatMode;
+  onReportRequest?: (reportType: string) => void;
 }
 
-export function StudioPanel({ sourceIds, companyName = 'Analysis', mode }: Props) {
+export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onReportRequest }: Props) {
   const [format, setFormat] = useState<AuditorFormat>('standard');
   const [activeReport, setActiveReport] = useState<ReportType | null>(null);
   const [reportContent, setReportContent] = useState('');
   const [generating, setGenerating] = useState(false);
 
   const handleGenerateReport = useCallback(async (type: ReportType) => {
+    // Delegate to chat-redirect flow when callback is provided
+    if (onReportRequest) {
+      onReportRequest(type);
+      return;
+    }
+
+    // Fallback: direct generation (legacy path)
     setActiveReport(type);
     setReportContent('');
     setGenerating(true);
@@ -40,7 +48,7 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis', mode }: Props
     } finally {
       setGenerating(false);
     }
-  }, [format, sourceIds, companyName]);
+  }, [format, sourceIds, companyName, onReportRequest]);
 
   const handleExport = useCallback(async () => {
     if (!reportContent) return;

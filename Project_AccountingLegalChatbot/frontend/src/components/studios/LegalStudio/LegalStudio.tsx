@@ -10,8 +10,12 @@ import { StudioPanel } from './StudioPanel';
 import { ThreePaneLayout } from './ThreePaneLayout';
 import { type ChatMode } from './ModePills';
 import { DomainChip, type DomainLabel } from './DomainChip';
-import { AuditorResultBubble } from './AuditorResultBubble';
 import { ResearchBubble } from './ResearchBubble';
+import { QuestionnaireMessage, type PrefilledField } from './QuestionnaireMessage';
+import { InlineResultCard } from './InlineResultCard';
+import { CustomTemplatePicker } from './CustomTemplatePicker';
+import { type AuditorFormat } from './AuditorFormatGrid';
+import { REPORT_CONFIGS } from './reportConfigs';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax'
   | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law'
@@ -73,7 +77,29 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
+
+  // ── Report questionnaire flow state ──
+  const [activeQuestionnaire, setActiveQuestionnaire] = useState<{
+    reportType: string;
+    fields: PrefilledField[];
+    label: string;
+  } | null>(null);
+  const [reportGenerating, setReportGenerating] = useState(false);
+  const [reportResults, setReportResults] = useState<Array<{
+    reportType: string;
+    date: string;
+    content?: string;
+    error?: string;
+  }>>([]);
+
   const chatAreaBottomRef = useRef<HTMLDivElement>(null);
+
+  const [auditorFormat, setAuditorFormat] = useState<AuditorFormat>('standard');
+  const [showAuditQuestionnaire, setShowAuditQuestionnaire] = useState(false);
+  const [customTemplatePickerOpen, setCustomTemplatePickerOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
+  const [auditGenerating, setAuditGenerating] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   const initialValue = searchParams.get('q') ?? '';
 
@@ -166,17 +192,115 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       .catch(() => {});
   }, [initialConversationId]);
 
-  // --- Audit handler ---
-  const handleRunAudit = useCallback(async () => {
+  // --- Audit flow handlers ---
+  const auditFields: PrefilledField[] = useMemo(() => [
+    { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
+    { key: 'period', label: 'Audit Period', value: new Date().getFullYear().toString(), editable: true },
+    { key: 'format', label: 'Report Format', value: auditorFormat === 'custom' && selectedTemplate
+      ? `custom:${selectedTemplate.name}` : (auditorFormat || 'standard'), editable: false },
+    { key: 'scope', label: 'Scope', value: 'Full financial audit', editable: true },
+  ], [auditorFormat, selectedTemplate]);
+
+  const handleRunAudit = useCallback(() => {
     if (selectedDocIds.length === 0) return;
-    setAuditing(true);
+    if (auditorFormat === 'custom' && !selectedTemplate) {
+      setCustomTemplatePickerOpen(true);
+      return;
+    }
+    setShowAuditQuestionnaire(true);
     setAuditResult(null);
+    setAuditError(null);
+  }, [selectedDocIds, auditorFormat, selectedTemplate]);
+
+  const handleAuditConfirm = useCallback(async (fields: Record<string, string>) => {
+    setAuditGenerating(true);
+    setAuditing(true);
+    setAuditError(null);
     try {
-      const res = await API.post('/api/legal-studio/auditor', { document_ids: selectedDocIds });
+      const res = await API.post('/api/legal-studio/auditor', {
+        document_ids: selectedDocIds,
+        entity_name: fields.entity_name,
+        period: fields.period,
+        format: fields.format,
+        scope: fields.scope,
+      });
       setAuditResult(res.data);
-    } catch { /* ignore */ }
-    setAuditing(false);
+      setShowAuditQuestionnaire(false);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Audit failed. Please try again.';
+      setAuditError(errorMsg);
+      setShowAuditQuestionnaire(false);
+    } finally {
+      setAuditGenerating(false);
+      setAuditing(false);
+    }
   }, [selectedDocIds]);
+
+  const handleAuditRetry = useCallback(() => {
+    setAuditError(null);
+    setAuditResult(null);
+    setShowAuditQuestionnaire(true);
+  }, []);
+
+  const handleTemplateSelect = useCallback((templateId: string, templateName: string) => {
+    setSelectedTemplate({ id: templateId, name: templateName });
+    setCustomTemplatePickerOpen(false);
+    setShowAuditQuestionnaire(true);
+    setAuditResult(null);
+    setAuditError(null);
+  }, []);
+
+  // --- Report questionnaire flow ---
+  const handleReportRequest = useCallback((reportType: string) => {
+    const config = REPORT_CONFIGS[reportType];
+    if (!config) return;
+    setActiveQuestionnaire({
+      reportType,
+      fields: config.fields.map(f => ({ ...f })),
+      label: config.label,
+    });
+    // Scroll chat into view so the questionnaire is visible
+    setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, []);
+
+  const handleQuestionnaireConfirm = useCallback(async (confirmedFields: Record<string, string>) => {
+    if (!activeQuestionnaire) return;
+    const { reportType, label } = activeQuestionnaire;
+    setReportGenerating(true);
+
+    try {
+      const backendType = reportType === 'forecast' ? 'financial_analysis' : reportType;
+      const res = await API.post(`/api/reports/generate/${backendType}`, {
+        mapped_data: [],
+        requirements: {},
+        source_ids: selectedDocIds,
+        company_name: confirmedFields.entity_name || 'Analysis',
+        ...confirmedFields,
+        ...(reportType === 'forecast' ? { sub_type: 'forecast' } : {}),
+      });
+      const content = res.data.report_text ?? res.data.draft ?? 'Report generated successfully.';
+      setReportResults(prev => [...prev, {
+        reportType: label,
+        date: new Date().toISOString(),
+        content,
+      }]);
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.detail ?? err?.message ?? 'Report generation failed. Please try again.';
+      setReportResults(prev => [...prev, {
+        reportType: label,
+        date: new Date().toISOString(),
+        error: errorMsg,
+      }]);
+    } finally {
+      setReportGenerating(false);
+      setActiveQuestionnaire(null);
+      setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  }, [activeQuestionnaire, selectedDocIds]);
+
+  const handleQuestionnaireCancel = useCallback(() => {
+    setActiveQuestionnaire(null);
+  }, []);
 
   // --- Chat send ---
   const sendMessage = useCallback(async (text: string, attachedFiles?: File[]) => {
@@ -392,13 +516,36 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
       {/* Scrollable chat area — audit result, messages, and research all scroll together */}
       <div className="legal-studio__chat legal-studio__chat-area">
-        {auditResult && (
+        {showAuditQuestionnaire && (
           <div className="legal-section-pad">
-            <AuditorResultBubble
-              risk_flags={auditResult.risk_flags}
-              anomalies={auditResult.anomalies}
-              compliance_gaps={auditResult.compliance_gaps}
-              summary={auditResult.summary}
+            <QuestionnaireMessage
+              reportType="Audit Report"
+              fields={auditFields}
+              onConfirm={handleAuditConfirm}
+              onCancel={() => setShowAuditQuestionnaire(false)}
+              generating={auditGenerating}
+            />
+          </div>
+        )}
+
+        {auditResult && !showAuditQuestionnaire && (
+          <div className="legal-section-pad">
+            <InlineResultCard
+              reportType="Audit Report"
+              date={new Date().toISOString()}
+              format={auditorFormat}
+              auditData={auditResult}
+            />
+          </div>
+        )}
+
+        {auditError && !showAuditQuestionnaire && (
+          <div className="legal-section-pad">
+            <InlineResultCard
+              reportType="Audit Report"
+              date={new Date().toISOString()}
+              error={auditError}
+              onRetry={handleAuditRetry}
             />
           </div>
         )}
@@ -422,6 +569,36 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             />
           </div>
         )}
+
+        {/* Report results from chat-redirect flow */}
+        {reportResults.map((result, idx) => (
+          <div key={`report-result-${idx}`} className="legal-section-pad">
+            <InlineResultCard
+              reportType={result.reportType}
+              date={result.date}
+              content={result.content}
+              error={result.error}
+              onRetry={result.error ? () => {
+                const config = Object.values(REPORT_CONFIGS).find(c => c.label === result.reportType);
+                if (config) handleReportRequest(config.type);
+              } : undefined}
+            />
+          </div>
+        ))}
+
+        {/* Active questionnaire from report card click */}
+        {activeQuestionnaire && (
+          <div className="legal-section-pad">
+            <QuestionnaireMessage
+              reportType={activeQuestionnaire.label}
+              fields={activeQuestionnaire.fields}
+              onConfirm={handleQuestionnaireConfirm}
+              onCancel={handleQuestionnaireCancel}
+              generating={reportGenerating}
+            />
+          </div>
+        )}
+
         <div ref={chatAreaBottomRef} />
       </div>
 
@@ -446,6 +623,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   );
 
   return (
+    <>
     <ThreePaneLayout
       left={
         <>
@@ -465,7 +643,13 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         </>
       }
       center={centerContent}
-      right={<StudioPanel sourceIds={selectedDocIds} mode={mode} />}
+      right={<StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} />}
     />
+    <CustomTemplatePicker
+      isOpen={customTemplatePickerOpen}
+      onSelect={handleTemplateSelect}
+      onClose={() => setCustomTemplatePickerOpen(false)}
+    />
+    </>
   );
 }
