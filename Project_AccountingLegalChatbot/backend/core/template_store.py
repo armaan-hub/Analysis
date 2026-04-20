@@ -103,7 +103,7 @@ class TemplateStore:
 
     async def list_global_templates(self, format_family: Optional[str] = None) -> List[Template]:
         """List globally shared templates, optionally filtered by format_family."""
-        q = select(Template).where(Template.is_global == True)
+        q = select(Template).where(Template.is_global.is_(True))
         if format_family:
             q = q.where(Template.format_family == format_family)
         q = q.order_by(Template.updated_at.desc())
