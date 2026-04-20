@@ -1,7 +1,7 @@
 ﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, ScanSearch } from 'lucide-react';
-import { API_BASE, API, fmtTime, type Message, type Source } from '../../../lib/api';
+import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type Source } from '../../../lib/api';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { SourcePeeker } from './SourcePeeker';
@@ -10,7 +10,6 @@ import { StudioPanel } from './StudioPanel';
 import { ThreePaneLayout } from './ThreePaneLayout';
 import { type ChatMode } from './ModePills';
 import { DomainChip, type DomainLabel } from './DomainChip';
-import { ResearchBubble } from './ResearchBubble';
 import { QuestionnaireMessage, type PrefilledField } from './QuestionnaireMessage';
 import { InlineResultCard } from './InlineResultCard';
 import { CustomTemplatePicker } from './CustomTemplatePicker';
@@ -61,14 +60,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [researchPhases, setResearchPhases] = useState<Array<{
-    phase: string; message: string; sub_questions?: string[];
-    progress?: number; total?: number; report?: string;
-  }>>([]);
-  const [researchReport, setResearchReport] = useState<string | null>(null);
   const [researching, setResearching] = useState(false);
-  const [researchQuery, setResearchQuery] = useState<string>('');
-  const [researchSources, setResearchSources] = useState<Source[]>([]);
 
   const [auditResult, setAuditResult] = useState<{
     risk_flags: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
@@ -336,26 +328,41 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
     if (mode === 'deep_research') {
       setResearching(true);
-      setResearchPhases([]);
-      setResearchReport(null);
-      setResearchQuery(text);
-      setResearchSources([]);
+      const researchId = crypto.randomUUID();
+      const researchMsg: ResearchMessage = {
+        role: 'research',
+        id: researchId,
+        query: text,
+        phases: [],
+        report: null,
+        sources: [],
+        time: fmtTime(),
+      };
+      setMessages(prev => [...prev, researchMsg]);
+
       try {
         const res = await API.post('/api/legal-studio/research', { query: text });
         const jobId = res.data.job_id;
         const evtSource = new EventSource(`${API_BASE}/api/legal-studio/research/${jobId}/stream`);
         evtSource.onmessage = (e) => {
           const data = JSON.parse(e.data);
-          if (!data.phase) return; // skip heartbeat events
+          if (!data.phase) return;
           if (data.phase === 'completed') {
-            setResearchReport(data.report ?? '');
-            if (data.sources) setResearchSources(data.sources);
+            setMessages(prev => prev.map(m =>
+              m.id === researchId
+                ? { ...m, report: data.report ?? '', sources: data.sources ?? [] } as ResearchMessage
+                : m
+            ));
             setResearching(false);
             setLoading(false);
             evtSource.close();
             return;
           }
-          setResearchPhases(prev => [...prev, data]);
+          setMessages(prev => prev.map(m =>
+            m.id === researchId
+              ? { ...m, phases: [...(m as ResearchMessage).phases, data] } as ResearchMessage
+              : m
+          ));
         };
         evtSource.onerror = () => { evtSource.close(); setResearching(false); setLoading(false); };
       } catch {
@@ -454,8 +461,13 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   // Latest sources for SourcePeeker
   const activeSources = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].sources && messages[i].sources!.length > 0) {
-        return messages[i].sources!;
+      const msg = messages[i];
+      if (msg.role === 'research') {
+        const rm = msg as ResearchMessage;
+        if (rm.sources && rm.sources.length > 0) return rm.sources;
+      } else {
+        const tm = msg as { sources?: Source[] };
+        if (tm.sources && tm.sources.length > 0) return tm.sources;
       }
     }
     return [];
@@ -475,12 +487,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     prevLoadingRef.current = loading;
   }, [loading]);
 
-  // Auto-scroll to bottom of chat area when research report loads
+  // Auto-scroll to bottom of chat area when messages update
   useEffect(() => {
-    if (researchReport || researchPhases.length > 0) {
-      chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [researchReport, researchPhases]);
+    chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // --- Render ---
   const centerContent = (
@@ -560,18 +570,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           onSourceClick={handleSourceClick}
           activeSourceId={activeSource?.source}
         />
-
-        {(researching || researchReport) && (
-          <div className="legal-section-pad">
-            <ResearchBubble
-              phases={researchPhases}
-              report={researchReport}
-              sources={researchSources}
-              query={researchQuery}
-              onSourceClick={handleSourceClick}
-            />
-          </div>
-        )}
 
         {/* Report results from chat-redirect flow */}
         {reportResults.map((result, idx) => (
