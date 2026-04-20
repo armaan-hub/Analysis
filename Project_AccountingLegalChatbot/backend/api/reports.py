@@ -13,6 +13,7 @@ import re
 import uuid
 import shutil
 import tempfile
+import mimetypes
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, delete
 
@@ -135,7 +136,6 @@ async def download_report(filename: str):
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="File not found")
 
-    import mimetypes
     mime_type, _ = mimetypes.guess_type(filename)
     media_type = mime_type or "application/octet-stream"
     return FileResponse(

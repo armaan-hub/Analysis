@@ -205,8 +205,9 @@ Context from indexed documents:
             logger.error(f"ChromaDB store corrupted or inaccessible — backing up and creating fresh: {e}")
             backup = Path(settings.vector_store_dir + "_backup_corrupted")
             try:
-                shutil.move(settings.vector_store_dir, str(backup))
-                logger.info(f"Corrupted store moved to: {backup}")
+                if Path(settings.vector_store_dir).exists():
+                    shutil.move(settings.vector_store_dir, str(backup))
+                    logger.info(f"Corrupted store moved to: {backup}")
             except Exception as backup_err:
                 logger.warning(f"Could not back up corrupted store: {backup_err}")
             Path(settings.vector_store_dir).mkdir(parents=True, exist_ok=True)
