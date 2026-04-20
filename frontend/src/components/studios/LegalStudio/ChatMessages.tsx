@@ -134,9 +134,9 @@ function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: So
             })}
           </div>
         )}
-        {msg.id && (
+        {msg.messageId && (
           <ChatMessageActions
-            messageId={msg.id}
+            messageId={msg.messageId}
             content={msg.text || ''}
             hasTable={(msg.text || '').includes('|---|') || (msg.text || '').includes('| ---')}
           />
