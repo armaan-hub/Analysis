@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, Source } from '../../../lib/api';
 import { ChatMessageActions } from '../../ChatMessageActions';
+import { SourcesChip } from './SourcesChip';
 
 interface Props {
   messages: Message[];
@@ -93,46 +94,7 @@ function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: So
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && (
-          <button
-            type="button"
-            className="chat-sources-btn"
-            onClick={() => onSourceClick(msg.sources![0])}
-          >
-            🔗 Sources ({msg.sources.length})
-          </button>
-        )}
-        {msg.sources && msg.sources.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-            {msg.sources.filter(s => s.source && s.source.startsWith('http')).map((s, i) => {
-              let domain: string;
-              try { domain = new URL(s.source).hostname.replace('www.', ''); }
-              catch { domain = s.source.slice(0, 20); }
-              return (
-                <a
-                  key={i}
-                  href={s.source}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    fontSize: '11px',
-                    background: 'rgba(59, 130, 246, 0.08)',
-                    color: 'var(--s-accent, #3b82f6)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
-                    textDecoration: 'none',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)')}
-                >
-                  {domain}
-                </a>
-              );
-            })}
-          </div>
+          <SourcesChip sources={msg.sources} onSourceClick={onSourceClick} />
         )}
         {msg.messageId && (
           <ChatMessageActions
