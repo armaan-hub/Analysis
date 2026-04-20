@@ -7,7 +7,23 @@ interface Notebook {
   updated_at: string;
   source_count?: number;
   thumbnail_icon?: string;
+  domain?: string;
 }
+
+const DOMAIN_ICONS: Record<string, string> = {
+  finance: '💰',
+  law: '⚖️',
+  audit: '🔍',
+  general: '💬',
+  vat: '📋',
+  aml: '🛡️',
+  legal: '⚖️',
+  corporate_tax: '🏢',
+  vat_peppol: '📄',
+  analyst: '📊',
+};
+
+const getDomainIcon = (domain?: string) => domain ? (DOMAIN_ICONS[domain] ?? '📁') : '📁';
 
 interface Props {
   notebook: Notebook;
@@ -129,6 +145,19 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
           <Trash2 size={16} />
         </button>
       )}
+      <div
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          fontSize: 20,
+          lineHeight: 1,
+          pointerEvents: 'none',
+        }}
+        title={notebook.domain ?? 'general'}
+      >
+        {getDomainIcon(notebook.domain)}
+      </div>
     </div>
   );
 }
