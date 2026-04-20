@@ -53,6 +53,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   const [docs, setDocs] = useState<SourceDoc[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [researchPhases, setResearchPhases] = useState<Array<{
     phase: string; message: string; sub_questions?: string[];
@@ -90,6 +91,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       console.error('Failed to delete document:', err);
       setDocs(prevDocs);
       setSelectedDocIds(prevSelectedIds);
+      setDeleteError('Failed to delete document. Please try again.');
+      setTimeout(() => setDeleteError(null), 3000);
     }
   }, [docs, selectedDocIds]);
 
@@ -198,7 +201,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       setDetectedDomain(userDomain as DomainLabel);
     }
 
-    const userMsg: Message = { role: 'user', text, time: fmtTime() };
+    const userMsg: Message = { role: 'user', text, time: fmtTime(), id: crypto.randomUUID() };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
     setWebSearching(false);
@@ -248,7 +251,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       let sources: Source[] = [];
       const decoder = new TextDecoder();
 
-      const aiMsg: Message = { role: 'ai', text: '', time: fmtTime() };
+      const aiMsg: Message = { role: 'ai', text: '', time: fmtTime(), id: crypto.randomUUID() };
       setMessages(prev => [...prev, aiMsg]);
 
       while (true) {
@@ -292,7 +295,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
               if (evt.message_id) {
                 setMessages(prev => {
                   const copy = [...prev];
-                  copy[copy.length - 1] = { ...copy[copy.length - 1], id: evt.message_id };
+                  copy[copy.length - 1] = { ...copy[copy.length - 1], messageId: evt.message_id };
                   return copy;
                 });
               }
@@ -428,14 +431,21 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   return (
     <ThreePaneLayout
       left={
-        <SourcesSidebar
-          docs={docs}
-          selectedIds={selectedDocIds}
-          onSelect={handleDocSelect}
-          onDelete={handleDocDelete}
-          onUpload={handleDocUpload}
-          onPreview={handleDocPreview}
-        />
+        <>
+          {deleteError && (
+            <div className="legal-delete-error" role="alert">
+              {deleteError}
+            </div>
+          )}
+          <SourcesSidebar
+            docs={docs}
+            selectedIds={selectedDocIds}
+            onSelect={handleDocSelect}
+            onDelete={handleDocDelete}
+            onUpload={handleDocUpload}
+            onPreview={handleDocPreview}
+          />
+        </>
       }
       center={centerContent}
       right={<StudioPanel sourceIds={selectedDocIds} mode={mode} />}
