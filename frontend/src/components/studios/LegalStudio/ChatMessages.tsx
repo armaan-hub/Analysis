@@ -203,7 +203,7 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
       {messages.map((msg, i) => {
         if (msg.role === 'user') {
           return (
-            <div key={i} className="chat-msg chat-msg--user">
+            <div key={msg.id || `msg-${i}`} className="chat-msg chat-msg--user">
               <div className="chat-msg__body">
                 <div className="chat-msg__bubble">
                   <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>
@@ -214,7 +214,7 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
         }
         return (
           <AIMessage
-            key={i}
+            key={msg.id || `msg-${i}`}
             msg={msg}
             onSourceClick={onSourceClick}
             activeSourceId={activeSourceId}
