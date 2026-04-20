@@ -14,6 +14,9 @@ interface Props {
   onClick: (id: string) => void;
   onDelete?: (id: string) => void;
   view?: 'grid' | 'list';
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 function titleToGradient(title: string): string {
@@ -32,7 +35,7 @@ function titleInitials(title: string): string {
   return trimmed.length === 1 ? trimmed[0].toUpperCase() : trimmed.slice(0, 2).toUpperCase();
 }
 
-export function NotebookCard({ notebook, onClick, onDelete, view = 'grid' }: Props) {
+export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selectionMode, selected, onToggleSelect }: Props) {
   const [hovered, setHovered] = useState(false);
 
   const dateStr = new Date(notebook.updated_at).toLocaleDateString('en-US', {
@@ -96,6 +99,19 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid' }: Pro
     >
       <div className="notebook-card__thumb" style={thumbStyle}>
         {titleInitials(notebook.title)}
+        {selectionMode && (
+          <div
+            style={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }}
+            onClick={e => { e.stopPropagation(); onToggleSelect?.(notebook.id); }}
+          >
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={() => onToggleSelect?.(notebook.id)}
+              style={{ width: 18, height: 18, cursor: 'pointer' }}
+            />
+          </div>
+        )}
       </div>
       <div className="notebook-card__info" style={isList ? { flex: 1, minWidth: 0 } : {}}>
         <div className="notebook-card__title">{notebook.title}</div>
@@ -103,7 +119,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid' }: Pro
           {dateStr}{notebook.source_count != null ? ` · ${notebook.source_count} sources` : ''}
         </div>
       </div>
-      {onDelete && (
+      {onDelete && !selectionMode && (
         <button
           aria-label="Delete notebook"
           style={deleteBtnStyle}
