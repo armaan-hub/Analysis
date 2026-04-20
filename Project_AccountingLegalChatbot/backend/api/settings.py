@@ -123,17 +123,17 @@ async def update_provider(req: ProviderUpdateRequest):
 
     async with _settings_lock:
         if req.api_key is not None and key_attr:
-            setattr(settings, key_attr, req.api_key)
             _update_env_key(key_env, req.api_key)
+            setattr(settings, key_attr, req.api_key)
         if req.model is not None and model_attr:
-            setattr(settings, model_attr, req.model)
             _update_env_key(model_env, req.model)
+            setattr(settings, model_attr, req.model)
         if req.base_url is not None and url_attr:
-            setattr(settings, url_attr, req.base_url)
             _update_env_key(url_env, req.base_url)
+            setattr(settings, url_attr, req.base_url)
         if req.activate:
-            settings.llm_provider = provider
             _update_env_key("LLM_PROVIDER", provider)
+            settings.llm_provider = provider
 
     return {
         "status": "updated",
