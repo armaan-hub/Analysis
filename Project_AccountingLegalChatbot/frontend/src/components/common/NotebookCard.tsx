@@ -148,7 +148,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
       <div
         style={{
           position: 'absolute',
-          top: 8,
+          bottom: 8,
           right: 8,
           fontSize: 20,
           lineHeight: 1,
