@@ -160,9 +160,9 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
       <div className="chat-messages-list">
         <div className="chat-empty">
           <div className="chat-empty__glyph">⚖</div>
-          <p className="chat-empty__title">Legal Intelligence Studio</p>
+          <p className="chat-empty__title">Compliance & Finance Studio</p>
           <p className="chat-empty__sub">
-            Ask about UAE law, VAT regulations, IFRS standards, or corporate compliance
+            Ask about UAE law, tax, IFRS, audit, or financial compliance
           </p>
           <div className="chat-suggestions-grid">
             {SUGGESTIONS.map(s => (
