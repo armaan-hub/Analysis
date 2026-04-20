@@ -17,7 +17,7 @@ from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db, AsyncSessionLocal
-from db.models import Conversation, Message
+from db.models import Conversation, Message, Document
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
 from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS
@@ -367,6 +367,24 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
             messages.append({"role": "system", "content": system_prompt})
     else:
         messages.append({"role": "system", "content": system_prompt})
+
+    # Inject structured text from small xlsx/csv documents
+    try:
+        if search_results:
+            doc_sources = {r["metadata"].get("source", "") for r in search_results if r.get("metadata")}
+            if doc_sources:
+                st_result = await db.execute(
+                    select(Document).where(Document.filename.in_(doc_sources))
+                )
+                for d in st_result.scalars().all():
+                    meta = d.metadata_json if isinstance(d.metadata_json, dict) else {}
+                    st = meta.get("structured_text")
+                    if st:
+                        messages[0]["content"] += (
+                            f"\n\n[Full structured data from {d.original_name}]\n{st}"
+                        )
+    except Exception as e:
+        logger.warning(f"Structured text enrichment failed: {e}")
 
     # Add conversation history (skip the last user message since we add it separately)
     # Apply sliding window with token budgeting to the history

@@ -20,6 +20,7 @@ from db.models import Document
 from core.document_processor import document_processor
 from core.rag_engine import rag_engine
 from core.documents.summarizer import summarize_document_text
+from core.documents.xlsx_injector import should_inject, parse_to_structured_text
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,17 @@ async def upload_document(
                         doc.key_terms = result.key_terms
                 except Exception as e:
                     logger.warning(f"Auto-summary failed for {doc_id}: {e}")
+
+                # Small xlsx/csv injection
+                try:
+                    if should_inject(str(upload_path), file_size):
+                        structured = parse_to_structured_text(str(upload_path))
+                        if structured:
+                            existing_meta = doc.metadata_json if isinstance(doc.metadata_json, dict) else {}
+                            existing_meta["structured_text"] = structured
+                            doc.metadata_json = existing_meta
+                except Exception as e:
+                    logger.warning(f"Structured text injection failed for {doc_id}: {e}")
 
     except Exception as e:
         doc.status = "error"
