@@ -554,6 +554,7 @@ body {
   margin: 40px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
 
 .empty-state {
   text-align: center; padding: 48px 24px;
@@ -1759,6 +1760,7 @@ body {
   padding: 12px 40px 20px;
   border-top: 1px solid var(--s-border);
   background: var(--s-bg);
+  flex-shrink: 0;
 }
 .chat-input-container {
   background: var(--s-surface);

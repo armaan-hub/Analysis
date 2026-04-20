@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     # ── RAG Settings ─────────────────────────────────────────────────
     chunk_size: int = 1000
     chunk_overlap: int = 200
-    top_k_results: int = 3
+    top_k_results: int = 8
     max_tokens: int = 4096
     temperature: float = 0.7
 
