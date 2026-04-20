@@ -7,6 +7,8 @@ Handles: document ingestion, similarity search, and context-augmented prompting.
 
 import asyncio
 import logging
+import shutil
+from pathlib import Path
 from typing import Optional
 import httpx
 import chromadb
@@ -200,11 +202,16 @@ Context from indexed documents:
             )
             doc_count = self.collection.count()
         except Exception as e:
-            logger.warning(f"ChromaDB store corrupted or inaccessible, creating fresh store: {e}")
-            import shutil, tempfile
-            fresh_dir = tempfile.mkdtemp(prefix="chroma_fresh_")
+            logger.error(f"ChromaDB store corrupted or inaccessible — backing up and creating fresh: {e}")
+            backup = Path(settings.vector_store_dir + "_backup_corrupted")
+            try:
+                shutil.move(settings.vector_store_dir, str(backup))
+                logger.info(f"Corrupted store moved to: {backup}")
+            except Exception as backup_err:
+                logger.warning(f"Could not back up corrupted store: {backup_err}")
+            Path(settings.vector_store_dir).mkdir(parents=True, exist_ok=True)
             self.chroma_client = chromadb.PersistentClient(
-                path=fresh_dir,
+                path=settings.vector_store_dir,
                 settings=ChromaSettings(anonymized_telemetry=False),
             )
             self.collection = self.chroma_client.get_or_create_collection(
