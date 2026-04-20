@@ -373,8 +373,7 @@ def to_branded_xlsx(content: str, sources: list[dict[str, Any]], query: str) -> 
                 tli = table_line_indices[t_idx]
                 for li in range(tli - 1, max(tli - 10, -1), -1):
                     if lines[li].strip().startswith("#"):
-                        sheet_name = re.sub(r"^#+\\s*", "", lines[li].strip())
-                        sheet_name = re.sub(r"^#+\s*", "", sheet_name)[:31]
+                        sheet_name = re.sub(r"^#+\s*", "", lines[li].strip())[:31]
                         break
 
             ws = wb.create_sheet(title=sheet_name)
@@ -389,8 +388,8 @@ def to_branded_xlsx(content: str, sources: list[dict[str, Any]], query: str) -> 
                         cell.font = body_font
                         try:
                             numeric = float(cell_value.replace(",", "").replace("%", ""))
-                            cell.value = numeric
                             if "%" in cell_value:
+                                cell.value = numeric / 100
                                 cell.number_format = "0.00%"
                             else:
                                 cell.number_format = "#,##0.00"

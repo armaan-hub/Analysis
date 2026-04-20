@@ -56,12 +56,12 @@ async function downloadExport(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      report_type: reportType,
-      date,
-      format,
-      content,
-      audit_data: auditData,
-      export_format: exportFormat,
+      content: auditData
+        ? `# ${reportType}\n\n**Date:** ${date}\n**Format:** ${format || 'standard'}\n\n## Summary\n${auditData.summary}\n\n## Risk Flags\n${auditData.risk_flags.map(f => `- [${f.severity.toUpperCase()}] ${f.document}: ${f.finding}`).join('\n')}\n\n## Anomalies\n${auditData.anomalies.map(f => `- [${f.severity.toUpperCase()}] ${f.document}: ${f.finding}`).join('\n')}\n\n## Compliance Gaps\n${auditData.compliance_gaps.map(f => `- [${f.severity.toUpperCase()}] ${f.document}: ${f.finding}`).join('\n')}`
+        : content || '',
+      sources: [],
+      format: exportFormat === 'word' ? 'docx' : exportFormat === 'excel' ? 'xlsx' : 'pdf',
+      query: reportType,
     }),
   });
 
