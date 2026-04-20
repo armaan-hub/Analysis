@@ -1,6 +1,7 @@
 """
 Domain-aware system prompt router for Finance, Law, and Audit modes.
 """
+import pathlib as _pathlib
 
 VAT_PEPPOL_KEYWORDS = frozenset([
     "peppol", "e-invoicing", "einvoicing", "e invoicing",
@@ -123,8 +124,7 @@ DOMAIN_PROMPTS: dict[str, str] = {
 }
 
 # Load CA Auditor system prompt from .md file
-import pathlib as _pathlib
-_CA_PROMPT_PATH = _pathlib.Path(__file__).parent / "chat" / "prompts" / "ca_auditor_system_prompt.md"
+_CA_PROMPT_PATH= _pathlib.Path(__file__).parent / "chat" / "prompts" / "ca_auditor_system_prompt.md"
 try:
     _ca_prompt_text = _CA_PROMPT_PATH.read_text(encoding="utf-8")
     DOMAIN_PROMPTS["analyst"] = _ca_prompt_text + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX

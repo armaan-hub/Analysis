@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export type DomainLabel =
   | "vat"
@@ -40,6 +40,17 @@ interface Props {
 
 export function DomainChip({ value, editable, onChange }: Props) {
   const [open, setOpen] = useState(false);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.domain-chip-wrapper')) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
   if (!editable) {
     return (
       <span className="domain-chip">
