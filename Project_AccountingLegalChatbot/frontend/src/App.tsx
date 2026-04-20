@@ -105,7 +105,7 @@ function AppInner() {
                 />
               }
             />
-            <Route path="/finance" element={<Navigate to="/" replace />} />
+            <Route path="/finance" element={<Navigate to="/notebook/new" replace />} />
             <Route path="/monitoring" element={<RegulatoryStudio />} />
             <Route path="/templates" element={<TemplateStudio />} />
             <Route path="/settings" element={<SettingsPage />} />

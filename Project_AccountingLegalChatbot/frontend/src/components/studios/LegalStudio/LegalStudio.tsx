@@ -80,12 +80,18 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }, []);
 
   const handleDocDelete = useCallback(async (id: string) => {
+    const prevDocs = docs;
+    const prevSelectedIds = selectedDocIds;
+    setDocs(prev => prev.filter(d => d.id !== id));
+    setSelectedDocIds(prev => prev.filter(x => x !== id));
     try {
       await API.delete(`/api/documents/${id}`);
-      setDocs(prev => prev.filter(d => d.id !== id));
-      setSelectedDocIds(prev => prev.filter(x => x !== id));
-    } catch { /* ignore */ }
-  }, []);
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      setDocs(prevDocs);
+      setSelectedDocIds(prevSelectedIds);
+    }
+  }, [docs, selectedDocIds]);
 
   const handleDocUpload = useCallback(async (files: FileList) => {
     for (const file of Array.from(files)) {
@@ -108,7 +114,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           } : d
         ));
         setSelectedDocIds(prev => [...prev, doc.id]);
-      } catch {
+      } catch (err) {
+        console.error('Document upload failed:', err);
         setDocs(prev => prev.map(d =>
           d.id === tempId ? { ...d, status: 'error' } : d
         ));
@@ -181,7 +188,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             file_size: doc.file_size,
           }]);
           setSelectedDocIds(prev => [...prev, doc.id]);
-        } catch { /* upload error - continue with chat */ }
+        } catch (err) { console.error('Document upload failed:', err); /* upload error - continue with chat */ }
       }
     }
 
