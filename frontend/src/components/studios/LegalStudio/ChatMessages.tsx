@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Message, Source } from '../../../lib/api';
+import type { Message, ResearchMessage, Source } from '../../../lib/api';
 import { ChatMessageActions } from '../../ChatMessageActions';
 import { SourcesChip } from './SourcesChip';
+import { ResearchBubble } from './ResearchBubble';
 
 interface Props {
   messages: Message[];
@@ -69,6 +70,9 @@ function SearchIndicator({ queries }: { queries: string[] }) {
 }
 
 function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: Source) => void; activeSourceId?: string }) {
+  // Type narrow to TextMessage since this only handles AI/assistant messages
+  if (msg.role === 'research') return null;
+  
   const [showThinking, setShowThinking] = useState(false);
   const parsed = parseThinking(msg.text || '');
   const displayText = parsed ? parsed.answer : (msg.text || ' ');
@@ -163,6 +167,20 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
         </div>
       )}
       {messages.map((msg, i) => {
+        if (msg.role === 'research') {
+          const rm = msg as ResearchMessage;
+          return (
+            <div key={rm.id || `msg-${i}`} className="legal-section-pad">
+              <ResearchBubble
+                phases={rm.phases}
+                report={rm.report}
+                sources={rm.sources}
+                query={rm.query}
+                onSourceClick={onSourceClick}
+              />
+            </div>
+          );
+        }
         if (msg.role === 'user') {
           return (
             <div key={msg.id || `msg-${i}`} className="chat-msg chat-msg--user">
