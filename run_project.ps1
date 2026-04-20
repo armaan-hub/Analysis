@@ -74,6 +74,27 @@ $backendJob    = New-BackendJob  $BACKEND $PYTHON
 $backendFails  = 0
 $backendStart  = Get-Date
 
+# Wait for backend to be ready
+$maxWait = 60
+$elapsed = 0
+Write-Host "Waiting for backend to be ready..."
+while ($elapsed -lt $maxWait) {
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        if ($response.StatusCode -eq 200) {
+            Write-Host "Backend is ready!"
+            break
+        }
+    } catch {
+        # Not ready yet
+    }
+    Start-Sleep -Seconds 2
+    $elapsed += 2
+}
+if ($elapsed -ge $maxWait) {
+    Write-Host "Warning: Backend did not become ready within $maxWait seconds. Starting frontend anyway."
+}
+
 Write-Log "[2/2] Starting frontend ..." Green
 $frontendJob   = New-FrontendJob $FRONTEND
 $frontendFails = 0
