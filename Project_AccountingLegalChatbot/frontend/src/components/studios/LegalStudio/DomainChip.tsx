@@ -1,20 +1,38 @@
 import { useState, useEffect, useRef } from "react";
 
 export type DomainLabel =
+  | "vat"
+  | "corporate_tax"
+  | "peppol"
+  | "e_invoicing"
+  | "labour"
+  | "commercial"
+  | "ifrs"
+  | "general_law"
+  | "aml"
   | "legal"
-  | "tax"
-  | "accounting"
-  | "audit"
   | "finance"
+  | "audit"
+  | "accounting"
+  | "tax"
   | "general";
 
 const ALL_DOMAINS: { key: DomainLabel; icon: string; label: string }[] = [
-  { key: "legal",      icon: "⚖️",  label: "Legal" },
-  { key: "tax",        icon: "📋", label: "Tax" },
-  { key: "accounting", icon: "📊", label: "Accounting" },
-  { key: "audit",      icon: "🔍", label: "Audit" },
-  { key: "finance",    icon: "💰", label: "Finance" },
-  { key: "general",    icon: "💬", label: "General" },
+  { key: "vat",          icon: "📋", label: "VAT" },
+  { key: "corporate_tax",icon: "🏢", label: "Corp Tax" },
+  { key: "peppol",       icon: "📄", label: "Peppol" },
+  { key: "e_invoicing",  icon: "🧾", label: "E-Invoice" },
+  { key: "labour",       icon: "👷", label: "Labour" },
+  { key: "commercial",   icon: "🤝", label: "Commercial" },
+  { key: "ifrs",         icon: "📊", label: "IFRS" },
+  { key: "general_law",  icon: "⚖️", label: "General Law" },
+  { key: "aml",          icon: "🛡️", label: "AML" },
+  { key: "legal",        icon: "⚖️", label: "Legal" },
+  { key: "tax",          icon: "📋", label: "Tax" },
+  { key: "accounting",   icon: "📊", label: "Accounting" },
+  { key: "audit",        icon: "🔍", label: "Audit" },
+  { key: "finance",      icon: "💰", label: "Finance" },
+  { key: "general",      icon: "💬", label: "General" },
 ];
 
 const DOMAIN_MAP = Object.fromEntries(
