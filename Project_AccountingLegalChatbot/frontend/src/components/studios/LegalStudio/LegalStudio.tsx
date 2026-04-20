@@ -14,7 +14,8 @@ import { AuditorResultBubble } from './AuditorResultBubble';
 import { ResearchBubble } from './ResearchBubble';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax'
-  | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law';
+  | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law'
+  | 'tax' | 'accounting';
 
 const DOMAIN_KEYWORDS: Array<{ keywords: string[]; domain: Domain }> = [
   { keywords: ['vat', 'trn', 'fta', '5%', 'zero-rated', 'zero rated', 'exempt supply', 'input tax', 'output tax', 'export service', 'export of services', 'zero-rated supply', 'zero rated export', 'place of supply', 'recipient outside uae', 'import of services', 'designated zone', 'reverse charge', 'article 29', 'article 31'], domain: 'vat' },
@@ -49,6 +50,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [domain, setDomain] = useState<Domain>('law');
   const [mode, setMode] = useState<ChatMode>('normal');
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
+  const [domainLocked, setDomainLocked] = useState(false);
   const [searchParams] = useSearchParams();
 
   const [docs, setDocs] = useState<SourceDoc[]>([]);
@@ -61,6 +63,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }>>([]);
   const [researchReport, setResearchReport] = useState<string | null>(null);
   const [researching, setResearching] = useState(false);
+  const [researchQuery, setResearchQuery] = useState<string>('');
+  const [researchSources, setResearchSources] = useState<Source[]>([]);
 
   const [auditResult, setAuditResult] = useState<{
     risk_flags: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
@@ -196,7 +200,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     }
 
     const userDomain = detectDomain(text);
-    if (userDomain) {
+    if (userDomain && !domainLocked) {
       setDomain(userDomain);
       setDetectedDomain(userDomain as DomainLabel);
     }
@@ -210,6 +214,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       setResearching(true);
       setResearchPhases([]);
       setResearchReport(null);
+      setResearchQuery(text);
+      setResearchSources([]);
       try {
         const res = await API.post('/api/legal-studio/research', { query: text });
         const jobId = res.data.job_id;
@@ -219,6 +225,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           if (!data.phase) return; // skip heartbeat events
           if (data.phase === 'completed') {
             setResearchReport(data.report ?? '');
+            if (data.sources) setResearchSources(data.sources);
             setResearching(false);
             setLoading(false);
             evtSource.close();
@@ -272,7 +279,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
               });
             } else if (evt.event === 'meta' || evt.type === 'meta') {
               if (evt.conversation_id) setConversationId(evt.conversation_id);
-              if (evt.detected_domain) {
+              if (evt.detected_domain && !domainLocked) {
                 const d = evt.detected_domain as DomainLabel;
                 setDetectedDomain(d);
               }
@@ -354,9 +361,13 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       {detectedDomain && (
         <div className="legal-domain-chip-wrapper">
           <DomainChip
-            value={detectedDomain}
-            editable
-            onChange={(d) => { setDetectedDomain(d); setDomain(d as Domain); }}
+            domain={detectedDomain}
+            domainLocked={domainLocked}
+            onDomainChange={(d, isManual) => {
+              setDetectedDomain(d as DomainLabel);
+              setDomain(d as Domain);
+              if (isManual) setDomainLocked(true);
+            }}
           />
         </div>
       )}
@@ -402,7 +413,13 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
         {(researching || researchReport) && (
           <div className="legal-section-pad">
-            <ResearchBubble phases={researchPhases} report={researchReport} />
+            <ResearchBubble
+              phases={researchPhases}
+              report={researchReport}
+              sources={researchSources}
+              query={researchQuery}
+              onSourceClick={handleSourceClick}
+            />
           </div>
         )}
         <div ref={chatAreaBottomRef} />
