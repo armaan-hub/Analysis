@@ -32,6 +32,8 @@
   grid-template-columns: 1fr 1fr;
   gap: 0;
   min-width: 0;
+  min-height: 0;
+  /* overflow: hidden clips the grid children during resize; scrolling happens on > * children */
   overflow: hidden;
 }
 
@@ -493,7 +495,6 @@
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-}
 }
 
 .chat-msg {

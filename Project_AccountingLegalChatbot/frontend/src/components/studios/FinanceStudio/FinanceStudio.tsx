@@ -29,11 +29,11 @@ export function FinanceStudio() {
           <SourceDocsSidebar />
         </aside>
         <section className="finance-studio__center">
-          <div>
+          <div className="finance-studio__center-chat">
             <PanelHeader icon={<MessageSquare size={18} />} title="Chat" />
             <AuditChat />
           </div>
-          <div>
+          <div className="finance-studio__center-preview">
             <PanelHeader icon={<Eye size={18} />} title="Preview" />
             <ReportPreview />
           </div>
