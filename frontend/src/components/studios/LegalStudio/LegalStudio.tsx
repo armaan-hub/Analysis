@@ -464,7 +464,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   // Auto-open source peeker when response finishes with sources
   const prevLoadingRef = useRef(false);
   const activeSourcesRef = useRef(activeSources);
-  activeSourcesRef.current = activeSources;
+  // Keep ref in sync via effect (not during render) to be safe in Concurrent Mode
+  useEffect(() => {
+    activeSourcesRef.current = activeSources;
+  }, [activeSources]);
   useEffect(() => {
     if (prevLoadingRef.current && !loading && activeSourcesRef.current.length > 0) {
       setSourcePanelOpen(true);
