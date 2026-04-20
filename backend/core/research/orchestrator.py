@@ -33,6 +33,8 @@ GENERIC_PATTERNS = [
 
 
 def _is_generic(q: str) -> bool:
+    if not q or not q.strip():
+        return True
     ql = q.lower()
     return any(p in ql for p in GENERIC_PATTERNS)
 
@@ -64,15 +66,18 @@ async def _plan(query: str) -> list[str]:
             cleaned = "\n".join(inner)
         data = json.loads(cleaned.strip())
         sub_questions = list(data.get("sub_questions", [query]))[:5]
-    except Exception:
+        if not sub_questions:
+            return [query]
+    except Exception as e:
+        logger.warning("_plan() failed to parse LLM response: %s — falling back to original query", e)
         return [query]
 
-    # Validate: if any sub-question is generic, fall back to the original query
-    if any(_is_generic(q) for q in sub_questions):
-        logger.warning("_plan() returned generic questions — falling back to original query")
+    # Filter out generic questions instead of rejecting all
+    filtered = [q for q in sub_questions if not _is_generic(q)]
+    if not filtered:
+        logger.warning("_plan() returned all generic questions — falling back to original query")
         return [query]
-
-    return sub_questions
+    return filtered
 
 
 async def _gather_one(sub_q: str) -> str:
