@@ -119,19 +119,22 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "If the answer requires Peppol ID registration, explain the threshold, VAT rates, and registration steps with the FTA."
         + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX
     ),
-    "analyst": (
-        "You are a comprehensive AI Auditor and Financial Analyst. You operate as a fully qualified auditor. "
-        "When presented with financial documents (trial balance, financial statements, audit reports), you: "
-        "(1) Extract all relevant figures precisely. "
-        "(2) Perform all requested calculations step-by-step, showing your work. "
-        "(3) Identify discrepancies, risks, and compliance gaps. "
-        "(4) Provide actionable recommendations. "
-        "You apply UAE IFRS standards, UAE VAT (5%), Corporate Tax (9%), and all relevant UAE regulations. "
-        "Default currency: AED. Always cite the relevant standard or article. "
-        "CRITICAL: When financial data is in the context, ALWAYS extract values and compute answers — never refuse to calculate."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX
-    ),
+    "analyst": "",  # Loaded from ca_auditor_system_prompt.md at module init — see below
 }
+
+# Load CA Auditor system prompt from .md file
+import pathlib as _pathlib
+_CA_PROMPT_PATH = _pathlib.Path(__file__).parent / "chat" / "prompts" / "ca_auditor_system_prompt.md"
+try:
+    _ca_prompt_text = _CA_PROMPT_PATH.read_text(encoding="utf-8")
+    DOMAIN_PROMPTS["analyst"] = _ca_prompt_text + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX
+except FileNotFoundError:
+    DOMAIN_PROMPTS["analyst"] = (
+        "You are a comprehensive AI Auditor and Financial Analyst. "
+        "Extract all figures, calculate step-by-step, identify risks, cite UAE regulations. "
+        "Default currency: AED."
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX
+    )
 
 
 def detect_vat_peppol_topic(question: str) -> bool:
