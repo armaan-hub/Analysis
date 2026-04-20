@@ -45,14 +45,17 @@ async def run_chat(profile_id: str, user_message: str, source_ids: list[str] | N
     except Exception:
         logger.warning("RAG search failed; continuing without retrieved context.", exc_info=True)
 
-    # Build system message
+    # Build system message using the structured audit domain prompt
+    from core.prompt_router import get_system_prompt
     rag_context = "\n\n".join(
         f"Source: {r['source']}, Page: {r.get('page', 1)}\n\nExcerpt: {r['excerpt']}"
         for r in rag_results
     )
+    audit_base = get_system_prompt("audit", user_message)
     system_content = (
-        "You are an AI audit assistant. Use the profile JSON and any retrieved "
-        "document excerpts below as context, and answer with citations where possible.\n\n"
+        f"{audit_base}\n\n"
+        "Use the profile JSON and any retrieved document excerpts below as context, "
+        "and answer with citations where possible.\n\n"
         f"PROFILE:\n{ctx}"
     )
     if rag_context:

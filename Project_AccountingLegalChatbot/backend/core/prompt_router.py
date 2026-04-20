@@ -111,6 +111,16 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "ALWAYS extract ALL relevant figures from the data and perform precise calculations. "
         "Show your calculation step-by-step. Sum up revenue items, expense items, compute net figures. "
         "Do NOT say the data is insufficient if it is present in the context — extract and calculate."
+        "\n\n## Output Format\n\n"
+        "Always structure your responses as follows:\n\n"
+        "**Observation**\n"
+        "[What was found or the issue identified]\n\n"
+        "**Risk**\n"
+        "[Risk level: Critical / High / Medium / Low — and why]\n\n"
+        "**Recommendation**\n"
+        "[Specific action to remediate or address the finding]\n\n"
+        "**Regulatory Reference**\n"
+        "[Relevant UAE standard, DIFC rule, or IESBA code section if applicable]"
         + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("audit", "")
     ),
     "general": (
