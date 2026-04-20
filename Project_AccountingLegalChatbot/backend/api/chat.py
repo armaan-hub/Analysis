@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.database import get_db
+from db.database import get_db, AsyncSessionLocal
 from db.models import Conversation, Message
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
@@ -98,7 +98,6 @@ async def extract_and_save_memory(
         return
 
     try:
-        from db.database import AsyncSessionLocal
         from db.models import UserMemory
 
         conversation_text = "\n".join(
@@ -241,10 +240,8 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
         prev_conv = prev_conv_result.scalar_one_or_none()
         if prev_conv:
             now_naive = datetime.utcnow()
-            updated = prev_conv.updated_at
-            if updated.tzinfo is not None:
-                updated = updated.replace(tzinfo=None)
-            idle_minutes = (now_naive - updated).total_seconds() / 60
+            updated_naive = prev_conv.updated_at.replace(tzinfo=None) if prev_conv.updated_at.tzinfo else prev_conv.updated_at
+            idle_minutes = (now_naive - updated_naive).total_seconds() / 60
             if idle_minutes >= 30:
                 prev_msgs_result = await db.execute(
                     select(Message)
@@ -258,9 +255,15 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                     {"role": m.role, "content": m.content}
                     for m in prev_msgs_result.scalars().all()
                 ]
-                asyncio.create_task(
-                    extract_and_save_memory(prev_conv.id, prev_msgs)
-                )
+                async def _run_memory_extraction():
+                    try:
+                        await asyncio.wait_for(
+                            extract_and_save_memory(prev_conv.id, prev_msgs),
+                            timeout=60.0
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Memory extraction timed out for conversation {prev_conv.id}")
+                asyncio.create_task(_run_memory_extraction())
 
     # Load cross-session memory
     from db.models import UserMemory
