@@ -42,28 +42,7 @@ def _is_research_query(message: str) -> bool:
     return any(kw in msg_lower for kw in _RESEARCH_KEYWORDS)
 
 
-def _classify_domain(text: str) -> Optional[str]:
-    """Keyword-based domain classifier for server-side confirmation."""
-    t = text.lower()
-    if any(kw in t for kw in [
-        "vat", "trn", "fta", "zero-rated", "zero rated", "exempt supply",
-        "input tax", "output tax", "export service", "export of services",
-        "zero-rated supply", "zero rated export", "place of supply", "recipient outside uae",
-        "import of services", "designated zone", "reverse charge",
-        "article 29", "article 31",
-    ]):
-        return "vat"
-    if any(kw in t for kw in ["corporate tax", "taxable income", "decree-law 47", "small business relief"]):
-        return "corporate_tax"
-    if any(kw in t for kw in ["aml", "kyc", " str ", "cft", "suspicious", "beneficial owner"]):
-        return "aml"
-    if any(kw in t for kw in ["audit", "isa ", "internal control", "assurance", "auditor"]):
-        return "audit"
-    if any(kw in t for kw in ["ifrs", "balance sheet", "financial statement", "revenue recognition"]):
-        return "finance"
-    if any(kw in t for kw in ["legal", "contract", "civil law", "employment law", "company law"]):
-        return "legal"
-    return None
+
 
 
 def _build_sliding_context(
@@ -187,6 +166,7 @@ class ConversationResponse(BaseModel):
     created_at: str
     updated_at: str
     message_count: int = 0
+    source_count: int = 0
     domain: Optional[str] = None
 
 class MessageResponse(BaseModel):
@@ -319,6 +299,10 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
             classifier_result = await classify_domain(req.message)
     else:
         classifier_result = await classify_domain(req.message)
+
+    # Persist domain to conversation on first message
+    if not conversation.domain:
+        conversation.domain = classifier_result.domain.value
 
     if req.mode == "analyst":
         system_prompt = DOMAIN_PROMPTS.get("analyst", DOMAIN_PROMPTS["general"]) + memory_block
@@ -577,12 +561,18 @@ async def list_conversations(
         )
         msg_count = msg_count_result.scalar_one()
 
+        # Count checked sources
+        source_count = 0
+        if conv.checked_source_ids:
+            source_count = len(conv.checked_source_ids) if isinstance(conv.checked_source_ids, list) else len(json.loads(conv.checked_source_ids or "[]"))
+
         response.append(ConversationResponse(
             id=conv.id,
             title=conv.title,
             created_at=str(conv.created_at),
             updated_at=str(conv.updated_at),
             message_count=msg_count,
+            source_count=source_count,
             domain=conv.domain,
         ))
 
