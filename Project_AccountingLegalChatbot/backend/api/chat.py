@@ -92,13 +92,13 @@ def _build_sliding_context(
 async def extract_and_save_memory(
     conversation_id: str,
     messages: list[dict],
-    db: AsyncSession,
 ) -> None:
     """Extract memorable facts from a conversation and store in UserMemory."""
     if len(messages) < 4:
         return
 
     try:
+        from db.database import AsyncSessionLocal
         from db.models import UserMemory
 
         conversation_text = "\n".join(
@@ -133,34 +133,35 @@ async def extract_and_save_memory(
             return
         facts = json.loads(match.group(0))
 
-        for fact in facts:
-            key = fact.get("key", "").strip()
-            value = fact.get("value", "").strip()
-            confidence = float(fact.get("confidence", 1.0))
-            if not key or not value or confidence < 0.5:
-                continue
+        async with AsyncSessionLocal() as db:
+            for fact in facts:
+                key = fact.get("key", "").strip()
+                value = fact.get("value", "").strip()
+                confidence = float(fact.get("confidence", 1.0))
+                if not key or not value or confidence < 0.5:
+                    continue
 
-            existing = await db.execute(
-                select(UserMemory).where(
-                    UserMemory.user_id == "default",
-                    UserMemory.key == key,
+                existing = await db.execute(
+                    select(UserMemory).where(
+                        UserMemory.user_id == "default",
+                        UserMemory.key == key,
+                    )
                 )
-            )
-            existing_row = existing.scalar_one_or_none()
-            if existing_row:
-                existing_row.value = value
-                existing_row.confidence = confidence
-                existing_row.source_conversation_id = conversation_id
-            else:
-                db.add(UserMemory(
-                    user_id="default",
-                    key=key,
-                    value=value,
-                    confidence=confidence,
-                    source_conversation_id=conversation_id,
-                ))
+                existing_row = existing.scalar_one_or_none()
+                if existing_row:
+                    existing_row.value = value
+                    existing_row.confidence = confidence
+                    existing_row.source_conversation_id = conversation_id
+                else:
+                    db.add(UserMemory(
+                        user_id="default",
+                        key=key,
+                        value=value,
+                        confidence=confidence,
+                        source_conversation_id=conversation_id,
+                    ))
 
-        await db.commit()
+            await db.commit()
         logger.info(f"Saved {len(facts)} memory facts from conversation {conversation_id}")
 
     except Exception as exc:
@@ -239,9 +240,11 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
         )
         prev_conv = prev_conv_result.scalar_one_or_none()
         if prev_conv:
-            idle_minutes = (
-                datetime.now(timezone.utc).replace(tzinfo=None) - prev_conv.updated_at
-            ).total_seconds() / 60
+            now_naive = datetime.utcnow()
+            updated = prev_conv.updated_at
+            if updated.tzinfo is not None:
+                updated = updated.replace(tzinfo=None)
+            idle_minutes = (now_naive - updated).total_seconds() / 60
             if idle_minutes >= 30:
                 prev_msgs_result = await db.execute(
                     select(Message)
@@ -256,7 +259,7 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                     for m in prev_msgs_result.scalars().all()
                 ]
                 asyncio.create_task(
-                    extract_and_save_memory(prev_conv.id, prev_msgs, db)
+                    extract_and_save_memory(prev_conv.id, prev_msgs)
                 )
 
     # Load cross-session memory
