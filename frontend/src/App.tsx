@@ -87,7 +87,7 @@ function AppInner() {
       <main className="studio-main">
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<HomePage onNewChat={handleNewChat} />} />
             <Route
               path="/notebook/new"
               element={

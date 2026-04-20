@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { API } from '../lib/api';
 import { NotebookCard, CreateNotebookCard, type Notebook } from '../components/common/NotebookCard';
 
-export default function HomePage() {
+interface HomePageProps {
+  onNewChat?: () => void;
+}
+
+export default function HomePage({ onNewChat }: HomePageProps) {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const navigate = useNavigate();
 
@@ -26,7 +30,11 @@ export default function HomePage() {
   };
 
   const handleCreate = () => {
-    navigate('/notebook/new');
+    if (onNewChat) {
+      onNewChat();
+    } else {
+      navigate('/notebook/new');
+    }
   };
 
   return (
