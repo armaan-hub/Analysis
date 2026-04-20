@@ -63,7 +63,6 @@ python-dateutil==2.9.0
 # Requests dependency pins (W2 fix: silence RequestsDependencyWarning)
 urllib3==2.1.0
 charset-normalizer==3.3.2
-chardet==5.2.0
 
 # Testing (W1 fix: pytest was missing)
 pytest==7.4.4

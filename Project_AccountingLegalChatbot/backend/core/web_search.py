@@ -22,7 +22,7 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
             with DDGS() as ddgs:
                 return list(ddgs.text(query, max_results=max_results))
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(None, _sync_search)
         return results or []
     except Exception as exc:

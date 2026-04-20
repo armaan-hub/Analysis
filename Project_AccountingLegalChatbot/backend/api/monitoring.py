@@ -97,7 +97,7 @@ async def list_alerts(unread_only: bool = False, db: AsyncSession = Depends(get_
     """List regulatory change alerts."""
     stmt = select(Alert, MonitoredSource).join(MonitoredSource).order_by(desc(Alert.created_at))
     if unread_only:
-        stmt = stmt.where(Alert.is_read == False)
+        stmt = stmt.where(Alert.is_read.is_(False))
         
     result = await db.execute(stmt)
     records = result.all()
