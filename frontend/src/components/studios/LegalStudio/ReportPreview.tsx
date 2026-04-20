@@ -10,7 +10,7 @@ const FORMAT_LABELS: Record<AuditorFormat, string> = {
   compliance: 'Compliance Format',
 };
 
-const REPORT_LABELS: Record<ReportType, string> = {
+const REPORT_LABELS: Partial<Record<ReportType, string>> = {
   audit: 'Audit Report',
   summary: 'Case Summary',
   analysis: 'Analysis Report',
