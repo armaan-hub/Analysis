@@ -10,10 +10,11 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
-from db.models import Conversation, Message, ResearchJob
+from db.models import Conversation, Message, ResearchJob, Document
 from core.chat.auditor_agent import run_audit
 from core.research.orchestrator import run_deep_research
 from core.research.event_bus import create_channel, get_channel, remove_channel
+from core.llm_manager import get_llm_provider
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/legal-studio", tags=["Legal Studio"])
@@ -159,6 +160,58 @@ from sqlalchemy import select, update
 from sqlalchemy import delete as sa_delete
 
 
+async def extract_entity_name(source_ids: list[str], db: AsyncSession) -> str | None:
+    """Run a quick LLM extraction on the first available source doc.
+
+    Returns the extracted entity name, or None if extraction fails or
+    the result is ambiguous. Only uses the first source document to avoid
+    multi-entity confusion.
+    """
+    if not source_ids:
+        return None
+
+    # Use only the first document to avoid multi-entity confusion
+    result = await db.execute(
+        select(Document).where(Document.id == source_ids[0])
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        return None
+
+    # Use summary if available (cheaper than re-reading full doc)
+    snippet = doc.summary or ""
+    if not snippet and doc.metadata_json:
+        meta = doc.metadata_json if isinstance(doc.metadata_json, dict) else {}
+        snippet = meta.get("structured_text", "")[:1000]
+
+    if not snippet:
+        return None
+
+    try:
+        llm = get_llm_provider()
+        resp = await llm.chat(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Extract the primary company or entity name from this document text. "
+                        "Respond with ONLY the entity name — nothing else. "
+                        "If you cannot determine a single clear entity name, respond with: UNKNOWN"
+                    ),
+                },
+                {"role": "user", "content": snippet[:2000]},
+            ],
+            temperature=0.0,
+            max_tokens=50,
+        )
+        name = resp.content.strip()
+        if name.upper() == "UNKNOWN" or not name:
+            return None
+        return name
+    except Exception:
+        return None
+
+
 class SaveSourcesRequest(BaseModel):
     conversation_id: str
     source_ids: list[str]
@@ -200,3 +253,14 @@ async def delete_notebook(conversation_id: str, db: AsyncSession = Depends(get_d
     await db.delete(conv_obj)
     await db.commit()
     return {"status": "deleted"}
+
+
+@router.get("/notebook/{conversation_id}/entity-name")
+async def get_entity_name(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    """Extract entity name from the conversation's saved source documents."""
+    result = await db.execute(
+        select(Conversation.checked_source_ids).where(Conversation.id == conversation_id)
+    )
+    source_ids = result.scalar_one_or_none() or []
+    name = await extract_entity_name(source_ids, db)
+    return {"entity_name": name}

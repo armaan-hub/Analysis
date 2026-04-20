@@ -296,17 +296,33 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }, []);
 
   // --- Report questionnaire flow ---
-  const handleReportRequest = useCallback((reportType: string) => {
+  const handleReportRequest = useCallback(async (reportType: string) => {
     const config = REPORT_CONFIGS[reportType];
     if (!config) return;
+
+    // Auto-extract entity name if conversation exists and field is present
+    let entityName = '';
+    if (conversationId && config.fields.some((f: PrefilledField) => f.key === 'entity_name')) {
+      try {
+        const r = await API.get(`/api/legal-studio/notebook/${conversationId}/entity-name`);
+        entityName = r.data?.entity_name ?? '';
+      } catch { /* non-fatal — leave blank */ }
+    }
+
+    const fields = config.fields.map((f: PrefilledField) =>
+      f.key === 'entity_name'
+        ? { ...f, value: entityName, placeholder: 'Auto-detected from sources', autoDetected: !!entityName }
+        : { ...f }
+    );
+
     setActiveQuestionnaire({
       reportType,
-      fields: config.fields.map(f => ({ ...f })),
+      fields,
       label: config.label,
     });
     // Scroll chat into view so the questionnaire is visible
     setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, []);
+  }, [conversationId]);
 
   const handleQuestionnaireConfirm = useCallback(async (confirmedFields: Record<string, string>) => {
     if (!activeQuestionnaire) return;
