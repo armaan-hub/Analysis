@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, BarChart2, Bell, Settings, Sun, Moon, Layout } from 'lucide-react';
+import { MessageSquare, Bell, Settings, Sun, Moon, Layout } from 'lucide-react';
 import { useStudio, type Studio } from '../context/StudioProvider';
 import { useTheme } from '../context/ThemeContext';
 
@@ -22,8 +22,7 @@ export function StudioSwitcher({ alertCount = 0 }: Props) {
   const { theme, toggleTheme } = useTheme();
 
   const items: NavItem[] = [
-    { icon: <MessageSquare size={20} />, label: 'Legal Intelligence', path: '/', studio: 'legal' },
-    { icon: <BarChart2 size={20} />, label: 'Finance Studio', path: '/finance', studio: 'finance' },
+    { icon: <MessageSquare size={20} />, label: 'Compliance & Finance Studio', path: '/', studio: 'legal' },
     { icon: <Layout size={20} />, label: 'Template Learning', path: '/templates', studio: 'templates' },
     { icon: <Bell size={20} />, label: 'Regulatory Center', path: '/monitoring', studio: 'regulatory' },
     { icon: <Settings size={20} />, label: 'Settings', path: '/settings', studio: 'settings' },

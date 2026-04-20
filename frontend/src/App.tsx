@@ -9,9 +9,6 @@ import { ContextualSidebar } from './components/ContextualSidebar';
 const LegalStudio = React.lazy(() =>
   import('./components/studios/LegalStudio/LegalStudio').then(m => ({ default: m.LegalStudio }))
 );
-const FinanceStudio = React.lazy(() =>
-  import('./components/studios/FinanceStudio/FinanceStudio').then(m => ({ default: m.FinanceStudio }))
-);
 const RegulatoryStudio = React.lazy(() =>
   import('./components/studios/RegulatoryStudio/RegulatoryStudio').then(m => ({ default: m.RegulatoryStudio }))
 );
@@ -108,7 +105,7 @@ function AppInner() {
                 />
               }
             />
-            <Route path="/finance" element={<FinanceStudio />} />
+            <Route path="/finance" element={<HomePage />} />
             <Route path="/monitoring" element={<RegulatoryStudio />} />
             <Route path="/templates" element={<TemplateStudio />} />
             <Route path="/settings" element={<SettingsPage />} />
