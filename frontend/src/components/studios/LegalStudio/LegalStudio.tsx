@@ -183,7 +183,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         }));
         setMessages(msgs);
       })
-      .catch(() => {});
+      .catch(err => { console.error('Failed to load messages:', err); });
   }, [initialConversationId]);
 
   // --- Load sources for existing conversation ---
@@ -193,6 +193,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       .then(r => {
         const ids: string[] = r.data?.source_ids ?? [];
         if (ids.length > 0) {
+          isInitialLoadRef.current = true;
           setSelectedDocIds(ids);
           setDocs(ids.map(id => ({
             id,
@@ -202,21 +203,35 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           })));
         }
       })
-      .catch(() => {});
+      .catch(err => { console.error('Failed to load sources:', err); });
   }, [initialConversationId]);
 
   // --- Persist sources when they change ---
   const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoadRef = useRef(false);
 
   useEffect(() => {
     if (!conversationId) return;
+    
+    // Skip the save triggered by initial source load
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      return;
+    }
+    
     if (persistSourcesRef.current) clearTimeout(persistSourcesRef.current);
     persistSourcesRef.current = setTimeout(() => {
       API.post('/api/legal-studio/save-sources', {
         conversation_id: conversationId,
         source_ids: selectedDocIds,
-      }).catch(() => {});
+      }).catch(err => { console.error('Failed to save sources:', err); });
     }, 500);
+    
+    return () => {
+      if (persistSourcesRef.current) {
+        clearTimeout(persistSourcesRef.current);
+      }
+    };
   }, [conversationId, selectedDocIds]);
 
   // --- Audit flow handlers ---
