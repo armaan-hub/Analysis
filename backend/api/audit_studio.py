@@ -11,6 +11,7 @@ from sqlalchemy import select, delete
 
 from db.database import AsyncSessionLocal
 from db.models import AuditProfile, ProfileVersion, AuditChatMessage, GeneratedOutput
+from sqlalchemy.orm import selectinload
 from core.audit_studio.versioning import (
     branch_version,
     activate_version,
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/api/audit-profiles", tags=["audit-studio"])
 async def _require_profile(profile_id: str) -> AuditProfile:
     async with AsyncSessionLocal() as s:
         row = (await s.execute(
-            select(AuditProfile).where(AuditProfile.id == profile_id)
+            select(AuditProfile).options(selectinload(AuditProfile.source_documents)).where(AuditProfile.id == profile_id)
         )).scalar_one_or_none()
         if row is None:
             raise HTTPException(status_code=404, detail="Profile not found")
