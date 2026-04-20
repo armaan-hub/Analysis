@@ -86,6 +86,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   const chatAreaBottomRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoadRef = useRef(false);
 
   const [auditorFormat, setAuditorFormat] = useState<AuditorFormat>('standard');
   const [showAuditQuestionnaire, setShowAuditQuestionnaire] = useState(false);
@@ -189,6 +191,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   // --- Load sources for existing conversation ---
   useEffect(() => {
     if (!initialConversationId) return;
+    if (!conversationId) return;
+    // Reset at start of every sources-load (defensive: covers conversation switches)
+    isInitialLoadRef.current = false;
     API.get(`/api/legal-studio/notebook/${initialConversationId}/sources`)
       .then(r => {
         const ids: string[] = r.data?.source_ids ?? [];
@@ -204,11 +209,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         }
       })
       .catch(err => { console.error('Failed to load sources:', err); });
-  }, [initialConversationId]);
+  }, [initialConversationId, conversationId]);
 
   // --- Persist sources when they change ---
-  const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isInitialLoadRef = useRef(false);
 
   useEffect(() => {
     if (!conversationId) return;
