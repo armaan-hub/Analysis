@@ -6,6 +6,7 @@ Reads settings from .env file and exposes them as typed attributes.
 import os
 from pathlib import Path
 from typing import Optional
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -47,11 +48,11 @@ class Settings(BaseSettings):
     openai_embed_model: str = "text-embedding-3-small"  # 1536-dim, same as NIM
 
     # ── Database ─────────────────────────────────────────────────────
-    database_url: str = f"sqlite:///{Path(__file__).resolve().parent / 'data' / 'chatbot.db'}"
+    database_url: str = "sqlite:///./data/chatbot.db"
 
     # ── File Storage ─────────────────────────────────────────────────
-    upload_dir: str = str(Path(__file__).resolve().parent / "uploads")
-    vector_store_dir: str = str(Path(__file__).resolve().parent / "vector_store_v2")
+    upload_dir: str = "./uploads"
+    vector_store_dir: str = "./vector_store_v2"
 
     # ── Server ───────────────────────────────────────────────────────
     host: str = "0.0.0.0"
@@ -76,6 +77,26 @@ class Settings(BaseSettings):
     temperature: float = 0.7
 
     model_config = SettingsConfigDict(case_sensitive=False)
+
+    @model_validator(mode="after")
+    def _resolve_relative_paths(self) -> "Settings":
+        """Convert any relative paths to absolute, anchored to backend/ directory."""
+        _backend_dir = Path(__file__).resolve().parent
+
+        def _abs(p: str) -> str:
+            path = Path(p)
+            if not path.is_absolute():
+                if p.startswith("sqlite:///"):
+                    raw = p[len("sqlite:///"):]
+                    resolved = (_backend_dir / raw).resolve()
+                    return f"sqlite:///{resolved}"
+                return str((_backend_dir / path).resolve())
+            return p
+
+        self.database_url = _abs(self.database_url)
+        self.upload_dir = _abs(self.upload_dir)
+        self.vector_store_dir = _abs(self.vector_store_dir)
+        return self
 
     # ── Helper Properties ────────────────────────────────────────────
 
