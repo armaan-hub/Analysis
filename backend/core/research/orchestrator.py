@@ -24,24 +24,55 @@ async def _llm(system: str, user: str, temperature: float = 0.3, max_tokens: int
     return resp.content
 
 
+GENERIC_PATTERNS = [
+    "what aspect", "general or detailed", "prior knowledge",
+    "interested in learning", "specific topic", "what type of information",
+    "what would you like", "are you looking for", "which area",
+    "how detailed should", "what do you want to know",
+]
+
+
+def _is_generic(q: str) -> bool:
+    ql = q.lower()
+    return any(p in ql for p in GENERIC_PATTERNS)
+
+
 async def _plan(query: str) -> list[str]:
-    """Generate 3-5 sub-questions from the user query."""
+    """Generate 3-5 factual, independently-searchable sub-questions from query."""
     system = (
-        "Break down the user's research query into 3-5 focused sub-questions. "
-        'Respond ONLY with JSON: {"sub_questions": ["q1", "q2", ...]}'
+        "You are a research planner specializing in UAE legal and financial topics. "
+        "Your job is to decompose a research query into 3-5 SPECIFIC, FACTUAL sub-questions "
+        "that can be answered by searching documents and the web.\n\n"
+        "RULES:\n"
+        "- Sub-questions must be about the TOPIC, not about what the user wants\n"
+        "- Never ask clarifying questions like 'what aspect?' or 'general or detailed?'\n"
+        "- Each sub-question must be independently searchable\n\n"
+        "EXAMPLE INPUT: 'Peppol e-invoicing buyer ID for third party shipment UAE'\n"
+        "EXAMPLE OUTPUT: {\"sub_questions\": [\n"
+        "  \"Who must register for Peppol participant ID in UAE e-invoicing?\",\n"
+        "  \"What is the Peppol BIS billing standard for third-party shipment scenarios?\",\n"
+        "  \"UAE FTA e-invoicing requirements for buyer identification in cross-border transactions\"\n"
+        "]}\n\n"
+        "Respond ONLY with valid JSON: {\"sub_questions\": [\"q1\", \"q2\", ...]}"
     )
     raw = await _llm(system, query)
     try:
         cleaned = raw.strip()
         if cleaned.startswith("```"):
             lines = cleaned.split("\n")
-            # Strip opening fence line (e.g. "```" or "```json") and closing fence
             inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
             cleaned = "\n".join(inner)
         data = json.loads(cleaned.strip())
-        return list(data.get("sub_questions", [query]))[:5]
+        sub_questions = list(data.get("sub_questions", [query]))[:5]
     except Exception:
         return [query]
+
+    # Validate: if any sub-question is generic, fall back to the original query
+    if any(_is_generic(q) for q in sub_questions):
+        logger.warning("_plan() returned generic questions — falling back to original query")
+        return [query]
+
+    return sub_questions
 
 
 async def _gather_one(sub_q: str) -> str:
