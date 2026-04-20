@@ -26,7 +26,21 @@ class AuditResult(BaseModel):
     summary: str
 
 
-async def _analyze_documents(document_ids: list[str]) -> AuditResult:
+FORMAT_INSTRUCTIONS = {
+    "standard": "Present findings in Standard Audit format: Observation, Risk, Recommendation, Regulatory Reference.",
+    "big4": "Present findings in Big 4 style with Executive Summary, Detailed Findings (each with Criteria, Condition, Cause, Effect, Recommendation), and Management Response sections.",
+    "legal_brief": "Present findings as a Legal Brief: Issue, Legal Framework, Analysis, Opinion, and Next Steps.",
+    "compliance": "Present findings as a Compliance Report: Compliance Status (Compliant / Partially Compliant / Non-Compliant), Regulatory Reference, Gap Description, Remediation Steps.",
+}
+
+
+async def _analyze_documents(
+    document_ids: list[str],
+    entity_name: str = "",
+    period: str = "",
+    format: str = "standard",
+    scope: str = "Full financial audit",
+) -> AuditResult:
     """Analyze documents using LLM for risk flags, anomalies, and compliance gaps."""
     # Resolve doc_id -> original_name from DB
     id_to_name: dict[str, str] = {}
@@ -76,6 +90,18 @@ async def _analyze_documents(document_ids: list[str]) -> AuditResult:
         "In the document field, use the exact document name provided in the context."
     )
 
+    context_block = ""
+    if entity_name:
+        context_block += f"\nEntity under audit: {entity_name}"
+    if period:
+        context_block += f"\nAudit period: {period}"
+    if scope:
+        context_block += f"\nScope: {scope}"
+    format_instruction = FORMAT_INSTRUCTIONS.get(format, FORMAT_INSTRUCTIONS["standard"])
+    if context_block:
+        system += context_block
+    system += f"\n{format_instruction}"
+
     llm = get_llm_provider()
     resp = await llm.chat(
         [
@@ -110,7 +136,13 @@ async def _analyze_documents(document_ids: list[str]) -> AuditResult:
         )
 
 
-async def run_audit(document_ids: list[str]) -> dict:
+async def run_audit(
+    document_ids: list[str],
+    entity_name: str = "",
+    period: str = "",
+    format: str = "standard",
+    scope: str = "Full financial audit",
+) -> dict:
     """Run audit analysis on selected documents. Returns dict suitable for JSON response."""
     if not document_ids:
         return {
@@ -119,5 +151,11 @@ async def run_audit(document_ids: list[str]) -> dict:
             "compliance_gaps": [],
             "summary": "No documents selected.",
         }
-    result = await _analyze_documents(document_ids)
+    result = await _analyze_documents(
+        document_ids,
+        entity_name=entity_name,
+        period=period,
+        format=format,
+        scope=scope,
+    )
     return result.model_dump()

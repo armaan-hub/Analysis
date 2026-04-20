@@ -22,6 +22,10 @@ router = APIRouter(prefix="/api/legal-studio", tags=["Legal Studio"])
 
 class AuditRequest(BaseModel):
     document_ids: list[str]
+    entity_name: str = ""
+    period: str = ""
+    format: str = "standard"   # standard | big4 | legal_brief | compliance
+    scope: str = "Full financial audit"
 
 
 class AuditResponse(BaseModel):
@@ -34,7 +38,13 @@ class AuditResponse(BaseModel):
 @router.post("/auditor", response_model=AuditResponse)
 async def auditor(req: AuditRequest):
     """Run audit analysis on selected documents."""
-    result = await run_audit(req.document_ids)
+    result = await run_audit(
+        req.document_ids,
+        entity_name=req.entity_name,
+        period=req.period,
+        format=req.format,
+        scope=req.scope,
+    )
     return AuditResponse(**result)
 
 
