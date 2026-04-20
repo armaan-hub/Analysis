@@ -174,6 +174,7 @@ async def run_deep_research(job_id: str, query: str) -> None:
             "phase": "completed",
             "message": "Research complete!",
             "report": report,
+            "sources": list(gathered.keys()),
         })
 
         # Save report as a virtual document
