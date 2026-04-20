@@ -79,6 +79,10 @@ $maxWait = 60
 $elapsed = 0
 Write-Host "Waiting for backend to be ready..."
 while ($elapsed -lt $maxWait) {
+    if ($backendJob.State -in "Failed", "Stopped") {
+        Write-Host "ERROR: Backend job failed to start. Check backend_server.log"
+        break
+    }
     try {
         $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
