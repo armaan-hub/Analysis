@@ -46,7 +46,7 @@ async def _analyze_documents(document_ids: list[str]) -> AuditResult:
         doc_name = id_to_name.get(doc_id, doc_id)
         try:
             results = await rag_engine.search(
-                "audit risk compliance anomaly",
+                "audit risk compliance anomaly revenue expenses profit loss balance sheet trial balance cost of sales income tax",
                 top_k=settings.top_k_results,
                 filter={"doc_id": doc_id} if doc_id else None,
             )
