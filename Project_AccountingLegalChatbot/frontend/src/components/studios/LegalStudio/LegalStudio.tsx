@@ -85,6 +85,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }>>([]);
 
   const chatAreaBottomRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const [auditorFormat, setAuditorFormat] = useState<AuditorFormat>('standard');
   const [showAuditQuestionnaire, setShowAuditQuestionnaire] = useState(false);
@@ -344,28 +345,41 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         const res = await API.post('/api/legal-studio/research', { query: text });
         const jobId = res.data.job_id;
         const evtSource = new EventSource(`${API_BASE}/api/legal-studio/research/${jobId}/stream`);
+        eventSourceRef.current = evtSource;
         evtSource.onmessage = (e) => {
           const data = JSON.parse(e.data);
           if (!data.phase) return;
           if (data.phase === 'completed') {
-            setMessages(prev => prev.map(m =>
-              m.id === researchId
-                ? { ...m, report: data.report ?? '', sources: data.sources ?? [] } as ResearchMessage
-                : m
-            ));
+            setMessages(prev => prev.map(m => {
+              if (m.id === researchId && m.role === 'research') {
+                return { ...m, report: data.report ?? '', sources: data.sources ?? [] };
+              }
+              return m;
+            }));
             setResearching(false);
             setLoading(false);
             evtSource.close();
+            eventSourceRef.current = null;
             return;
           }
-          setMessages(prev => prev.map(m =>
-            m.id === researchId
-              ? { ...m, phases: [...(m as ResearchMessage).phases, data] } as ResearchMessage
-              : m
-          ));
+          setMessages(prev => prev.map(m => {
+            if (m.id === researchId && m.role === 'research') {
+              return { ...m, phases: [...m.phases, data] };
+            }
+            return m;
+          }));
         };
-        evtSource.onerror = () => { evtSource.close(); setResearching(false); setLoading(false); };
+        evtSource.onerror = () => {
+          evtSource.close();
+          eventSourceRef.current = null;
+          setResearching(false);
+          setLoading(false);
+        };
       } catch {
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
         setResearching(false);
         setLoading(false);
       }
@@ -463,11 +477,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
       if (msg.role === 'research') {
-        const rm = msg as ResearchMessage;
-        if (rm.sources && rm.sources.length > 0) return rm.sources;
-      } else {
-        const tm = msg as { sources?: Source[] };
-        if (tm.sources && tm.sources.length > 0) return tm.sources;
+        if (msg.sources && msg.sources.length > 0) return msg.sources;
+      } else if (msg.role === 'ai' || msg.role === 'assistant') {
+        if (msg.sources && msg.sources.length > 0) return msg.sources;
       }
     }
     return [];
@@ -491,6 +503,16 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   useEffect(() => {
     chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
 
   // --- Render ---
   const centerContent = (
