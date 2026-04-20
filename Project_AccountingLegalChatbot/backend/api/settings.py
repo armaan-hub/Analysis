@@ -2,6 +2,7 @@
 Settings API – Manage LLM providers and application settings.
 """
 
+import asyncio
 import re
 from pathlib import Path
 from typing import Optional, List
@@ -17,6 +18,8 @@ from core.llm_manager import get_llm_provider, list_available_providers, NvidiaP
 from config import settings
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
+
+_settings_lock = asyncio.Lock()
 
 # Path to root .env (one level up from backend/)
 _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -88,8 +91,9 @@ async def switch_provider(req: ProviderSwitchRequest):
             detail=f"Unknown provider '{req.provider}'. Available: {available}",
         )
 
-    settings.llm_provider = req.provider
-    _update_env_key("LLM_PROVIDER", req.provider)
+    async with _settings_lock:
+        _update_env_key("LLM_PROVIDER", req.provider)
+        settings.llm_provider = req.provider
     return {
         "status": "switched",
         "active_provider": req.provider,
@@ -117,21 +121,19 @@ async def update_provider(req: ProviderUpdateRequest):
 
     key_attr, key_env, model_attr, model_env, url_attr, url_env = _KEY_MAP[provider]
 
-    if req.api_key is not None and key_attr:
-        setattr(settings, key_attr, req.api_key)
-        _update_env_key(key_env, req.api_key)
-
-    if req.model is not None and model_attr:
-        setattr(settings, model_attr, req.model)
-        _update_env_key(model_env, req.model)
-
-    if req.base_url is not None and url_attr:
-        setattr(settings, url_attr, req.base_url)
-        _update_env_key(url_env, req.base_url)
-
-    if req.activate:
-        settings.llm_provider = provider
-        _update_env_key("LLM_PROVIDER", provider)
+    async with _settings_lock:
+        if req.api_key is not None and key_attr:
+            setattr(settings, key_attr, req.api_key)
+            _update_env_key(key_env, req.api_key)
+        if req.model is not None and model_attr:
+            setattr(settings, model_attr, req.model)
+            _update_env_key(model_env, req.model)
+        if req.base_url is not None and url_attr:
+            setattr(settings, url_attr, req.base_url)
+            _update_env_key(url_env, req.base_url)
+        if req.activate:
+            settings.llm_provider = provider
+            _update_env_key("LLM_PROVIDER", provider)
 
     return {
         "status": "updated",
