@@ -1,7 +1,7 @@
 ﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, ScanSearch } from 'lucide-react';
-import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type Source } from '../../../lib/api';
+import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type TextMessage, type Source } from '../../../lib/api';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { SourcePeeker } from './SourcePeeker';
@@ -173,17 +173,51 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     setConversationId(initialConversationId);
     API.get(`/api/chat/conversations/${initialConversationId}/messages`)
       .then(r => {
-        const msgs = (r.data ?? []).map((m: any) => ({
-          role: m.role === 'user' ? 'user' as const : 'ai' as const,
+        const msgs = (r.data ?? []).map((m: any): TextMessage => ({
+          role: m.role === 'user' ? 'user' : 'ai',
           text: m.content,
           time: fmtTime(),
           sources: m.sources ?? [],
           id: m.id,
+          messageId: m.id,
         }));
         setMessages(msgs);
       })
       .catch(() => {});
   }, [initialConversationId]);
+
+  // --- Load sources for existing conversation ---
+  useEffect(() => {
+    if (!initialConversationId) return;
+    API.get(`/api/legal-studio/notebook/${initialConversationId}/sources`)
+      .then(r => {
+        const ids: string[] = r.data?.source_ids ?? [];
+        if (ids.length > 0) {
+          setSelectedDocIds(ids);
+          setDocs(ids.map(id => ({
+            id,
+            filename: id,
+            source: id,
+            status: 'ready' as const,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, [initialConversationId]);
+
+  // --- Persist sources when they change ---
+  const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    if (persistSourcesRef.current) clearTimeout(persistSourcesRef.current);
+    persistSourcesRef.current = setTimeout(() => {
+      API.post('/api/legal-studio/save-sources', {
+        conversation_id: conversationId,
+        source_ids: selectedDocIds,
+      }).catch(() => {});
+    }, 500);
+  }, [conversationId, selectedDocIds]);
 
   // --- Audit flow handlers ---
   const auditFields: PrefilledField[] = useMemo(() => [
