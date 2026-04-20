@@ -208,7 +208,8 @@ async def extract_entity_name(source_ids: list[str], db: AsyncSession) -> str | 
         if name.upper() == "UNKNOWN" or not name:
             return None
         return name
-    except Exception:
+    except Exception as e:
+        logger.warning("Entity extraction failed for source %s: %s", source_ids[0] if source_ids else 'unknown', e)
         return None
 
 

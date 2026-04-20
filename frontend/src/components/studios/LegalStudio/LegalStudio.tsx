@@ -297,32 +297,42 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   // --- Report questionnaire flow ---
   const handleReportRequest = useCallback(async (reportType: string) => {
+    // Prevent concurrent calls (e.g. double-click or clicking two report types quickly)
+    if (activeQuestionnaire) return;
+    
     const config = REPORT_CONFIGS[reportType];
     if (!config) return;
 
-    // Auto-extract entity name if conversation exists and field is present
-    let entityName = '';
-    if (conversationId && config.fields.some((f: PrefilledField) => f.key === 'entity_name')) {
-      try {
-        const r = await API.get(`/api/legal-studio/notebook/${conversationId}/entity-name`);
-        entityName = r.data?.entity_name ?? '';
-      } catch { /* non-fatal — leave blank */ }
-    }
-
-    const fields = config.fields.map((f: PrefilledField) =>
-      f.key === 'entity_name'
-        ? { ...f, value: entityName, placeholder: 'Auto-detected from sources', autoDetected: !!entityName }
-        : { ...f }
-    );
-
+    // Show questionnaire immediately with empty entity_name
+    const fields = config.fields.map((f: PrefilledField) => ({ ...f }));
     setActiveQuestionnaire({
       reportType,
       fields,
       label: config.label,
     });
-    // Scroll chat into view so the questionnaire is visible
     setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [conversationId]);
+
+    // Extract entity name in background, update questionnaire when done
+    if (conversationId && config.fields.some((f: PrefilledField) => f.key === 'entity_name')) {
+      API.get(`/api/legal-studio/notebook/${conversationId}/entity-name`)
+        .then(r => {
+          const entityName = r.data?.entity_name ?? '';
+          if (!entityName) return;
+          setActiveQuestionnaire(prev => {
+            if (!prev || prev.reportType !== reportType) return prev; // questionnaire may have been closed
+            return {
+              ...prev,
+              fields: prev.fields.map(f =>
+                f.key === 'entity_name'
+                  ? { ...f, value: entityName, placeholder: 'Auto-detected from sources', autoDetected: true }
+                  : f
+              ),
+            };
+          });
+        })
+        .catch(() => { /* non-fatal */ });
+    }
+  }, [conversationId, activeQuestionnaire]);
 
   const handleQuestionnaireConfirm = useCallback(async (confirmedFields: Record<string, string>) => {
     if (!activeQuestionnaire) return;
