@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { API, type Alert } from './lib/api';
 import { StudioProvider } from './context/StudioProvider';
 import { ThemeProvider } from './context/ThemeContext';
@@ -105,7 +105,7 @@ function AppInner() {
                 />
               }
             />
-            <Route path="/finance" element={<HomePage />} />
+            <Route path="/finance" element={<Navigate to="/" replace />} />
             <Route path="/monitoring" element={<RegulatoryStudio />} />
             <Route path="/templates" element={<TemplateStudio />} />
             <Route path="/settings" element={<SettingsPage />} />

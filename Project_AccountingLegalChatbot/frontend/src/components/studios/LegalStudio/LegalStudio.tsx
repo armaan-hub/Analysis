@@ -68,6 +68,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
+  const chatAreaBottomRef = useRef<HTMLDivElement>(null);
 
   const initialValue = searchParams.get('q') ?? '';
 
@@ -330,6 +331,13 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     prevLoadingRef.current = loading;
   }, [loading]);
 
+  // Auto-scroll to bottom of chat area when research report loads
+  useEffect(() => {
+    if (researchReport || researchPhases.length > 0) {
+      chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [researchReport, researchPhases]);
+
   // --- Render ---
   const centerContent = (
     <>
@@ -387,6 +395,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             <ResearchBubble phases={researchPhases} report={researchReport} />
           </div>
         )}
+        <div ref={chatAreaBottomRef} />
       </div>
 
       {sourcePanelOpen && activeSources.length > 0 && (
