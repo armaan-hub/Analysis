@@ -12,7 +12,7 @@ async def branch_version(profile_id: str, new_branch_name: str) -> str:
         current = (await s.execute(
             select(ProfileVersion).where(
                 ProfileVersion.profile_id == profile_id,
-                ProfileVersion.is_current == True,  # noqa: E712
+                ProfileVersion.is_current.is_(True),
             )
         )).scalar_one_or_none()
         if current is None:

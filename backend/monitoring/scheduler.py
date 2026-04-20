@@ -88,7 +88,7 @@ async def fetch_and_check_updates():
 
     async with async_session() as db:
         result = await db.execute(
-            select(MonitoredSource).where(MonitoredSource.is_active == True)
+            select(MonitoredSource).where(MonitoredSource.is_active.is_(True))
         )
         sources = result.scalars().all()
 
