@@ -78,25 +78,28 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(case_sensitive=False)
 
-    @model_validator(mode="after")
-    def _resolve_relative_paths(self) -> "Settings":
-        """Convert any relative paths to absolute, anchored to backend/ directory."""
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_relative_paths(cls, values: dict) -> dict:
+        """Convert relative paths to absolute, anchored to backend/ directory."""
         _backend_dir = Path(__file__).resolve().parent
 
         def _abs(p: str) -> str:
+            if p.startswith("sqlite:///"):
+                raw = p[len("sqlite:///"):]
+                rel = Path(raw)
+                if not rel.is_absolute():
+                    return f"sqlite:///{(_backend_dir / raw).resolve()}"
+                return p
             path = Path(p)
             if not path.is_absolute():
-                if p.startswith("sqlite:///"):
-                    raw = p[len("sqlite:///"):]
-                    resolved = (_backend_dir / raw).resolve()
-                    return f"sqlite:///{resolved}"
                 return str((_backend_dir / path).resolve())
             return p
 
-        self.database_url = _abs(self.database_url)
-        self.upload_dir = _abs(self.upload_dir)
-        self.vector_store_dir = _abs(self.vector_store_dir)
-        return self
+        for key in ("database_url", "upload_dir", "vector_store_dir"):
+            if key in values and isinstance(values[key], str):
+                values[key] = _abs(values[key])
+        return values
 
     # ── Helper Properties ────────────────────────────────────────────
 
@@ -128,9 +131,10 @@ class Settings(BaseSettings):
         """Create required directories if they don't exist."""
         Path(self.upload_dir).mkdir(parents=True, exist_ok=True)
         Path(self.vector_store_dir).mkdir(parents=True, exist_ok=True)
-        # Ensure DB directory exists
-        db_path = self.database_url.replace("sqlite:///", "")
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        db_raw = self.database_url
+        if db_raw.startswith("sqlite:///"):
+            db_raw = db_raw[len("sqlite:///"):]
+        Path(db_raw).parent.mkdir(parents=True, exist_ok=True)
 
 
 # Singleton instance
