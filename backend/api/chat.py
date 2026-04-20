@@ -187,6 +187,7 @@ class ConversationResponse(BaseModel):
     created_at: str
     updated_at: str
     message_count: int = 0
+    domain: Optional[str] = None
 
 class MessageResponse(BaseModel):
     id: str
@@ -582,6 +583,7 @@ async def list_conversations(
             created_at=str(conv.created_at),
             updated_at=str(conv.updated_at),
             message_count=msg_count,
+            domain=conv.domain,
         ))
 
     return response

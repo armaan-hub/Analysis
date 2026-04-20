@@ -26,6 +26,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
           title: c.title || 'Untitled Notebook',
           updated_at: c.updated_at || new Date().toISOString(),
           source_count: c.source_count,
+          domain: c.domain,
         })));
       })
       .catch(() => {});
