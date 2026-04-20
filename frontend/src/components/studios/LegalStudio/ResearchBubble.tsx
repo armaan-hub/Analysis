@@ -49,6 +49,10 @@ export function ResearchBubble({ phases, report, sources, query, onSourceClick }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: report || '', sources: sources || [], format, query: query || '' }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Export failed' }));
+        throw new Error(err.detail || 'Export failed');
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

@@ -90,10 +90,13 @@ while ($elapsed -lt $maxWait) {
             break
         }
     } catch {
-        # Not ready yet
+        # Not ready yet, continue waiting
+        $elapsed += 1
+        Start-Sleep -Seconds 1
+        continue
     }
-    Start-Sleep -Seconds 2
-    $elapsed += 2
+    Start-Sleep -Seconds 1
+    $elapsed += 1
 }
 if ($elapsed -ge $maxWait) {
     Write-Host "Warning: Backend did not become ready within $maxWait seconds. Starting frontend anyway."

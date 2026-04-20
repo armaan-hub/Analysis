@@ -50,7 +50,7 @@ def _sheet_to_text(df: pd.DataFrame, sheet_name: str) -> str:
             lines.append(header_line)
 
     # Always include headers at the end if not just added
-    if not lines[-1].startswith("--- Headers"):
+    if len(lines) > 1 and not lines[-1].startswith("--- Headers"):
         lines.append(header_line)
 
     return "\n".join(lines)
