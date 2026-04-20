@@ -67,7 +67,7 @@ FEW_SHOT_EXAMPLES: dict[str, str] = {
         "\n\nEXAMPLE:\n"
         "Q: What is the STR filing deadline in UAE?\n"
         "A: A Suspicious Transaction Report must be filed within 30 days of forming suspicion, "
-        "under CBUAE AML/CFT Regulation No. 24 of 2000 and subsequent CBUAE circulars."
+        "under Federal Decree-Law No. 20 of 2018 on Anti-Money Laundering and subsequent CBUAE regulations."
     ),
     "peppol": (
         "\n\nEXAMPLE:\n"
