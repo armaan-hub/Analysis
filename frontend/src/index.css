@@ -2331,6 +2331,7 @@ body {
   flex-direction: column;
   gap: 6px;
 }
+.research-step { font-size: 13px; padding: 4px 0; display: flex; align-items: flex-start; }
 .research-step--done::before {
   content: '✅ ';
 }
