@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigat
 import { API, type Alert } from './lib/api';
 import { StudioProvider } from './context/StudioProvider';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuditOverlayProvider } from './context/AuditOverlayContext';
+import { AuditOverlay } from './components/studios/LegalStudio/AuditOverlay';
 import { StudioSwitcher } from './components/StudioSwitcher';
 import { ContextualSidebar } from './components/ContextualSidebar';
 
@@ -119,11 +121,14 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-    <Router>
-      <StudioProvider>
-        <AppInner />
-      </StudioProvider>
-    </Router>
+    <AuditOverlayProvider>
+      <AuditOverlay />
+      <Router>
+        <StudioProvider>
+          <AppInner />
+        </StudioProvider>
+      </Router>
+    </AuditOverlayProvider>
     </ThemeProvider>
   );
 }
