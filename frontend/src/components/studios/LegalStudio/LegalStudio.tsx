@@ -1,7 +1,9 @@
 ﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, ScanSearch } from 'lucide-react';
-import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type TextMessage, type Source } from '../../../lib/api';
+import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type TextMessage, type Source, generateReportStreamUrl, detectReportMetadata } from '../../../lib/api';
+import { ConfirmReportCard } from './ConfirmReportCard';
+import { ArtifactPanel } from './ArtifactPanel';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { SourcePeeker } from './SourcePeeker';
@@ -36,6 +38,11 @@ function detectDomain(text: string): Domain | null {
     if (keywords.some(kw => lower.includes(kw))) return domain;
   }
   return null;
+}
+
+function isRefinementInstruction(text: string): boolean {
+  const REFINEMENT_STARTS = ['add', 'change', 'make', 'update', 'remove', 'include', 'shorten', 'expand'];
+  return REFINEMENT_STARTS.some(s => text.toLowerCase().startsWith(s));
 }
 
 interface Conversation { id: string; title: string; updated_at: string; }
@@ -96,6 +103,23 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
   const [auditGenerating, setAuditGenerating] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
+
+  // ── Analyst: ConfirmReportCard + ArtifactPanel state ──
+  const [confirmCard, setConfirmCard] = useState<{
+    reportType: string;
+    reportLabel: string;
+    entityName: string;
+    periodEnd: string;
+    confidence: 'high' | 'low' | 'none';
+    format: AuditorFormat;
+  } | null>(null);
+
+  const [artifactOpen, setArtifactOpen] = useState(false);
+  const [artifactTitle, setArtifactTitle] = useState('');
+  const [artifactReportType, setArtifactReportType] = useState('');
+  const [artifactContent, setArtifactContent] = useState('');
+  const [artifactLoading, setArtifactLoading] = useState(false);
+  const abortReportRef = useRef<AbortController | null>(null);
 
   const initialValue = searchParams.get('q') ?? '';
 
@@ -298,42 +322,140 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   // --- Report questionnaire flow ---
   const handleReportRequest = useCallback(async (reportType: string) => {
-    // Prevent concurrent calls (e.g. double-click or clicking two report types quickly)
-    if (activeQuestionnaire) return;
-    
     const config = REPORT_CONFIGS[reportType];
     if (!config) return;
 
-    // Show questionnaire immediately with empty entity_name
-    const fields = config.fields.map((f: PrefilledField) => ({ ...f }));
-    setActiveQuestionnaire({
+    // Auto-detect entity and period from docs
+    let entity_name = '';
+    let period_end = '';
+    let confidence: 'high' | 'low' | 'none' = 'none';
+    try {
+      const detected = await detectReportMetadata(reportType, selectedDocIds);
+      entity_name = detected.entity_name;
+      period_end = detected.period_end;
+      confidence = detected.confidence;
+    } catch {
+      // Fallback — show card with empty fields
+    }
+
+    setConfirmCard({
       reportType,
-      fields,
-      label: config.label,
+      reportLabel: config.label,
+      entityName: entity_name,
+      periodEnd: period_end,
+      confidence,
+      format: auditorFormat,
     });
     setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, [selectedDocIds, auditorFormat]);
 
-    // Extract entity name in background, update questionnaire when done
-    if (conversationId && config.fields.some((f: PrefilledField) => f.key === 'entity_name')) {
-      API.get(`/api/legal-studio/notebook/${conversationId}/entity-name`)
-        .then(r => {
-          const entityName = r.data?.entity_name ?? '';
-          if (!entityName) return;
-          setActiveQuestionnaire(prev => {
-            if (!prev || prev.reportType !== reportType) return prev; // questionnaire may have been closed
-            return {
-              ...prev,
-              fields: prev.fields.map(f =>
-                f.key === 'entity_name'
-                  ? { ...f, value: entityName, placeholder: 'Auto-detected from sources', autoDetected: true }
-                  : f
-              ),
-            };
-          });
-        })
-        .catch(() => { /* non-fatal */ });
+  const handleGenerateReport = useCallback(async (params: {
+    entityName: string;
+    periodEnd: string;
+    format: AuditorFormat;
+  }) => {
+    if (!confirmCard) return;
+    setConfirmCard(null);
+
+    const config = REPORT_CONFIGS[confirmCard.reportType];
+    const title = `${config?.icon ?? '📊'} ${config?.label ?? confirmCard.reportType} — ${params.entityName}`;
+    setArtifactTitle(title);
+    setArtifactReportType(confirmCard.reportType);
+    setArtifactContent('');
+    setArtifactLoading(true);
+    setArtifactOpen(true);
+
+    abortReportRef.current?.abort();
+    const ac = new AbortController();
+    abortReportRef.current = ac;
+
+    try {
+      const resp = await fetch(generateReportStreamUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body: JSON.stringify({
+          report_type: confirmCard.reportType,
+          selected_doc_ids: selectedDocIds,
+          entity_name: params.entityName,
+          period_end: params.periodEnd,
+          auditor_format: params.format,
+        }),
+        signal: ac.signal,
+      });
+      if (!resp.ok || !resp.body) { setArtifactLoading(false); return; }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      setArtifactLoading(false);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) !== -1) {
+          const frame = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + 2);
+          if (!frame.startsWith('data: ')) continue;
+          try {
+            const ev = JSON.parse(frame.slice(6));
+            if (ev.type === 'chunk') setArtifactContent(prev => prev + ev.content);
+          } catch { /* malformed */ }
+        }
+      }
+    } catch {
+      setArtifactLoading(false);
     }
-  }, [conversationId, activeQuestionnaire]);
+  }, [confirmCard, selectedDocIds]);
+
+  const handleRefinement = useCallback(async (instruction: string) => {
+    if (!artifactReportType || !artifactContent) return;
+    setArtifactLoading(true);
+    const prevContent = artifactContent;
+    setArtifactContent('');
+
+    abortReportRef.current?.abort();
+    const ac = new AbortController();
+    abortReportRef.current = ac;
+
+    try {
+      const resp = await fetch(generateReportStreamUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body: JSON.stringify({
+          report_type: artifactReportType,
+          selected_doc_ids: selectedDocIds,
+          refinement_instruction: instruction,
+          current_report_content: prevContent,
+        }),
+        signal: ac.signal,
+      });
+      if (!resp.ok || !resp.body) { setArtifactContent(prevContent); setArtifactLoading(false); return; }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      setArtifactLoading(false);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) !== -1) {
+          const frame = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + 2);
+          if (!frame.startsWith('data: ')) continue;
+          try {
+            const ev = JSON.parse(frame.slice(6));
+            if (ev.type === 'chunk') setArtifactContent(prev => prev + ev.content);
+          } catch { /* ignore */ }
+        }
+      }
+    } catch {
+      setArtifactContent(prevContent);
+      setArtifactLoading(false);
+    }
+  }, [artifactReportType, artifactContent, selectedDocIds]);
 
   const handleQuestionnaireConfirm = useCallback(async (confirmedFields: Record<string, string>) => {
     if (!activeQuestionnaire) return;
@@ -401,6 +523,12 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     if (userDomain && !domainLocked) {
       setDomain(userDomain);
       setDetectedDomain(userDomain as DomainLabel);
+    }
+
+    // Route to refinement if artifact is open and the message looks like a refinement instruction
+    if (artifactOpen && artifactContent && isRefinementInstruction(text)) {
+      handleRefinement(text);
+      return;
     }
 
     const userMsg: Message = { role: 'user', text, time: fmtTime(), id: crypto.randomUUID() };
@@ -690,15 +818,19 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           </div>
         ))}
 
-        {/* Active questionnaire from report card click */}
-        {activeQuestionnaire && (
+        {/* ConfirmReportCard — analyst detect flow */}
+        {confirmCard && (
           <div className="legal-section-pad">
-            <QuestionnaireMessage
-              reportType={activeQuestionnaire.label}
-              fields={activeQuestionnaire.fields}
-              onConfirm={handleQuestionnaireConfirm}
-              onCancel={handleQuestionnaireCancel}
-              generating={reportGenerating}
+            <ConfirmReportCard
+              reportType={confirmCard.reportType}
+              reportLabel={confirmCard.reportLabel}
+              entityName={confirmCard.entityName}
+              periodEnd={confirmCard.periodEnd}
+              documentsCount={selectedDocIds.length}
+              format={confirmCard.format}
+              confidence={confirmCard.confidence}
+              onGenerate={handleGenerateReport}
+              onEdit={() => setConfirmCard(prev => prev ? { ...prev, confidence: 'none' } : null)}
             />
           </div>
         )}
@@ -747,7 +879,25 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         </>
       }
       center={centerContent}
-      right={<StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} auditorFormat={auditorFormat} onFormatChange={setAuditorFormat} />}
+      right={artifactOpen ? (
+        <ArtifactPanel
+          open={artifactOpen}
+          title={artifactTitle}
+          reportType={artifactReportType}
+          content={artifactContent}
+          loading={artifactLoading}
+          onClose={() => setArtifactOpen(false)}
+          onExport={() => {
+            const blob = new Blob([artifactContent], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${artifactReportType}-report.md`;
+            a.click();
+          }}
+        />
+      ) : (
+        <StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} auditorFormat={auditorFormat} onFormatChange={setAuditorFormat} />
+      )}
     />
     <CustomTemplatePicker
       isOpen={customTemplatePickerOpen}
