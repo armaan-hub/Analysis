@@ -86,3 +86,12 @@ export async function exportMessage(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+export async function getConversation(id: string): Promise<{ id: string; mode: string; title: string }> {
+  const r = await API.get(`/api/chat/conversations/${id}`);
+  return r.data;
+}
+
+export async function patchConversationMode(id: string, mode: string): Promise<void> {
+  await API.patch(`/api/chat/conversations/${id}`, { mode });
+}
