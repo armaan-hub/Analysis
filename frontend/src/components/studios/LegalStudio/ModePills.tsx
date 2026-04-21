@@ -1,13 +1,13 @@
-export type ChatMode = 'normal' | 'deep_research' | 'analyst';
+export type ChatMode = 'fast' | 'deep_research' | 'analyst';
 
 const MODE_OPTIONS: { value: ChatMode; label: string; icon: string }[] = [
-  { value: 'normal', label: 'Normal', icon: '⚡' },
+  { value: 'fast', label: 'Fast', icon: '⚡' },
   { value: 'deep_research', label: 'Deep Research', icon: '🔬' },
   { value: 'analyst', label: 'Analyst', icon: '📊' },
 ];
 
 const PLACEHOLDERS: Record<ChatMode, string> = {
-  normal: 'Ask about your sources…',
+  fast: 'Ask about your sources…',
   deep_research: 'What would you like to research?',
   analyst: 'What should I analyze?',
 };

@@ -59,7 +59,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [webSearching, setWebSearching] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [domain, setDomain] = useState<Domain>('law');
-  const [mode, setMode] = useState<ChatMode>('normal');
+  const [mode, setMode] = useState<ChatMode>('fast');
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [domainLocked, setDomainLocked] = useState(false);
   const [searchParams] = useSearchParams();
