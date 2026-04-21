@@ -43,7 +43,18 @@ class _RAGAdapter:
         self._engine = engine
 
     async def search(self, query: str, doc_ids: list[str] | None = None) -> list[dict]:
-        return await self._engine.search(query, top_k=5)
+        if not doc_ids:
+            return await self._engine.search(query, top_k=5)
+        # RAGEngine only supports single doc_id; search each and merge
+        results: list[dict] = []
+        seen: set[str] = set()
+        for doc_id in doc_ids[:5]:
+            for r in await self._engine.search(query, top_k=3, doc_id=doc_id):
+                key = r.get("text", "")[:80]
+                if key not in seen:
+                    seen.add(key)
+                    results.append(r)
+        return results[:10]
 
 
 async def _ingest_text(text: str, source: str | None = None, source_type: str = "research") -> None:
