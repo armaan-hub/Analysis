@@ -21,7 +21,7 @@ export function AuditChat() {
       <WorkflowSteps />
       <SuggestedActions />
 
-      <div className="audit-chat__messages" style={{ flex: '1 1 0', overflowY: 'auto', minHeight: 0 }}>
+      <div className="audit-chat__messages">
         {chatHistory.map(m => <ChatMessage key={m.id} msg={m} />)}
         {chatLoading && <div className="chat-msg chat-msg--loading">Thinking…</div>}
       </div>
