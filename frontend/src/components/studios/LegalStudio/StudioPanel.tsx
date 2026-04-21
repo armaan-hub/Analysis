@@ -5,6 +5,7 @@ import { StudioCards, type ReportType } from './StudioCards';
 import { AuditorFormatGrid, type AuditorFormat } from './AuditorFormatGrid';
 import { ReportPreview } from './ReportPreview';
 import { type ChatMode } from './ModePills';
+import { toBackendFormat } from './auditorFormatUtils';
 
 interface Props {
   sourceIds: string[];
@@ -43,7 +44,7 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onRepor
     setGenerating(true);
 
     try {
-      const backendFormat = format === 'legal' ? 'isa' : format === 'compliance' ? 'fta' : format === 'custom' ? 'standard' : format;
+      const backendFormat = toBackendFormat(format);
       const backendType = type === 'forecast' ? 'financial_analysis' : type;
       const res = await API.post(`/api/reports/generate/${backendType}`, {
         mapped_data: [],
@@ -66,7 +67,7 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onRepor
     try {
       const res = await API.post('/api/reports/format', {
         draft: reportContent,
-        format: format === 'legal' ? 'isa' : format === 'compliance' ? 'fta' : format === 'custom' ? 'standard' : format,
+        format: toBackendFormat(format),
       }, { responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a');

@@ -15,6 +15,7 @@ import { InlineResultCard } from './InlineResultCard';
 import { CustomTemplatePicker } from './CustomTemplatePicker';
 import { type AuditorFormat } from './AuditorFormatGrid';
 import { REPORT_CONFIGS } from './reportConfigs';
+import { toBackendFormat } from './auditorFormatUtils';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax'
   | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law'
@@ -341,10 +342,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
     try {
       const backendType = reportType === 'forecast' ? 'financial_analysis' : reportType;
-      const backendFormat = auditorFormat === 'legal' ? 'isa'
-        : auditorFormat === 'compliance' ? 'fta'
-        : auditorFormat === 'custom' ? 'standard'
-        : auditorFormat;
+      const backendFormat = toBackendFormat(auditorFormat);
       const res = await API.post(`/api/reports/generate/${backendType}`, {
         mapped_data: [],
         requirements: {},

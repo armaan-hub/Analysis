@@ -100,7 +100,6 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period_end', label: 'Period End', value: todayISO, editable: true },
-      { key: 'auditor_format', label: 'Auditor Format', value: 'standard', editable: true },
     ],
   },
   'compliance': {
