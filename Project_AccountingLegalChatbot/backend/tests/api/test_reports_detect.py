@@ -16,7 +16,7 @@ def test_detect_returns_schema():
              "metadata": {"source": "financial_report.pdf", "page": 1}, "score": 0.92}
         ])
 
-        mock_llm = MagicMock()
+        mock_llm = AsyncMock()
         mock_llm.chat = AsyncMock(return_value=MagicMock(
             content='{"entity_name": "ABC Trading LLC", "period_end": "31 Dec 2024"}'
         ))
@@ -40,7 +40,7 @@ def test_detect_returns_none_confidence_when_no_docs():
          patch("api.reports.get_llm_provider") as mock_llm_factory:
 
         mock_rag.search = AsyncMock(return_value=[])
-        mock_llm = MagicMock()
+        mock_llm = AsyncMock()
         mock_llm.chat = AsyncMock(return_value=MagicMock(content='{}'))
         mock_llm_factory.return_value = mock_llm
 
