@@ -2424,7 +2424,8 @@ async def generate_report_stream(req: GenerateStreamRequest):
         llm = get_llm_provider(None)
         try:
             async for chunk in llm.chat_stream(messages_payload, temperature=0.2, max_tokens=None):
-                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+                if chunk:
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
