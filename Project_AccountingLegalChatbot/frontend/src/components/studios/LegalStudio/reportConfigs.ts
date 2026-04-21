@@ -1,6 +1,5 @@
 import type { PrefilledField } from './QuestionnaireMessage';
-
-export type AuditorFormat = 'standard' | 'big4' | 'legal' | 'compliance' | 'custom';
+import type { AuditorFormat } from './AuditorFormatGrid';
 
 export interface ReportSection {
   id: string;

@@ -21,7 +21,7 @@ interface Props {
 
 export function ConfirmReportCard({
   reportLabel, entityName: initialEntity, periodEnd: initialPeriod,
-  documentsCount, format: initialFormat, confidence, onGenerate,
+  documentsCount, format: initialFormat, confidence, onGenerate, onEdit,
 }: Props) {
   const [editing, setEditing] = useState(confidence === 'none');
   const [entityName, setEntityName] = useState(initialEntity);
@@ -74,7 +74,7 @@ export function ConfirmReportCard({
             <button
               type="button"
               aria-label="Edit Details"
-              onClick={() => setEditing(true)}
+              onClick={() => { setEditing(true); onEdit?.(); }}
               style={{
                 background: 'none', border: '1px solid var(--s-border)', borderRadius: 6,
                 padding: '7px 14px', cursor: 'pointer', fontSize: 13,
@@ -97,6 +97,7 @@ export function ConfirmReportCard({
           <label style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
             Period End
             <input
+              aria-label="period end"
               value={periodEnd}
               onChange={e => setPeriodEnd(e.target.value)}
               style={{ display: 'block', width: '100%', padding: '5px 8px', marginTop: 3,

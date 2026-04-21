@@ -120,6 +120,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [artifactContent, setArtifactContent] = useState('');
   const [artifactLoading, setArtifactLoading] = useState(false);
   const abortReportRef = useRef<AbortController | null>(null);
+  const [artifactEntityName, setArtifactEntityName] = useState('');
+  const [artifactPeriodEnd, setArtifactPeriodEnd] = useState('');
 
   const initialValue = searchParams.get('q') ?? '';
 
@@ -361,6 +363,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     const title = `${config?.icon ?? '📊'} ${config?.label ?? confirmCard.reportType} — ${params.entityName}`;
     setArtifactTitle(title);
     setArtifactReportType(confirmCard.reportType);
+    setArtifactEntityName(params.entityName);
+    setArtifactPeriodEnd(params.periodEnd);
     setArtifactContent('');
     setArtifactLoading(true);
     setArtifactOpen(true);
@@ -382,7 +386,11 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         }),
         signal: ac.signal,
       });
-      if (!resp.ok || !resp.body) { setArtifactLoading(false); return; }
+      if (!resp.ok || !resp.body) {
+        setArtifactContent(`⚠ Failed to generate report (HTTP ${resp.status}). Please try again.`);
+        setArtifactLoading(false);
+        return;
+      }
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -401,6 +409,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           try {
             const ev = JSON.parse(frame.slice(6));
             if (ev.type === 'chunk') setArtifactContent(prev => prev + ev.content);
+            else if (ev.type === 'error') setArtifactContent(`⚠ Generation error: ${ev.message ?? 'unknown'}`);
           } catch { /* malformed */ }
         }
       }
@@ -426,6 +435,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         body: JSON.stringify({
           report_type: artifactReportType,
           selected_doc_ids: selectedDocIds,
+          entity_name: artifactEntityName,
+          period_end: artifactPeriodEnd,
           refinement_instruction: instruction,
           current_report_content: prevContent,
         }),
@@ -448,6 +459,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           try {
             const ev = JSON.parse(frame.slice(6));
             if (ev.type === 'chunk') setArtifactContent(prev => prev + ev.content);
+            else if (ev.type === 'error') setArtifactContent(`⚠ Generation error: ${ev.message ?? 'unknown'}`);
           } catch { /* ignore */ }
         }
       }
@@ -455,7 +467,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       setArtifactContent(prevContent);
       setArtifactLoading(false);
     }
-  }, [artifactReportType, artifactContent, selectedDocIds]);
+  }, [artifactReportType, artifactContent, selectedDocIds, artifactEntityName, artifactPeriodEnd]);
 
   const handleQuestionnaireConfirm = useCallback(async (confirmedFields: Record<string, string>) => {
     if (!activeQuestionnaire) return;
