@@ -12,7 +12,7 @@ interface Props {
   onModeChange?: (m: ChatMode) => void;
 }
 
-export function ChatInput({ onSend, disabled, initialValue = '', mode = 'normal', onModeChange }: Props) {
+export function ChatInput({ onSend, disabled, initialValue = '', mode = 'fast', onModeChange }: Props) {
   const [value, setValue] = useState(initialValue);
   const [attachedFiles, setAttachedFiles] = useState<Array<AttachedFile & { file: File }>>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
