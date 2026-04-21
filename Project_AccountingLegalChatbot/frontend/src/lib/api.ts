@@ -99,3 +99,18 @@ export async function patchConversationMode(id: string, mode: string): Promise<v
 export function deepResearchUrl(): string {
   return `${API_BASE}/api/chat/deep-research`;
 }
+
+export function generateReportStreamUrl(): string {
+  return `${API_BASE}/api/reports/generate-stream`;
+}
+
+export async function detectReportMetadata(
+  reportType: string,
+  selectedDocIds: string[],
+): Promise<{ entity_name: string; period_end: string; confidence: 'high' | 'low' | 'none' }> {
+  const r = await API.post('/api/reports/detect', {
+    report_type: reportType,
+    selected_doc_ids: selectedDocIds,
+  });
+  return r.data;
+}
