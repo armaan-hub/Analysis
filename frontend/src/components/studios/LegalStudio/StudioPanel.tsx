@@ -11,10 +11,18 @@ interface Props {
   companyName?: string;
   mode?: ChatMode;
   onReportRequest?: (reportType: string) => void;
+  onFormatChange?: (format: AuditorFormat) => void;
+  auditorFormat?: AuditorFormat;
 }
 
-export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onReportRequest }: Props) {
-  const [format, setFormat] = useState<AuditorFormat>('standard');
+export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onReportRequest, onFormatChange, auditorFormat: controlledFormat }: Props) {
+  const [localFormat, setLocalFormat] = useState<AuditorFormat>('standard');
+  const format = controlledFormat ?? localFormat;
+
+  const handleFormatChange = (f: AuditorFormat) => {
+    setLocalFormat(f);
+    onFormatChange?.(f);
+  };
   const [activeReport, setActiveReport] = useState<ReportType | null>(null);
   const [reportContent, setReportContent] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -96,7 +104,7 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onRepor
       </div>
       <StudioCards onSelect={handleGenerateReport} disabled={generating} mode={mode} />
       <hr className="studio-divider" />
-      <AuditorFormatGrid value={format} onChange={setFormat} />
+      <AuditorFormatGrid value={format} onChange={handleFormatChange} />
       <button
         type="button"
         className="export-btn"

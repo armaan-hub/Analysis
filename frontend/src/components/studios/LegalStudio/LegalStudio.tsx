@@ -346,6 +346,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         requirements: {},
         source_ids: selectedDocIds,
         company_name: confirmedFields.entity_name || 'Analysis',
+        auditor_format: auditorFormat,
         ...confirmedFields,
         ...(reportType === 'forecast' ? { sub_type: 'forecast' } : {}),
       });
@@ -367,7 +368,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       setActiveQuestionnaire(null);
       setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
-  }, [activeQuestionnaire, selectedDocIds]);
+  }, [activeQuestionnaire, selectedDocIds, auditorFormat]);
 
   const handleQuestionnaireCancel = useCallback(() => {
     setActiveQuestionnaire(null);
@@ -744,7 +745,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         </>
       }
       center={centerContent}
-      right={<StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} />}
+      right={<StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} auditorFormat={auditorFormat} onFormatChange={setAuditorFormat} />}
     />
     <CustomTemplatePicker
       isOpen={customTemplatePickerOpen}
