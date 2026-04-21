@@ -19,6 +19,7 @@ import { type AuditorFormat } from './AuditorFormatGrid';
 import { REPORT_CONFIGS } from './reportConfigs';
 import { toBackendFormat } from './auditorFormatUtils';
 import { useNotebookMode } from '../../../hooks/useNotebookMode';
+import { useDeepResearch } from '../../../hooks/useDeepResearch';
 import { ChatOnlyLayout } from './ChatOnlyLayout';
 import { ChatWithResearchLayout } from './ChatWithResearchLayout';
 import { ResearchPanel } from './ResearchPanel';
@@ -64,6 +65,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [domain, setDomain] = useState<Domain>('law');
   const { mode, setMode } = useNotebookMode(conversationId ?? null);
+  const { steps, answer, running: researchRunning, run: runDeepResearch } = useDeepResearch(conversationId ?? '');
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [domainLocked, setDomainLocked] = useState(false);
   const [searchParams] = useSearchParams();
@@ -554,61 +556,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     setWebSearching(false);
 
     if (mode === 'deep_research') {
-      setResearching(true);
-      const researchId = crypto.randomUUID();
-      const researchMsg: ResearchMessage = {
-        role: 'research',
-        id: researchId,
-        query: text,
-        phases: [],
-        report: null,
-        sources: [],
-        time: fmtTime(),
-      };
-      setMessages(prev => [...prev, researchMsg]);
-
-      try {
-        const res = await API.post('/api/legal-studio/research', { query: text });
-        const jobId = res.data.job_id;
-        const evtSource = new EventSource(`${API_BASE}/api/legal-studio/research/${jobId}/stream`);
-        eventSourceRef.current = evtSource;
-        evtSource.onmessage = (e) => {
-          const data = JSON.parse(e.data);
-          if (!data.phase) return;
-          if (data.phase === 'completed') {
-            setMessages(prev => prev.map(m => {
-              if (m.id === researchId && m.role === 'research') {
-                return { ...m, report: data.report ?? '', sources: data.sources ?? [] };
-              }
-              return m;
-            }));
-            setResearching(false);
-            setLoading(false);
-            evtSource.close();
-            eventSourceRef.current = null;
-            return;
-          }
-          setMessages(prev => prev.map(m => {
-            if (m.id === researchId && m.role === 'research') {
-              return { ...m, phases: [...m.phases, data] };
-            }
-            return m;
-          }));
-        };
-        evtSource.onerror = () => {
-          evtSource.close();
-          eventSourceRef.current = null;
-          setResearching(false);
-          setLoading(false);
-        };
-      } catch {
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-          eventSourceRef.current = null;
-        }
-        setResearching(false);
-        setLoading(false);
-      }
+      setLoading(false);
+      await runDeepResearch(text, selectedDocIds);
       return;
     }
 
@@ -748,6 +697,23 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     };
   }, []);
 
+  // Append deep-research answer as AI message when it arrives
+  useEffect(() => {
+    if (!answer) return;
+    setMessages(prev => [...prev, {
+      role: 'ai' as const,
+      text: answer.content,
+      time: fmtTime(),
+      sources: answer.sources.map(s => ({
+        source: s.filename,
+        page: s.page ?? '',
+        score: 0,
+        excerpt: '',
+      })),
+      id: crypto.randomUUID(),
+    }]);
+  }, [answer]);
+
   // --- Render ---
   const centerContent = (
     <>
@@ -876,7 +842,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
       <ChatInput
         onSend={sendMessage}
-        disabled={loading}
+        disabled={loading || researchRunning}
         initialValue={initialValue}
         mode={mode}
         onModeChange={mode === 'analyst' ? setMode : undefined}
@@ -909,7 +875,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         <ChatWithResearchLayout
           modePills={modePills}
           chatArea={centerContent}
-          researchPanel={<ResearchPanel steps={[]} />}
+          researchPanel={<ResearchPanel steps={steps} answer={answer} />}
         />
         {customTemplatePicker}
       </>
