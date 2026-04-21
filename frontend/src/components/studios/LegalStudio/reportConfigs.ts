@@ -9,16 +9,6 @@ export interface ReportSection {
   required: boolean;
 }
 
-export type AuditorFormat = 'standard' | 'big4' | 'legal' | 'compliance' | 'custom';
-
-export interface ReportSection {
-  id: string;
-  label: string;
-  type: 'kpi_cards' | 'chart' | 'table' | 'narrative' | 'regulatory_form' | 'signature_block';
-  extractionPrompt: string;
-  required: boolean;
-}
-
 export interface ReportConfig {
   type: string;
   label: string;

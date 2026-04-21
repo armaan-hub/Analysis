@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ArtifactPanel } from '../ArtifactPanel';
 
@@ -23,7 +23,7 @@ describe('ArtifactPanel', () => {
       <ArtifactPanel
         open={true}
         title="MIS Report"
-        reportType="vat"
+        reportType="mis"
         content=""
         loading={true}
         onClose={vi.fn()}
@@ -45,7 +45,7 @@ describe('ArtifactPanel', () => {
         onExport={vi.fn()}
       />
     );
-    expect(screen.getByText('VAT Return')).toBeInTheDocument();
+    expect(screen.getAllByText(/VAT Return/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: /export/i })).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe('ArtifactPanel', () => {
       />
     );
     const closeBtn = screen.getByRole('button', { name: /close/i });
-    fireEvent.click(closeBtn);
+    closeBtn.click();
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

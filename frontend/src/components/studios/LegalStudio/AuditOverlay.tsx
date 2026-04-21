@@ -23,7 +23,10 @@ export function AuditOverlay() {
     setPosition({ x: e.clientX - dragOffset.current.dx, y: e.clientY - dragOffset.current.dy });
   }, [setPosition]);
 
-  const onPointerUp = useCallback(() => { dragOffset.current = null; }, []);
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    dragOffset.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }, []);
 
   if (overlayState === 'closed' || !result) return null;
 
