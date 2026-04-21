@@ -97,7 +97,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   }>>([]);
 
   const chatAreaBottomRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(false);
 
@@ -686,16 +685,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   useEffect(() => {
     chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  // Cleanup EventSource on unmount
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
-  }, []);
 
   // Append deep-research answer as AI message when it arrives
   useEffect(() => {
