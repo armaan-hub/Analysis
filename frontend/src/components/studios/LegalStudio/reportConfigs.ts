@@ -9,6 +9,16 @@ export interface ReportSection {
   required: boolean;
 }
 
+export type AuditorFormat = 'standard' | 'big4' | 'legal' | 'compliance' | 'custom';
+
+export interface ReportSection {
+  id: string;
+  label: string;
+  type: 'kpi_cards' | 'chart' | 'table' | 'narrative' | 'regulatory_form' | 'signature_block';
+  extractionPrompt: string;
+  required: boolean;
+}
+
 export interface ReportConfig {
   type: string;
   label: string;
@@ -31,6 +41,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'financial_analysis',
     label: 'Profit & Loss Statement',
     icon: '📈',
+    category: 'financial',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: ['bar', 'line'],
+    supportedFormats: ['standard', 'big4'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period', label: 'Period', value: `FY ${currentYear}`, editable: true },
@@ -52,6 +67,20 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'ifrs',
     label: 'Balance Sheet (IFRS)',
     icon: '📊',
+    category: 'financial',
+    detectFields: ['entity_name', 'as_of_date'],
+    chartTypes: [],
+    supportedFormats: ['standard', 'big4'],
+    sections: [
+      { id: 'sfp', label: 'Statement of Financial Position', type: 'table',
+        extractionPrompt: 'Extract assets, liabilities, equity for balance sheet', required: true },
+      { id: 'pnl', label: 'P&L Statement', type: 'table',
+        extractionPrompt: 'Extract revenue, expenses, net profit', required: true },
+      { id: 'cashflow', label: 'Cash Flow Statement', type: 'table',
+        extractionPrompt: 'Extract operating, investing, financing activities', required: true },
+      { id: 'notes', label: 'Notes to Financial Statements', type: 'narrative',
+        extractionPrompt: 'IFRS accounting policies and significant estimates', required: false },
+    ],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'as_of_date', label: 'As of Date', value: todayISO, editable: true },
@@ -76,6 +105,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'cash_flow',
     label: 'Cash Flow Statement',
     icon: '💰',
+    category: 'financial',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: ['bar'],
+    supportedFormats: ['standard', 'big4'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period', label: 'Period', value: `FY ${currentYear}`, editable: true },
@@ -94,6 +128,20 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'mis',
     label: 'MIS Report',
     icon: '📋',
+    category: 'financial',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: ['bar', 'line'],
+    supportedFormats: ['standard', 'big4'],
+    sections: [
+      { id: 'kpi', label: 'KPI Cards', type: 'kpi_cards',
+        extractionPrompt: 'Extract Revenue, Expenses, Net Profit, Gross Margin from documents', required: true },
+      { id: 'chart', label: 'Revenue vs Expenses Chart', type: 'chart',
+        extractionPrompt: 'Extract revenue and expenses by period for chart data', required: true },
+      { id: 'pl_table', label: 'Department P&L Table', type: 'table',
+        extractionPrompt: 'Extract department-level P&L figures from documents', required: false },
+      { id: 'narrative', label: 'Narrative Summary', type: 'narrative',
+        extractionPrompt: 'Write a 2-paragraph summary of financial performance citing sources', required: true },
+    ],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period', label: 'Period', value: `FY ${currentYear}`, editable: true },
@@ -118,6 +166,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'budget_vs_actual',
     label: 'Budget vs Actual',
     icon: '🎯',
+    category: 'financial',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: ['bar'],
+    supportedFormats: ['standard', 'big4'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period', label: 'Period', value: `FY ${currentYear}`, editable: true },
@@ -136,6 +189,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'forecast',
     label: 'Financial Forecast',
     icon: '📈',
+    category: 'financial',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: ['line'],
+    supportedFormats: ['standard', 'big4'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period', label: 'Forecast Period', value: '12 months', editable: true },
@@ -154,6 +212,15 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'vat',
     label: 'VAT Return',
     icon: '🧮',
+    category: 'regulatory',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: [],
+    supportedFormats: ['standard', 'compliance'],
+    regulatoryNote: 'Based on UAE FTA VAT-201 form structure',
+    sections: [
+      { id: 'vat_form', label: 'VAT-201 Return', type: 'regulatory_form',
+        extractionPrompt: 'Extract values for VAT-201 Boxes 1–9 from accounting documents', required: true },
+    ],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'trn', label: 'TRN', value: '', editable: true },
@@ -173,6 +240,15 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'corporate_tax',
     label: 'Corporate Tax Computation',
     icon: '🏢',
+    category: 'regulatory',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: [],
+    supportedFormats: ['standard', 'compliance'],
+    regulatoryNote: 'Based on UAE CT Decree-Law No. 47 of 2022',
+    sections: [
+      { id: 'ct_computation', label: 'CT Computation', type: 'table',
+        extractionPrompt: 'Extract accounting profit, adjustments, exempt income, CT payable', required: true },
+    ],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'tax_year', label: 'Tax Year', value: currentYear.toString(), editable: true },
@@ -192,6 +268,23 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'audit',
     label: 'Audit Report',
     icon: '📝',
+    category: 'audit',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: [],
+    supportedFormats: ['standard', 'big4', 'legal', 'compliance'],
+    regulatoryNote: 'Based on ISA 700 Big 4 structure',
+    sections: [
+      { id: 'opinion', label: "Independent Auditor's Report", type: 'narrative',
+        extractionPrompt: 'Generate ISA 700 opinion paragraph', required: true },
+      { id: 'basis', label: 'Basis for Opinion', type: 'narrative',
+        extractionPrompt: 'State standards applied and evidence obtained', required: true },
+      { id: 'kam', label: 'Key Audit Matters', type: 'narrative',
+        extractionPrompt: 'Identify key audit matters from document contents', required: false },
+      { id: 'responsibilities', label: 'Responsibilities', type: 'narrative',
+        extractionPrompt: 'Management vs auditor responsibilities per ISA 700.33', required: true },
+      { id: 'signature', label: 'Signature Block', type: 'signature_block',
+        extractionPrompt: 'Firm name, date, location — auto-detect or leave editable', required: true },
+    ],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period_end', label: 'Period End', value: todayISO, editable: true },
@@ -218,6 +311,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'compliance',
     label: 'Board / Compliance Report',
     icon: '📊',
+    category: 'regulatory',
+    detectFields: ['entity_name', 'period_end'],
+    chartTypes: [],
+    supportedFormats: ['standard', 'compliance'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'period', label: 'Period', value: `FY ${currentYear}`, editable: true },
@@ -236,6 +334,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'custom',
     label: 'Custom Report',
     icon: '📄',
+    category: 'custom',
+    detectFields: ['entity_name'],
+    chartTypes: [],
+    supportedFormats: ['standard', 'big4', 'legal', 'compliance', 'custom'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'report_title', label: 'Report Title', value: '', editable: true },
@@ -253,6 +356,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'summary',
     label: 'Case Summary',
     icon: '🔍',
+    category: 'custom',
+    detectFields: ['entity_name'],
+    chartTypes: [],
+    supportedFormats: ['standard'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity / Case Name', value: '', editable: true },
       { key: 'focus_area', label: 'Focus Area', value: 'Key findings and risks', editable: true },
@@ -270,6 +378,11 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     type: 'analysis',
     label: 'Analysis Report',
     icon: '📊',
+    category: 'custom',
+    detectFields: ['entity_name'],
+    chartTypes: [],
+    supportedFormats: ['standard'],
+    sections: [],
     fields: [
       { key: 'entity_name', label: 'Entity Name', value: '', editable: true },
       { key: 'analysis_scope', label: 'Analysis Scope', value: 'Full', editable: true },
