@@ -19,10 +19,13 @@ export function StudioPanel({ sourceIds, companyName = 'Analysis', mode, onRepor
   const [localFormat, setLocalFormat] = useState<AuditorFormat>('standard');
   const format = controlledFormat ?? localFormat;
 
-  const handleFormatChange = (f: AuditorFormat) => {
-    setLocalFormat(f);
-    onFormatChange?.(f);
-  };
+  const handleFormatChange = useCallback((f: AuditorFormat) => {
+    if (onFormatChange) {
+      onFormatChange(f);
+    } else {
+      setLocalFormat(f);
+    }
+  }, [onFormatChange]);
   const [activeReport, setActiveReport] = useState<ReportType | null>(null);
   const [reportContent, setReportContent] = useState('');
   const [generating, setGenerating] = useState(false);
