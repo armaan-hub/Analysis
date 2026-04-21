@@ -37,6 +37,7 @@ class Conversation(Base):
     is_pinned = Column(Boolean, default=False)
     llm_model = Column(String(100), default="")
     checked_source_ids = Column(JSON, nullable=True)  # list of document IDs currently checked
+    mode = Column(String(20), nullable=False, default="fast")
 
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
 
