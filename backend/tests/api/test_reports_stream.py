@@ -16,8 +16,13 @@ async def _fake_stream(messages, **kwargs):
         yield chunk
 
 
+async def _error_stream(messages, **kwargs):
+    raise RuntimeError("LLM unavailable")
+    yield  # make it an async generator
+
+
 def test_generate_stream_yields_sse_events():
-    """POST /api/reports/generate-stream must return text/event-stream with token and done frames."""
+    """POST /api/reports/generate-stream must return text/event-stream with chunk and done frames."""
     with patch("api.reports.rag_engine") as mock_rag, \
          patch("api.reports.get_llm_provider") as mock_llm_factory:
 
@@ -48,3 +53,37 @@ def test_generate_stream_yields_sse_events():
     types = [p["type"] for p in parsed]
     assert "chunk" in types
     assert "done" in types
+
+
+def test_generate_stream_emits_error_frame_on_llm_failure():
+    """When LLM raises, must emit an error SSE frame followed by done."""
+    with patch("api.reports.rag_engine") as mock_rag, \
+         patch("api.reports.get_llm_provider") as mock_llm_factory:
+
+        mock_rag.search = AsyncMock(side_effect=_fake_rag_search)
+
+        mock_llm = MagicMock()
+        mock_llm.chat_stream = _error_stream
+        mock_llm_factory.return_value = mock_llm
+
+        with client.stream(
+            "POST",
+            "/api/reports/generate-stream",
+            json={
+                "report_type": "audit",
+                "selected_doc_ids": [],
+                "entity_name": "XYZ Corp",
+                "period_end": "31 Dec 2024",
+                "auditor_format": "standard",
+            },
+        ) as r:
+            assert r.status_code == 200
+            body = b"".join(r.iter_bytes()).decode()
+
+    frames = [line[len("data: "):] for line in body.splitlines() if line.startswith("data: ")]
+    parsed = [json.loads(f) for f in frames]
+    types = [p["type"] for p in parsed]
+    assert "error" in types
+    error_frame = next(p for p in parsed if p["type"] == "error")
+    assert "message" in error_frame
+    assert "LLM unavailable" in error_frame["message"]
