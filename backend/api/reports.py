@@ -5,7 +5,7 @@ Reports API – Triggers financial and tax report generation.
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 import io
 import json
 import os
@@ -89,7 +89,7 @@ class DetectRequest(BaseModel):
 class DetectResponse(BaseModel):
     entity_name: str = ""
     period_end: str = ""
-    confidence: str = "none"  # "high" | "low" | "none"
+    confidence: Literal["high", "low", "none"] = "none"
 
 
 @router.post("/detect", response_model=DetectResponse)

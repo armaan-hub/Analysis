@@ -382,7 +382,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           selected_doc_ids: selectedDocIds,
           entity_name: params.entityName,
           period_end: params.periodEnd,
-          auditor_format: params.format,
+          auditor_format: toBackendFormat(params.format),
         }),
         signal: ac.signal,
       });
@@ -413,7 +413,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           } catch { /* malformed */ }
         }
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setArtifactContent('⚠ Report generation interrupted. Please try again.');
+      }
       setArtifactLoading(false);
     }
   }, [confirmCard, selectedDocIds]);

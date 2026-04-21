@@ -52,7 +52,7 @@ export function ArtifactPanel({ open, title, reportType, content, loading, onClo
           onClick={onExport}
           style={{ background: 'none', border: '1px solid var(--s-border)', borderRadius: 6,
                    padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}
-        >Export PDF</button>
+        >Export Markdown</button>
         <button
           aria-label="close"
           onClick={onClose}
