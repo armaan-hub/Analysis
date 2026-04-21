@@ -16,6 +16,6 @@ async def brave_search(query: str, max_results: int = 5) -> list[dict]:
         resp.raise_for_status()
         data = resp.json()
         return [
-            {"title": r.get("title"), "url": r.get("url"), "content": r.get("description", "")}
+            {"title": r.get("title"), "url": r.get("url"), "content": r.get("description") or ""}
             for r in data.get("web", {}).get("results", [])
         ]
