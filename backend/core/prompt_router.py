@@ -35,6 +35,14 @@ ABBREVIATION_SUFFIX = (
     "Stay on the exact topic of the question."
 )
 
+ANALYST_SYSTEM_PREFIX = (
+    "You are a financial and legal analyst. You MUST base your answers primarily on the documents "
+    "provided below. If the answer is clearly contained in the documents, cite the document and page. "
+    "If the answer is not in the documents, you may draw on your professional knowledge but must "
+    "explicitly say: \"This is based on general knowledge, not your attached documents.\" "
+    "Do NOT make up figures, dates, or entities.\n\n"
+)
+
 GROUNDING_RULES = (
     "\n\nGROUNDING RULES — always follow:\n"
     "- Answer ONLY from the provided context and your verified knowledge of UAE law.\n"
@@ -185,10 +193,11 @@ DOMAIN_PROMPTS: dict[str, str] = {
 _CA_PROMPT_PATH= _pathlib.Path(__file__).parent / "chat" / "prompts" / "ca_auditor_system_prompt.md"
 try:
     _ca_prompt_text = _CA_PROMPT_PATH.read_text(encoding="utf-8")
-    DOMAIN_PROMPTS["analyst"] = _ca_prompt_text + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("analyst", "")
+    DOMAIN_PROMPTS["analyst"] = ANALYST_SYSTEM_PREFIX + _ca_prompt_text + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("analyst", "")
 except FileNotFoundError:
     DOMAIN_PROMPTS["analyst"] = (
-        "You are a comprehensive AI Auditor and Financial Analyst. "
+        ANALYST_SYSTEM_PREFIX
+        + "You are a comprehensive AI Auditor and Financial Analyst. "
         "Extract all figures, calculate step-by-step, identify risks, cite UAE regulations. "
         "Default currency: AED."
         + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("analyst", "")
