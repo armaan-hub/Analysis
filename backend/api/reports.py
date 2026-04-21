@@ -2204,3 +2204,138 @@ async def get_template(template_id: str, db: AsyncSession = Depends(get_db)):
         "formatting_rules": tpl.formatting_rules,
         "created_at": tpl.created_at.isoformat() if tpl.created_at else None,
     }
+
+
+# ── C6: Streaming report generation ──────────────────────────────────────────
+
+REPORT_SYSTEM_PROMPTS: dict[str, str] = {
+    "mis": (
+        "You are a financial analyst generating a Management Information System (MIS) report. "
+        "Extract data ONLY from the provided document chunks. Do not invent figures, names, or dates. "
+        "Structure: ## KPI Summary (Revenue, Expenses, Net Profit, Gross Margin) | "
+        "## Department P&L Table (markdown table) | "
+        "## Revenue vs Expenses Chart Data (JSON array: [{period, revenue, expenses}]) | "
+        "## Narrative Summary (2-3 paragraphs with source citations). "
+        "Use AED. Cite source document and page for every figure."
+    ),
+    "audit": (
+        "You are a senior auditor generating an ISA 700 audit report. "
+        "Extract data ONLY from the provided document chunks. "
+        "Structure per ISA 700: Opinion | Basis for Opinion | Key Audit Matters | "
+        "Management Responsibility | Auditor Responsibilities | Going Concern | Signature Block. "
+        "Cite document sources for every material figure."
+    ),
+    "vat": (
+        "You are a UAE VAT compliance specialist generating a VAT-201 return summary. "
+        "Extract data ONLY from the provided documents. "
+        "Map values to: Box 1 (Standard-rated supplies) | Box 2 (Zero-rated) | Box 3 (Exempt) | "
+        "Box 4 (Imports) | Box 5 (Adjustments) | Box 6 (Total supplies) | "
+        "Box 7 (VAT due) | Box 8 (Input tax) | Box 9 (Net payable/reclaimable). "
+        "Show source document and page for each box value."
+    ),
+    "corporate_tax": (
+        "You are a UAE Corporate Tax specialist generating a CT computation report. "
+        "Extract data ONLY from the provided documents. "
+        "Structure: Accounting profit | Non-deductible adjustments | Exempt income | "
+        "Taxable income | Small Business Relief check (revenue < AED 3M) | "
+        "CT payable at 9% (or 0% if SBR applies). Cite UAE Decree-Law No. 47 of 2022."
+    ),
+    "ifrs": (
+        "You are a financial reporting specialist generating IFRS financial statements. "
+        "Extract data ONLY from the provided documents. "
+        "Include: Statement of Financial Position | P&L and Other Comprehensive Income | "
+        "Cash Flow Statement | Notes to Financial Statements (IFRS-referenced). "
+        "Cite all figures to source documents."
+    ),
+    "budget_vs_actual": (
+        "You are a financial analyst generating a Budget vs Actual variance report. "
+        "Extract data ONLY from the provided documents. "
+        "Structure: Budget table | Actual table | Variance % | Commentary on material variances. "
+        "Cite all figures to source documents."
+    ),
+    "compliance": (
+        "You are a compliance officer generating a Board/Compliance report. "
+        "Extract data ONLY from the provided documents. "
+        "Structure: Executive summary | Financial highlights | Risk register | Decisions needed. "
+        "Cite regulatory references (UAE law / IFRS)."
+    ),
+    "custom": (
+        "You are a report writer. Generate a report using ONLY the data from the provided documents. "
+        "Follow the user's requested structure exactly. Do not invent figures, names, or dates."
+    ),
+}
+
+_DEFAULT_REPORT_SYSTEM = (
+    "You are a financial and legal analyst generating a professional report. "
+    "Extract data ONLY from the provided document chunks. Do not invent figures, names, or dates. "
+    "Cite source documents and page numbers for every material claim."
+)
+
+
+class GenerateStreamRequest(BaseModel):
+    report_type: str
+    selected_doc_ids: list[str] = []
+    entity_name: str = ""
+    period_end: str = ""
+    auditor_format: str = "standard"
+    refinement_instruction: Optional[str] = None
+    current_report_content: Optional[str] = None
+
+
+@router.post("/generate-stream")
+async def generate_report_stream(req: GenerateStreamRequest):
+    """Stream report generation over SSE. Streams {type: chunk, content: str} + {type: done}."""
+
+    async def _stream():
+        doc_filter = {"doc_id": {"$in": req.selected_doc_ids}} if req.selected_doc_ids else None
+        try:
+            rag_results = await rag_engine.search(
+                f"{req.entity_name} {req.period_end} {req.report_type}",
+                top_k=10,
+                filter=doc_filter,
+            )
+        except Exception as e:
+            logger.warning(f"RAG search failed in generate-stream: {e}")
+            rag_results = []
+
+        doc_block = "\n".join(
+            f"[{r['metadata'].get('source','?')} p.{r['metadata'].get('page','?')}]: {r['text'][:600]}"
+            for r in rag_results
+        ) or "(No document chunks found. Generate based on general knowledge but state this clearly.)"
+
+        system_prompt = REPORT_SYSTEM_PROMPTS.get(req.report_type, _DEFAULT_REPORT_SYSTEM)
+
+        if req.refinement_instruction and req.current_report_content:
+            user_content = (
+                f"The current report is:\n\n{req.current_report_content}\n\n"
+                f"Apply this change: {req.refinement_instruction}\n\n"
+                f"Return the complete updated report.\n\n"
+                f"Available document context:\n{doc_block}"
+            )
+        else:
+            user_content = (
+                f"Generate a {req.report_type.upper()} report for:\n"
+                f"Entity: {req.entity_name or 'Unknown'}\n"
+                f"Period: {req.period_end or 'Unknown'}\n"
+                f"Format: {req.auditor_format}\n\n"
+                f"Document context:\n{doc_block}"
+            )
+
+        messages_payload = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+
+        llm = get_llm_provider(None)
+        try:
+            async for chunk in llm.chat_stream(messages_payload, temperature=0.2, max_tokens=None):
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
