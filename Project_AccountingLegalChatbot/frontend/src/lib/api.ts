@@ -95,3 +95,7 @@ export async function getConversation(id: string): Promise<{ id: string; mode: s
 export async function patchConversationMode(id: string, mode: string): Promise<void> {
   await API.patch(`/api/chat/conversations/${id}`, { mode });
 }
+
+export function deepResearchUrl(): string {
+  return `${API_BASE}/api/chat/deep-research`;
+}
