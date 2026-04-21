@@ -26,9 +26,9 @@ export function MisChart({ data, type }: Props) {
           <YAxis tick={{ fontSize: 11 }} />
           <Tooltip />
           <Legend />
-          {data[0].revenue !== undefined && <Line type="monotone" dataKey="revenue" stroke="#4299e1" />}
-          {data[0].expenses !== undefined && <Line type="monotone" dataKey="expenses" stroke="#e53e3e" />}
-          {data[0].profit !== undefined && <Line type="monotone" dataKey="profit" stroke="#38a169" />}
+          {data.some(d => d.revenue !== undefined) && <Line type="monotone" dataKey="revenue" stroke="#4299e1" />}
+          {data.some(d => d.expenses !== undefined) && <Line type="monotone" dataKey="expenses" stroke="#e53e3e" />}
+          {data.some(d => d.profit !== undefined) && <Line type="monotone" dataKey="profit" stroke="#38a169" />}
         </LineChart>
       </ResponsiveContainer>
     );
@@ -42,8 +42,8 @@ export function MisChart({ data, type }: Props) {
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip />
         <Legend />
-        {data[0].revenue !== undefined && <Bar dataKey="revenue" fill="#4299e1" />}
-        {data[0].expenses !== undefined && <Bar dataKey="expenses" fill="#e53e3e" />}
+        {data.some(d => d.revenue !== undefined) && <Bar dataKey="revenue" fill="#4299e1" />}
+        {data.some(d => d.expenses !== undefined) && <Bar dataKey="expenses" fill="#e53e3e" />}
       </BarChart>
     </ResponsiveContainer>
   );

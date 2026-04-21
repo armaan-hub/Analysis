@@ -40,6 +40,7 @@ describe('ConfirmReportCard', () => {
     render(<ConfirmReportCard {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Edit Details/i }));
     expect(screen.getByLabelText(/entity/i)).toBeInTheDocument();
+    expect(defaultProps.onEdit).toHaveBeenCalledOnce();
   });
 
   it('shows low-confidence warning when confidence is low', () => {
