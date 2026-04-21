@@ -11,6 +11,14 @@ VAT_PEPPOL_KEYWORDS = frozenset([
     "fta peppol", "uae peppol",
 ])
 
+ANALYST_SYSTEM_PREFIX = (
+    "You are a financial and legal analyst. You MUST base your answers primarily on the documents "
+    "provided below. If the answer is clearly contained in the documents, cite the document and page. "
+    "If the answer is not in the documents, you may draw on your professional knowledge but must "
+    "explicitly say: \"This is based on general knowledge, not your attached documents.\" "
+    "Do NOT make up figures, dates, or entities.\n\n"
+)
+
 FORMATTING_SUFFIX = (
     "\n\nFormatting rules — follow these whenever the response benefits from structure:\n"
     "- Use ## for top-level sections and ### for sub-sections; never use # (h1).\n"
