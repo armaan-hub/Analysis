@@ -25,6 +25,7 @@ from core.report_generator import report_generator
 from core.trial_balance_mapper import map_trial_balance, get_column_suggestions, get_column_suggestions_with_llm
 from core.agents.trial_balance_classifier import classify_risks, group_tb_for_ifrs, format_ifrs_for_llm
 from core.llm_manager import get_llm_provider
+from core.rag_engine import rag_engine
 from db.database import get_db
 from db.models import GeneratedReport, SavedReport, AuditTemplate
 from config import settings
@@ -77,6 +78,97 @@ REPORT_MAPPER_FIELDS: dict[str, list[str]] = {
         "Total Liabilities", "Revenue", "Net Profit", "Equity", "Operating Cash Flow",
     ],
 }
+
+# ── C2: Auto-detect entity name and period end from documents ─────────────────
+
+class DetectRequest(BaseModel):
+    report_type: str
+    selected_doc_ids: list[str] = []
+
+
+class DetectResponse(BaseModel):
+    entity_name: str = ""
+    period_end: str = ""
+    confidence: str = "none"  # "high" | "low" | "none"
+
+
+@router.post("/detect", response_model=DetectResponse)
+async def detect_report_metadata(req: DetectRequest):
+    """
+    Run targeted RAG searches to auto-detect entity_name and period_end
+    from the selected documents.
+    """
+    if not req.selected_doc_ids:
+        return DetectResponse(confidence="none")
+
+    doc_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+
+    entity_results = []
+    period_results = []
+    try:
+        entity_results = await rag_engine.search(
+            "company name entity name organization",
+            top_k=3,
+            filter=doc_filter,
+        )
+        period_results = await rag_engine.search(
+            "financial year period end date reporting date",
+            top_k=3,
+            filter=doc_filter,
+        )
+    except Exception as e:
+        logger.warning(f"RAG search failed in detect: {e}")
+        return DetectResponse(confidence="none")
+
+    all_results = entity_results + period_results
+    if not all_results:
+        return DetectResponse(confidence="none")
+
+    combined_text = "\n".join(r.get("text", "")[:500] for r in all_results[:6])
+    avg_score = sum(r.get("score", 0) for r in all_results) / len(all_results)
+
+    llm = get_llm_provider(None)
+    extract_prompt = (
+        "Extract the entity (company) name and the financial period end date from the text below. "
+        "Return ONLY valid JSON with these exact keys: "
+        '{"entity_name": "...", "period_end": "..."} '
+        "Use empty string if a field cannot be found.\n\n"
+        f"Text:\n{combined_text}"
+    )
+    try:
+        resp = await llm.chat(
+            [{"role": "user", "content": extract_prompt}],
+            temperature=0.0,
+            max_tokens=150,
+        )
+        raw = resp.content.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"\s*```\s*$", "", raw, flags=re.MULTILINE)
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        extracted = json.loads(match.group(0)) if match else {}
+    except Exception as e:
+        logger.warning(f"LLM extraction failed in detect: {e}")
+        extracted = {}
+
+    entity_name = extracted.get("entity_name", "").strip()
+    period_end = extracted.get("period_end", "").strip()
+
+    both_found = bool(entity_name and period_end)
+    one_found = bool(entity_name or period_end)
+
+    if both_found and avg_score >= 0.7:
+        confidence = "high"
+    elif (both_found and avg_score >= 0.3) or (one_found and avg_score >= 0.5):
+        confidence = "low"
+    else:
+        confidence = "none"
+
+    return DetectResponse(
+        entity_name=entity_name,
+        period_end=period_end,
+        confidence=confidence,
+    )
+
 
 # ── Schemas ───────────────────────────────────────────────────────
 
