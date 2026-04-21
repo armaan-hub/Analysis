@@ -42,13 +42,14 @@ export function useDeepResearch(conversationId: string) {
   };
 
   const run = useCallback(async (query: string, selected_doc_ids: string[]) => {
-    setSteps([]);
-    setAnswer(null);
-    setRunning(true);
-
+    // Abort any prior request before setting state so its catch won't interfere
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
+
+    setSteps([]);
+    setAnswer(null);
+    setRunning(true);
 
     try {
       const resp = await fetch(deepResearchUrl(), {
@@ -58,7 +59,7 @@ export function useDeepResearch(conversationId: string) {
         signal: ac.signal,
       });
       if (!resp.ok || !resp.body) {
-        setRunning(false);
+        if (!ac.signal.aborted) setRunning(false);
         return;
       }
       const reader = resp.body.getReader();
@@ -66,7 +67,12 @@ export function useDeepResearch(conversationId: string) {
       let buf = '';
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          // Flush any remaining bytes and process leftover frame
+          buf += decoder.decode();
+          if (buf.trim()) handleFrame(buf.trim());
+          break;
+        }
         buf += decoder.decode(value, { stream: true });
         let idx;
         while ((idx = buf.indexOf('\n\n')) !== -1) {
@@ -76,7 +82,7 @@ export function useDeepResearch(conversationId: string) {
         }
       }
     } catch {
-      setRunning(false);
+      if (!ac.signal.aborted) setRunning(false);
     }
   }, [conversationId]);
 
