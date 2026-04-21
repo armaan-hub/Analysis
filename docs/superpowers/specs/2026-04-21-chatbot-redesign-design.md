@@ -215,42 +215,80 @@ export function ResearchPanel({ steps }: { steps: ResearchStep[] }) {
 }
 ```
 
-Full Deep Research functionality (Tavily integration, live streaming steps) is completed in Sub-project B.
+Full Deep Research functionality (Brave Search integration, live streaming steps) is completed in Sub-project B.
 
 ---
 
 ## Sub-Project B — Deep Research
 
-### B1. Tavily Internet Search Integration
+### B1. Search Engine: Brave Search API (Free)
 
-#### Backend: Tavily Search Service
+**Why Brave:** 2,000 free queries/month, structured JSON results, no API key approval friction, designed for programmatic use.
+
+Add `BRAVE_SEARCH_API_KEY` to `.env` and `config.py`.
 
 ```python
-# core/research/tavily_search.py
-import os
-import httpx
+# core/research/brave_search.py
+import os, httpx
 
-TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
-TAVILY_URL = "https://api.tavily.com/search"
+BRAVE_API_KEY = os.environ.get("BRAVE_SEARCH_API_KEY", "")
+BRAVE_URL = "https://api.search.brave.com/res/v1/web/search"
 
-async def tavily_search(query: str, max_results: int = 5) -> list[dict]:
-    """Return list of {title, url, content, score} from Tavily."""
+async def brave_search(query: str, max_results: int = 5) -> list[dict]:
+    """Return list of {title, url, description} from Brave Search."""
     async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(TAVILY_URL, json={
-            "api_key": TAVILY_API_KEY,
-            "query": query,
-            "search_depth": "advanced",
-            "max_results": max_results,
-            "include_answer": False,
-        })
+        resp = await client.get(BRAVE_URL,
+            headers={"Accept": "application/json", "X-Subscription-Token": BRAVE_API_KEY},
+            params={"q": query, "count": max_results, "text_decorations": False},
+        )
         resp.raise_for_status()
         data = resp.json()
-        return data.get("results", [])
+        return [
+            {"title": r.get("title"), "url": r.get("url"), "content": r.get("description", "")}
+            for r in data.get("web", {}).get("results", [])
+        ]
 ```
 
-Add `TAVILY_API_KEY` to `.env` and `config.py` settings.
+---
 
-#### Backend: Deep Research Endpoint
+### B2. LLM Query Decomposition Skill
+
+Before executing any search, an internal LLM call decomposes the user's query into 2-3 focused search sub-queries targeting the most important aspects. This produces fewer, more precise searches — reducing API usage and improving result quality.
+
+```python
+# core/research/query_decomposer.py
+
+DECOMPOSE_PROMPT = """
+You are a search query expert. Given the user's question, generate 2-3 focused web search queries
+that together cover the most important aspects needed to fully answer the question.
+
+Rules:
+- Each query should target a distinct, specific aspect
+- Keep queries concise (3-7 words)
+- Use domain-specific terminology when relevant (e.g., "UAE FTA", "IFRS 15", "ISA 700")
+- Output ONLY a JSON array of strings: ["query 1", "query 2", "query 3"]
+
+User question: {question}
+"""
+
+async def decompose_query(question: str, llm_client) -> list[str]:
+    """Use LLM to break question into 2-3 targeted search queries."""
+    response = await llm_client.complete(
+        DECOMPOSE_PROMPT.format(question=question),
+        max_tokens=150,
+        temperature=0.1,
+    )
+    import json
+    try:
+        queries = json.loads(response.strip())
+        return queries[:3] if isinstance(queries, list) else [question]
+    except Exception:
+        return [question]  # fallback to original query
+```
+
+---
+
+### B3. Deep Research Endpoint
 
 ```
 POST /api/chat/deep-research
@@ -261,40 +299,53 @@ POST /api/chat/deep-research
 }
 ```
 
-Returns a **Server-Sent Events (SSE) stream** so the frontend can display progress live. Each event is one of:
+Returns a **Server-Sent Events (SSE) stream** for live progress display. Event types:
 
 ```
-data: {"type": "step", "text": "Searching Tavily for: e-invoicing UAE 2025..."}
-data: {"type": "step", "text": "Found 4 web results"}
-data: {"type": "step", "text": "Searching RAG documents..."}
-data: {"type": "step", "text": "Found 3 relevant document chunks"}
+data: {"type": "step", "text": "Analyzing query..."}
+data: {"type": "step", "text": "Generated 3 search queries"}
+data: {"type": "step", "text": "Searching: UAE e-invoicing PEPPOL mandate 2025"}
+data: {"type": "step", "text": "Searching: FTA e-invoicing compliance requirements UAE"}
+data: {"type": "step", "text": "Searching: UAE Decree-Law e-invoicing penalties"}
+data: {"type": "step", "text": "Found 12 web results across 3 searches"}
+data: {"type": "step", "text": "Searching your documents..."}
+data: {"type": "step", "text": "Found 5 relevant document chunks"}
 data: {"type": "step", "text": "Synthesizing answer..."}
 data: {"type": "answer", "content": "...", "sources": [...], "web_sources": [...]}
 data: {"type": "done"}
 ```
 
 **Processing flow:**
-1. Search Tavily with the user's query → get web results
-2. Search RAG engine with the same query, filtered to `selected_doc_ids` → get doc chunks
-3. Save fetched web content as new RAG documents (source: `"research"`) via existing `document_processor`
-4. Send all context (web + RAG) to LLM with synthesis prompt
-5. Stream the answer back
+1. Call `decompose_query()` → get 2-3 focused sub-queries
+2. Execute all Brave searches in parallel (asyncio.gather) → aggregate web results
+3. Search RAG engine with the original query, filtered to `selected_doc_ids` → get doc chunks
+4. Save fetched web content as new RAG documents (source: `"research"`) via existing `document_processor` for future reference
+5. Build synthesis prompt: web results + doc chunks + original question
+6. Stream LLM answer back via SSE
 
-#### Frontend: Research Panel (Full)
+---
 
-`ResearchPanel` shows live streaming steps while research is in progress, then displays web sources with clickable links after the answer arrives:
+### B4. Frontend: Research Panel (Full)
+
+`ResearchPanel` shows live streaming steps, then collapses to a source list after the answer arrives:
 
 ```
 🔬 Research Log
 ────────────────
-✅ Searching: e-invoicing UAE...
-✅ 4 web results found
-✅ 3 document chunks found
-✅ Synthesizing answer...
+✅ Generated search queries
+✅ Searched: "UAE e-invoicing PEPPOL..."
+✅ Searched: "FTA compliance requirements..."
+✅ Searched: "UAE e-invoicing penalties..."
+✅ 12 web results · 5 doc chunks
+✅ Answer ready
 
 Web Sources
 • Taxscape.ae — UAE E-Invoicing Guide 2025
-• FTA.gov.ae — PEPPOL Implementation
+• FTA.gov.ae — PEPPOL Implementation Details
+• PWC.com — UAE Digital Tax Landscape
+
+Document Sources
+• Financial_Policy.pdf — p.4
 ```
 
 ---
@@ -355,25 +406,98 @@ CSS position: `position: fixed; z-index: 1000;` — overlays everything but is d
 
 ---
 
-### C4. MIS Report: Source-Grounded, Charts, Artifact Panel
+### C4. Report Config System — All Report Types
 
-#### MIS Generation Flow
+Every report type is defined in `reportConfigs.ts` as a `ReportConfig` object. This drives the entire generation pipeline — what data to extract, what sections to render, what formats apply, and what regulatory rules to follow.
 
-1. User clicks "MIS Report" in Studio → frontend calls `POST /api/reports/generate` with `{ report_type: "mis", selected_doc_ids, format: "mis" }`
-2. Backend:
-   - Searches RAG for financial figures: revenue, expenses, profit, department breakdown
-   - Structures extracted data into MIS sections
-   - Returns structured JSON: `{ kpis: [...], chart_data: {...}, pl_table: [...], summary: "..." }`
-3. Frontend renders result in the **Artifact Panel** (see C5)
+```typescript
+// reportConfigs.ts
+interface ReportSection {
+  id: string;
+  label: string;
+  type: 'kpi_cards' | 'chart' | 'table' | 'narrative' | 'regulatory_form' | 'signature_block';
+  extractionPrompt: string;  // what to ask RAG for this section
+  required: boolean;
+}
 
-#### MIS Artifact Panel Sections
+interface ReportConfig {
+  id: string;
+  label: string;
+  icon: string;
+  category: 'financial' | 'regulatory' | 'audit' | 'custom';
+  sections: ReportSection[];
+  supportedFormats: AuditorFormat[];
+  detectFields: string[];       // fields to auto-detect from docs (e.g. entity_name, period_end)
+  regulatoryNote?: string;      // e.g. "Based on UAE FTA VAT-201 form structure"
+  chartTypes?: string[];        // e.g. ['bar', 'line'] — empty means no charts
+}
+```
 
-1. **KPI Cards Row** — 4 cards: Revenue / Expenses / Net Profit / Gross Margin
-2. **Charts** — Bar chart (Revenue vs Expenses by period) + Line chart (trend). Uses **Recharts** (add if not present: `npm install recharts`)
-3. **Department P&L Table** — sortable table extracted from docs
-4. **Narrative Summary** — LLM-generated paragraph, each claim tagged with source
+**All 9 report types configured:**
 
-All content is strictly from `selected_doc_ids`. System prompt: *"Extract data ONLY from the provided document chunks. Do not invent figures."*
+| Report | Category | Charts | Key Sections |
+|--------|----------|--------|-------------|
+| MIS Report | financial | bar + line | KPI cards, Dept P&L, trends, narrative |
+| Budget vs Actual | financial | bar (variance) | Budget table, actual table, variance %, commentary |
+| Forecasting | financial | line (projection) | Historical trend, 3/6/12-month forecast, assumptions |
+| Board Report | financial | summary KPIs | Executive summary, financial highlights, risks, decisions needed |
+| IFRS Statements | financial | none | Statement of Financial Position, P&L, Cash Flow, Notes (IFRS-referenced) |
+| VAT Return (FTA VAT-201) | regulatory | none | Box 1-9 of VAT-201 form: standard-rated, zero-rated, exempt, input tax, payable |
+| Corporate Tax | regulatory | none | Taxable income computation, Small Business Relief check, CT payable |
+| Audit Report (ISA 700) | audit | none | Basis, Opinion paragraph, Key Audit Matters, Going Concern, Signature |
+| Custom Report | custom | optional | User-defined sections — prompted interactively |
+
+#### MIS-Specific Sections
+
+1. **KPI Cards Row** — Revenue, Expenses, Net Profit, Gross Margin (extracted from docs)
+2. **Charts** — Bar (Revenue vs Expenses by period) + Line (trend). Uses **Recharts** (`npm install recharts` if not present)
+3. **Department P&L Table** — sortable, from attached docs
+4. **Narrative Summary** — source-tagged LLM paragraph
+
+#### VAT Return (FTA VAT-201) Specific
+
+The VAT-201 form has fixed boxes. The LLM extracts values from attached accounting docs and maps them to form boxes:
+
+- **Box 1** — Standard-rated supplies (AED)
+- **Box 2** — Zero-rated supplies (AED)  
+- **Box 3** — Exempt supplies (AED)
+- **Box 4** — Goods imported into UAE
+- **Box 5** — Adjustments
+- **Box 6** — Total value of supplies
+- **Box 7** — Total value of taxable supplies (VAT amount due)
+- **Box 8** — Recoverable input tax
+- **Box 9** — Payable / Reclaimable net VAT
+
+Each box shows the extracted value + the source document/page it came from.
+
+#### Audit Report (ISA 700) Specific
+
+Sections follow the ISA 700 Big 4 structure:
+1. **Independent Auditor's Report** heading
+2. **Opinion** — unmodified/modified (LLM determines based on doc findings)
+3. **Basis for Opinion** — what was audited, standards applied
+4. **Key Audit Matters** — LLM identifies from doc contents (going concern, significant estimates, etc.)
+5. **Responsibilities** — management vs auditor
+6. **Signature block** — firm name, date, location (auto-detected or editable)
+
+#### Corporate Tax Specific
+
+Follows UAE CT Decree-Law 47 structure:
+1. Accounting profit (from docs)
+2. Non-deductible adjustments
+3. Exempt income
+4. Taxable income
+5. Small Business Relief eligibility check (revenue < AED 3M)
+6. CT payable at 9% (or 0% if SBR applies)
+
+#### Custom Report
+
+When user selects Custom Report:
+- A short interactive prompt appears in chat: *"Describe the sections you want in your report (e.g. 'Executive summary, cash flow analysis, risk register, recommendations')"*
+- User types the structure they want
+- LLM builds a `ReportConfig` on the fly with those sections and generates accordingly
+
+All reports: system prompt enforces *"Extract data ONLY from the provided document chunks. Do not invent figures, names, or dates."*
 
 ---
 
@@ -461,7 +585,8 @@ frontend/src/
 
 backend/
   core/research/
-    tavily_search.py             # Tavily API client
+    brave_search.py              # Brave Search API client (free, 2000/month)
+    query_decomposer.py          # LLM query decomposition: 1 question → 2-3 search queries
   api/
     research.py                  # POST /api/chat/deep-research SSE endpoint
     reports.py                   # POST /api/reports/detect, /generate
@@ -483,7 +608,7 @@ frontend/src/
 backend/
   db/models.py                   # add mode column to Conversation
   api/chat.py                    # include mode in conversation responses, PATCH mode
-  config.py                      # add TAVILY_API_KEY setting
+  config.py                      # add BRAVE_SEARCH_API_KEY setting
 ```
 
 ---
@@ -493,7 +618,7 @@ backend/
 Add to `.env` for Sub-project B:
 
 ```
-TAVILY_API_KEY=tvly-xxxxxxxxxxxx
+BRAVE_SEARCH_API_KEY=BSA-xxxxxxxxxxxx
 ```
 
 ---
@@ -509,7 +634,7 @@ TAVILY_API_KEY=tvly-xxxxxxxxxxxx
 - [ ] Deep Research mode no longer shows blank screen
 
 ### Sub-project B
-- [ ] Deep research fires Tavily search and shows steps live in research panel
+- [ ] Deep research fires Brave Search and shows steps live in research panel
 - [ ] Web sources appear in research panel after answer
 - [ ] Fetched web content is saved to RAG DB with `source: "research"`
 - [ ] RAG sources with page references appear alongside web sources
