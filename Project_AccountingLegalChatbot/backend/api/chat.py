@@ -157,7 +157,7 @@ class ChatRequest(BaseModel):
     provider: Optional[str] = None  # Override provider for this request
     stream: bool = False
     domain: Optional[str] = None  # legacy — used as domain_override if set
-    mode: Literal["normal", "deep_research", "analyst"] = "normal"
+    mode: Literal["fast", "deep_research", "analyst"] = "fast"
     domain_override: Optional[str] = None  # DomainLabel value e.g. "vat", "corporate_tax"
 
 class ConversationResponse(BaseModel):
@@ -168,6 +168,7 @@ class ConversationResponse(BaseModel):
     message_count: int = 0
     source_count: int = 0
     domain: Optional[str] = None
+    mode: str = "fast"
 
 class MessageResponse(BaseModel):
     id: str
@@ -186,6 +187,25 @@ class ChatResponse(BaseModel):
 class ExportRequest(BaseModel):
     message_id: str
     format: str  # "word" | "pdf" | "excel"
+
+
+ConversationMode = Literal["fast", "deep_research", "analyst"]
+
+
+class ConversationCreate(BaseModel):
+    title: str = "New Conversation"
+
+
+class ConversationOut(BaseModel):
+    id: str
+    title: str
+    mode: ConversationMode
+    created_at: str
+
+
+class ConversationPatch(BaseModel):
+    mode: Optional[ConversationMode] = None
+    title: Optional[str] = None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
@@ -574,9 +594,65 @@ async def list_conversations(
             message_count=msg_count,
             source_count=source_count,
             domain=conv.domain,
+            mode=conv.mode,
         ))
 
     return response
+
+
+@router.post("/conversations", response_model=ConversationOut, status_code=201)
+async def create_conversation(body: ConversationCreate, db: AsyncSession = Depends(get_db)):
+    """Create a new conversation."""
+    conv = Conversation(title=body.title)
+    db.add(conv)
+    await db.commit()
+    await db.refresh(conv)
+    return ConversationOut(
+        id=conv.id,
+        title=conv.title,
+        mode=conv.mode,
+        created_at=str(conv.created_at)
+    )
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationOut)
+async def get_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    """Get a single conversation."""
+    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conv = result.scalar_one_or_none()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return ConversationOut(
+        id=conv.id,
+        title=conv.title,
+        mode=conv.mode,
+        created_at=str(conv.created_at)
+    )
+
+
+@router.patch("/conversations/{conversation_id}", response_model=ConversationOut)
+async def patch_conversation(
+    conversation_id: str,
+    patch: ConversationPatch,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a conversation (mode, title, etc.)."""
+    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conv = result.scalar_one_or_none()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if patch.mode is not None:
+        conv.mode = patch.mode
+    if patch.title is not None:
+        conv.title = patch.title
+    await db.commit()
+    await db.refresh(conv)
+    return ConversationOut(
+        id=conv.id,
+        title=conv.title,
+        mode=conv.mode,
+        created_at=str(conv.created_at)
+    )
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
