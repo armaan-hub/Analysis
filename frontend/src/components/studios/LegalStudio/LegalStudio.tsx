@@ -341,13 +341,17 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
     try {
       const backendType = reportType === 'forecast' ? 'financial_analysis' : reportType;
+      const backendFormat = auditorFormat === 'legal' ? 'isa'
+        : auditorFormat === 'compliance' ? 'fta'
+        : auditorFormat === 'custom' ? 'standard'
+        : auditorFormat;
       const res = await API.post(`/api/reports/generate/${backendType}`, {
         mapped_data: [],
         requirements: {},
         source_ids: selectedDocIds,
         company_name: confirmedFields.entity_name || 'Analysis',
-        auditor_format: auditorFormat,
         ...confirmedFields,
+        auditor_format: backendFormat,
         ...(reportType === 'forecast' ? { sub_type: 'forecast' } : {}),
       });
       const content = res.data.report_text ?? res.data.draft ?? 'Report generated successfully.';
