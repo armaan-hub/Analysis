@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
 
+    # ── Brave Search ─────────────────────────────────────────────────
+    brave_search_api_key: str = ""
+
     # ── Embedding ────────────────────────────────────────────────────
     embedding_provider: str = "nvidia"  # nvidia | openai
     openai_embed_model: str = "text-embedding-3-small"  # 1536-dim, same as NIM
