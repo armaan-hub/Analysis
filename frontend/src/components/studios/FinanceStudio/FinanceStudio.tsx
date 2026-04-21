@@ -29,7 +29,7 @@ export function FinanceStudio() {
           <SourceDocsSidebar />
         </aside>
         <section className="finance-studio__center">
-          <div className="finance-studio__center-chat">
+          <div className="finance-studio__center-chat" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', overflowY: 'auto', minHeight: 0 }}>
             <PanelHeader icon={<MessageSquare size={18} />} title="Chat" />
             <AuditChat />
           </div>
