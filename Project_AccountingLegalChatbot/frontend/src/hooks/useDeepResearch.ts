@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { deepResearchUrl } from '../lib/api';
 
 export interface ResearchStep {
@@ -40,6 +40,9 @@ export function useDeepResearch(conversationId: string) {
       /* malformed frame — ignore */
     }
   };
+
+  // Abort in-flight fetch on unmount to prevent setState on unmounted component
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   const run = useCallback(async (query: string, selected_doc_ids: string[]) => {
     // Abort any prior request before setting state so its catch won't interfere
