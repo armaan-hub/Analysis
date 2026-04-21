@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getConversation, patchConversationMode } from '../lib/api';
 import type { ChatMode } from '../components/studios/LegalStudio/ModePills';
 
 export function useNotebookMode(conversationId: string | null) {
   const [mode, setModeLocal] = useState<ChatMode>('fast');
+  const manuallySet = useRef(false);
 
   useEffect(() => {
     if (!conversationId) return;
     let cancelled = false;
+    manuallySet.current = false;
     getConversation(conversationId)
       .then(r => {
-        if (cancelled) return;
+        if (cancelled || manuallySet.current) return;
         const m = (r?.mode as ChatMode) ?? 'fast';
         setModeLocal(m === 'deep_research' || m === 'analyst' || m === 'fast' ? m : 'fast');
       })
@@ -19,6 +21,7 @@ export function useNotebookMode(conversationId: string | null) {
   }, [conversationId]);
 
   const setMode = useCallback(async (newMode: ChatMode) => {
+    manuallySet.current = true;
     setModeLocal(newMode);
     if (conversationId) {
       try {
