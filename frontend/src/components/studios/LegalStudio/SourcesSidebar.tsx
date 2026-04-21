@@ -7,6 +7,7 @@ import { AddSourcesOverlay } from './AddSourcesOverlay';
 export interface SourceDoc {
   id: string;
   filename: string;
+  original_name?: string;
   summary?: string;
   key_terms?: string[];
   source: string;
@@ -38,7 +39,10 @@ export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload
   const filteredDocs = useMemo(() => {
     if (!search.trim()) return docs;
     const q = search.toLowerCase();
-    return docs.filter(d => d.filename.toLowerCase().includes(q));
+    return docs.filter(d => {
+      const display = (d.original_name ?? d.filename).toLowerCase();
+      return display.includes(q) || d.filename.toLowerCase().includes(q);
+    });
   }, [docs, search]);
 
   const allSelected = docs.length > 0 && docs.every(d => selectedIds.includes(d.id));
@@ -109,11 +113,11 @@ export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload
                   checked={selectedIds.includes(d.id)}
                   onChange={e => { e.stopPropagation(); onSelect(d.id); }}
                   onClick={e => e.stopPropagation()}
-                  aria-label={`Select ${d.filename}`}
+                  aria-label={`Select ${d.original_name ?? d.filename}`}
                 />
                 <SourceTypeIcon filename={d.filename} />
                 <div className="source-info">
-                  <div className="source-info__name">{d.filename}</div>
+                  <div className="source-info__name">{d.original_name ?? d.filename}</div>
                   <div className="source-info__meta">
                     {formatFileSize(d.file_size)}
                     {d.status && d.status !== 'ready' && (
@@ -126,7 +130,7 @@ export function SourcesSidebar({ docs, selectedIds, onSelect, onDelete, onUpload
                 <button
                   type="button"
                   onClick={e => { e.stopPropagation(); onDelete(d.id); }}
-                  aria-label={`Delete ${d.filename}`}
+                  aria-label={`Delete ${d.original_name ?? d.filename}`}
                   style={{
                     background: 'transparent',
                     border: 'none',

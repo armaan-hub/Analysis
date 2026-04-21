@@ -10,7 +10,7 @@ import { SourcePeeker } from './SourcePeeker';
 import { SourcesSidebar, type SourceDoc } from './SourcesSidebar';
 import { StudioPanel } from './StudioPanel';
 import { ThreePaneLayout } from './ThreePaneLayout';
-import { type ChatMode, ModePills } from './ModePills';
+import { ModePills } from './ModePills';
 import { DomainChip, type DomainLabel } from './DomainChip';
 import { QuestionnaireMessage, type PrefilledField } from './QuestionnaireMessage';
 import { InlineResultCard } from './InlineResultCard';
@@ -71,8 +71,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [docs, setDocs] = useState<SourceDoc[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const [researching, setResearching] = useState(false);
 
   const [auditResult, setAuditResult] = useState<{
     risk_flags: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
@@ -647,7 +645,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
               aiText += evt.content ?? evt.data ?? '';
               setMessages(prev => {
                 const copy = [...prev];
-                copy[copy.length - 1] = { ...copy[copy.length - 1], text: aiText };
+                const last = copy[copy.length - 1];
+                if (last.role === 'research') return copy;
+                copy[copy.length - 1] = { ...last, text: aiText };
                 return copy;
               });
             } else if (evt.event === 'meta' || evt.type === 'meta') {
@@ -660,7 +660,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
               sources = evt.sources ?? evt.data ?? [];
               setMessages(prev => {
                 const copy = [...prev];
-                copy[copy.length - 1] = { ...copy[copy.length - 1], sources };
+                const last = copy[copy.length - 1];
+                if (last.role === 'research') return copy;
+                copy[copy.length - 1] = { ...last, sources };
                 return copy;
               });
             } else if (evt.type === 'status' && evt.status === 'searching_web') {
@@ -668,14 +670,18 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
             } else if (evt.event === 'queries_run') {
               setMessages(prev => {
                 const copy = [...prev];
-                copy[copy.length - 1] = { ...copy[copy.length - 1], queriesRun: evt.queries ?? evt.data };
+                const last = copy[copy.length - 1];
+                if (last.role === 'research') return copy;
+                copy[copy.length - 1] = { ...last, queriesRun: evt.queries ?? evt.data };
                 return copy;
               });
             } else if (evt.event === 'done' || evt.type === 'done') {
               if (evt.message_id) {
                 setMessages(prev => {
                   const copy = [...prev];
-                  copy[copy.length - 1] = { ...copy[copy.length - 1], messageId: evt.message_id };
+                  const last = copy[copy.length - 1];
+                  if (last.role === 'research') return copy;
+                  copy[copy.length - 1] = { ...last, messageId: evt.message_id };
                   return copy;
                 });
               }
@@ -819,6 +825,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           webSearching={webSearching}
           onSourceClick={handleSourceClick}
           activeSourceId={activeSource?.source}
+          docs={docs}
         />
 
         {/* Report results from chat-redirect flow */}

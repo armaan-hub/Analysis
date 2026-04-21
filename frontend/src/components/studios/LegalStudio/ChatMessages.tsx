@@ -5,6 +5,8 @@ import type { Message, ResearchMessage, Source } from '../../../lib/api';
 import { ChatMessageActions } from '../../ChatMessageActions';
 import { SourcesChip } from './SourcesChip';
 import { ResearchBubble } from './ResearchBubble';
+import { useDocumentResolver, type SourceDocLike } from '../../../hooks/useDocumentResolver';
+import { isSubstantiveAnswer } from './isSubstantiveAnswer';
 
 interface Props {
   messages: Message[];
@@ -12,6 +14,7 @@ interface Props {
   webSearching?: boolean;
   onSourceClick: (source: Source) => void;
   activeSourceId?: string;
+  docs?: SourceDocLike[];
 }
 
 const SUGGESTIONS = [
@@ -69,7 +72,7 @@ function SearchIndicator({ queries }: { queries: string[] }) {
   );
 }
 
-function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: Source) => void; activeSourceId?: string }) {
+function AIMessage({ msg, onSourceClick, resolve }: { msg: Message; onSourceClick: (s: Source) => void; activeSourceId?: string; resolve: (path: string) => string }) {
   // Type narrow to TextMessage since this only handles AI/assistant messages
   if (msg.role === 'research') return null;
   
@@ -97,8 +100,8 @@ function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: So
           )}
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
         </div>
-        {msg.sources && msg.sources.length > 0 && (
-          <SourcesChip sources={msg.sources} onSourceClick={onSourceClick} />
+        {msg.sources && msg.sources.length > 0 && isSubstantiveAnswer(msg.text || '', msg.sources) && (
+          <SourcesChip sources={msg.sources} onSourceClick={onSourceClick} resolveName={resolve} />
         )}
         {msg.messageId && (
           <ChatMessageActions
@@ -112,8 +115,9 @@ function AIMessage({ msg, onSourceClick }: { msg: Message; onSourceClick: (s: So
   );
 }
 
-export function ChatMessages({ messages, loading, webSearching, onSourceClick, activeSourceId }: Props) {
+export function ChatMessages({ messages, loading, webSearching, onSourceClick, activeSourceId, docs }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { resolve } = useDocumentResolver(docs);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -198,6 +202,7 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
             msg={msg}
             onSourceClick={onSourceClick}
             activeSourceId={activeSourceId}
+            resolve={resolve}
           />
         );
       })}

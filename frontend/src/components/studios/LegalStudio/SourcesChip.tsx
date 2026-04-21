@@ -4,6 +4,7 @@ import type { Source } from '../../../lib/api';
 interface Props {
   sources: Source[];
   onSourceClick: (source: Source) => void;
+  resolveName?: (path: string) => string;
 }
 
 function getDisplayName(sourcePath: string): string {
@@ -11,7 +12,7 @@ function getDisplayName(sourcePath: string): string {
   return filename.replace(/^[0-9a-f]{8,}_/i, '');
 }
 
-export function SourcesChip({ sources, onSourceClick }: Props) {
+export function SourcesChip({ sources, onSourceClick, resolveName }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   if (!sources.length) return null;
@@ -107,7 +108,7 @@ export function SourcesChip({ sources, onSourceClick }: Props) {
                 }}
                 title={filename}
               >
-                📄 {getDisplayName(filename)} ({citations.length})
+                📄 {(resolveName ?? getDisplayName)(filename)} ({citations.length})
               </button>
 
               {/* Cited excerpts */}
