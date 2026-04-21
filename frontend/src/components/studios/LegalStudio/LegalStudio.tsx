@@ -10,7 +10,7 @@ import { SourcePeeker } from './SourcePeeker';
 import { SourcesSidebar, type SourceDoc } from './SourcesSidebar';
 import { StudioPanel } from './StudioPanel';
 import { ThreePaneLayout } from './ThreePaneLayout';
-import { type ChatMode } from './ModePills';
+import { type ChatMode, ModePills } from './ModePills';
 import { DomainChip, type DomainLabel } from './DomainChip';
 import { QuestionnaireMessage, type PrefilledField } from './QuestionnaireMessage';
 import { InlineResultCard } from './InlineResultCard';
@@ -18,6 +18,10 @@ import { CustomTemplatePicker } from './CustomTemplatePicker';
 import { type AuditorFormat } from './AuditorFormatGrid';
 import { REPORT_CONFIGS } from './reportConfigs';
 import { toBackendFormat } from './auditorFormatUtils';
+import { useNotebookMode } from '../../../hooks/useNotebookMode';
+import { ChatOnlyLayout } from './ChatOnlyLayout';
+import { ChatWithResearchLayout } from './ChatWithResearchLayout';
+import { ResearchPanel } from './ResearchPanel';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax'
   | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law'
@@ -59,7 +63,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [webSearching, setWebSearching] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [domain, setDomain] = useState<Domain>('law');
-  const [mode, setMode] = useState<ChatMode>('fast');
+  const { mode, setMode } = useNotebookMode(conversationId ?? null);
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [domainLocked, setDomainLocked] = useState(false);
   const [searchParams] = useSearchParams();
@@ -868,11 +872,44 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         disabled={loading}
         initialValue={initialValue}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={mode === 'analyst' ? setMode : undefined}
       />
     </>
   );
 
+  const modePills = <ModePills value={mode} onChange={setMode} />;
+
+  const customTemplatePicker = (
+    <CustomTemplatePicker
+      isOpen={customTemplatePickerOpen}
+      onSelect={handleTemplateSelect}
+      onClose={() => setCustomTemplatePickerOpen(false)}
+    />
+  );
+
+  if (mode === 'fast') {
+    return (
+      <>
+        <ChatOnlyLayout modePills={modePills} chatArea={centerContent} />
+        {customTemplatePicker}
+      </>
+    );
+  }
+
+  if (mode === 'deep_research') {
+    return (
+      <>
+        <ChatWithResearchLayout
+          modePills={modePills}
+          chatArea={centerContent}
+          researchPanel={<ResearchPanel steps={[]} />}
+        />
+        {customTemplatePicker}
+      </>
+    );
+  }
+
+  // analyst mode — ThreePaneLayout
   return (
     <>
     <ThreePaneLayout
@@ -914,11 +951,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         <StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} auditorFormat={auditorFormat} onFormatChange={setAuditorFormat} />
       )}
     />
-    <CustomTemplatePicker
-      isOpen={customTemplatePickerOpen}
-      onSelect={handleTemplateSelect}
-      onClose={() => setCustomTemplatePickerOpen(false)}
-    />
+    {customTemplatePicker}
     </>
   );
 }
