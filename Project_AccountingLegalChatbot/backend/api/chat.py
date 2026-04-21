@@ -168,7 +168,7 @@ class ConversationResponse(BaseModel):
     message_count: int = 0
     source_count: int = 0
     domain: Optional[str] = None
-    mode: str = "fast"
+    mode: ConversationMode = "fast"
 
 class MessageResponse(BaseModel):
     id: str
