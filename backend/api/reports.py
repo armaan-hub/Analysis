@@ -22,6 +22,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from core.report_generator import report_generator
+from core.report_templates.report_intel import REPORT_INTEL
+from core.report_templates.template_manager import template_manager
 from core.trial_balance_mapper import map_trial_balance, get_column_suggestions, get_column_suggestions_with_llm
 from core.agents.trial_balance_classifier import classify_risks, group_tb_for_ifrs, format_ifrs_for_llm
 from core.llm_manager import get_llm_provider
@@ -616,6 +618,18 @@ async def get_evidence_checklist(req: EvidenceChecklistRequest):
 
 # ── Audit Pass 2: Format Report ───────────────────────────────────────────────
 
+# Map frontend auditor_format values to _FORMAT_PROMPTS keys
+_FORMAT_KEY_MAP: dict[str, str] = {
+    "standard":   "isa",
+    "big4":       "big4",
+    "legal":      "isa",
+    "compliance": "fta",
+    "custom":     "internal",
+    "isa":        "isa",
+    "fta":        "fta",
+    "internal":   "internal",
+}
+
 _FORMAT_PROMPTS: dict[str, str] = {
     "big4": (
         "You are a Big 4 audit partner preparing a publication-ready audit report. "
@@ -697,6 +711,65 @@ _FORMAT_PROMPTS: dict[str, str] = {
         "Do not use placeholders. Preserve all figures."
     ),
 }
+
+
+def _build_report_system_prompt(
+    report_type: str,
+    period_end: str | None,
+    entity_name: str | None,
+    auditor_format: str,
+) -> str:
+    """Build a rich, audience-aware system prompt for report generation."""
+    intel = REPORT_INTEL.get(report_type, {})
+    fmt_key = _FORMAT_KEY_MAP.get(auditor_format, "isa")
+    fmt_instructions = _FORMAT_PROMPTS.get(fmt_key, "")
+    template_guidance = template_manager.get_format_instructions(fmt_key)
+
+    audience = intel.get("audience", "Management")
+    purpose = intel.get("purpose", "provide a professional financial/legal report")
+    key_points = intel.get("key_points", [])
+    tone = intel.get("tone", "professional")
+    structure = intel.get("structure", [])
+
+    key_points_str = "\n".join(f"  - {p}" for p in key_points) if key_points else "  - Follow professional standards"
+    structure_str = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(structure)) if structure else ""
+
+    period_instruction = ""
+    if period_end:
+        period_instruction = (
+            f"\n\nCRITICAL PERIOD ENFORCEMENT: This report is for the period ending {period_end}. "
+            f"ALL figures, dates, and comparisons MUST relate to this specific period. "
+            f"Do NOT use data from any other period. Do not use default or example data."
+        )
+
+    entity_instruction = f"The reporting entity is: {entity_name}.\n" if entity_name else ""
+
+    prompt = f"""You are a senior professional preparing a {report_type.replace('_', ' ').title()} report.
+
+{entity_instruction}This report is prepared FOR: {audience}
+Purpose: {purpose}
+Tone: {tone}
+
+KEY AREAS TO COVER (mandatory for this report type):
+{key_points_str}
+
+REQUIRED REPORT STRUCTURE:
+{structure_str if structure_str else "  Follow professional standards for this report type."}
+
+FORMAT STANDARD ({fmt_key.upper()}):
+{fmt_instructions}
+
+{template_guidance}
+{period_instruction}
+
+CRITICAL RULES:
+1. Base ALL content on the documents provided — do not fabricate figures or entities.
+2. Every significant figure must be traceable to the source documents.
+3. Maintain the {tone} tone throughout.
+4. If information is missing, state "Not available in provided documents" — do not invent.
+5. Follow the EXACT report structure above, section by section."""
+
+    return prompt.strip()
 
 
 class FormatReportRequest(BaseModel):
@@ -2398,7 +2471,12 @@ async def generate_report_stream(req: GenerateStreamRequest):
             for r in rag_results
         ) or "(No document chunks found. Generate based on general knowledge but state this clearly.)"
 
-        system_prompt = REPORT_SYSTEM_PROMPTS.get(req.report_type, _DEFAULT_REPORT_SYSTEM)
+        system_prompt = _build_report_system_prompt(
+            report_type=req.report_type,
+            period_end=getattr(req, 'period_end', None),
+            entity_name=getattr(req, 'entity_name', None),
+            auditor_format=getattr(req, 'auditor_format', 'standard'),
+        )
 
         if req.refinement_instruction and req.current_report_content:
             user_content = (
