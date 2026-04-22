@@ -45,6 +45,29 @@ def _is_research_query(message: str) -> bool:
     return any(kw in msg_lower for kw in _RESEARCH_KEYWORDS)
 
 
+QUERY_VARIATION_PROMPT = (
+    "Generate 2 alternative phrasings for this search query. "
+    "Return ONLY a JSON array of strings, no explanation.\n"
+    "Query: {query}"
+)
+
+
+async def _get_query_variations(query: str, provider: str | None = None) -> list[str]:
+    """Return [original, variation1, variation2]. Falls back to [original] on any error."""
+    try:
+        llm = get_llm_provider(provider)
+        resp = await llm.chat(
+            messages=[{"role": "user", "content": QUERY_VARIATION_PROMPT.format(query=query)}],
+            max_tokens=150,
+            temperature=0.3,
+        )
+        match = re.search(r'\[.*?\]', resp.content, re.DOTALL)
+        if not match:
+            return [query]
+        variations: list[str] = json.loads(match.group())
+        return [query] + [v for v in variations if isinstance(v, str)][:2]
+    except Exception:
+        return [query]
 
 
 
@@ -346,18 +369,57 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 rag_filter = {"category": "law"}
 
         try:
-            search_results = await rag_engine.search(
-                req.message, top_k=settings.top_k_results, filter=rag_filter
-            )
-            # If strict domain filter yields no matches, fall back to unfiltered
-            # retrieval so chat still uses available indexed context.
-            if rag_filter and not search_results:
-                search_results = await rag_engine.search(
-                    req.message, top_k=settings.top_k_results
+            if req.mode == "fast":
+                query_variations = await _get_query_variations(req.message, getattr(req, 'provider', None))
+                all_results = await asyncio.gather(
+                    *[
+                        rag_engine.search(q, top_k=settings.top_k_results, filter=rag_filter)
+                        for q in query_variations
+                    ],
+                    return_exceptions=True,
                 )
+                seen: set[tuple] = set()
+                merged: list = []
+                for batch in all_results:
+                    if isinstance(batch, Exception):
+                        continue
+                    for r in batch:
+                        key = (r["metadata"].get("doc_id", ""), r["metadata"].get("page", 0))
+                        if key not in seen:
+                            seen.add(key)
+                            merged.append(r)
+                search_results = sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:15]
+                # Fall back to unfiltered if domain filter yields nothing
+                if rag_filter and not search_results:
+                    fallback = await asyncio.gather(
+                        *[rag_engine.search(q, top_k=settings.top_k_results) for q in query_variations],
+                        return_exceptions=True,
+                    )
+                    seen2: set[tuple] = set()
+                    merged2: list = []
+                    for batch in fallback:
+                        if isinstance(batch, Exception):
+                            continue
+                        for r in batch:
+                            key = (r["metadata"].get("doc_id", ""), r["metadata"].get("page", 0))
+                            if key not in seen2:
+                                seen2.add(key)
+                                merged2.append(r)
+                    search_results = sorted(merged2, key=lambda x: x.get("score", 0), reverse=True)[:15]
+            else:
+                search_results = await rag_engine.search(
+                    req.message, top_k=settings.top_k_results, filter=rag_filter
+                )
+                # If strict domain filter yields no matches, fall back to unfiltered
+                # retrieval so chat still uses available indexed context.
+                if rag_filter and not search_results:
+                    search_results = await rag_engine.search(
+                        req.message, top_k=settings.top_k_results
+                    )
         except Exception as rag_exc:
             logger.warning(f"RAG search failed, falling back to no-context mode: {rag_exc}")
             search_results = []
+
 
         if search_results:
             augmented = rag_engine.build_augmented_prompt(
