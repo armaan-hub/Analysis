@@ -19,10 +19,13 @@ interface Props {
   onEdit?: () => void;
 }
 
+import { REPORT_CONFIGS, type ReportConfig } from './reportConfigs';
+
 export function ConfirmReportCard({
-  reportLabel, entityName: initialEntity, periodEnd: initialPeriod,
+  reportType, reportLabel, entityName: initialEntity, periodEnd: initialPeriod,
   documentsCount, format: initialFormat, confidence, onGenerate, onEdit,
 }: Props) {
+  const config: ReportConfig | undefined = REPORT_CONFIGS[reportType];
   const [editing, setEditing] = useState(confidence === 'none');
   const [entityName, setEntityName] = useState(initialEntity);
   const [periodEnd, setPeriodEnd] = useState(initialPeriod);
@@ -38,7 +41,26 @@ export function ConfirmReportCard({
       background: 'var(--s-bg-2, #f7fafc)', border: '1px solid var(--s-border, #e2e8f0)',
       borderRadius: 10, padding: '14px 16px', maxWidth: 420,
     }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>📋 Ready to generate {reportLabel}</div>
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>
+        📋 Ready to generate {reportLabel}
+        {config?.audience && (
+          <span style={{
+            display: 'inline-block',
+            background: 'var(--s-accent-subtle, rgba(96,165,250,0.12))',
+            color: 'var(--s-accent, #60a5fa)',
+            border: '1px solid var(--s-accent, #60a5fa)',
+            borderRadius: '9999px',
+            padding: '2px 10px',
+            fontSize: '0.72rem',
+            fontWeight: 500,
+            marginTop: '4px',
+            letterSpacing: '0.02em',
+            marginLeft: 8
+          }}>
+            👥 {config.audience}
+          </span>
+        )}
+      </div>
 
       {confidence === 'low' && (
         <div style={{ color: '#dd6b20', fontSize: 12, marginBottom: 8 }}>
