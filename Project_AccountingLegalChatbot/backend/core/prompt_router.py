@@ -32,8 +32,12 @@ FORMATTING_SUFFIX = (
     "do not add headers just to add headers."
 )
 
-ABBREVIATION_SUFFIX = (
-    "\n\nAbbreviation and topic rules — always follow:\n"
+FORMATTING_REMINDER = (
+    "Formatting reminder: always add blank lines before and after --- dividers and ## headers. "
+    "Do not nest more than 2 levels deep. Short answers (1-2 sentences) need no structure."
+)
+
+ABBREVIATION_SUFFIX = (    "\n\nAbbreviation and topic rules — always follow:\n"
     "- Before answering any question containing an abbreviation or acronym, begin your response with: "
     "'You are asking about [full expanded term] — [one sentence definition].' "
     "If the abbreviation could refer to more than one concept in a legal or tax context, "

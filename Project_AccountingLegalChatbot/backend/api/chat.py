@@ -20,7 +20,7 @@ from db.database import get_db, AsyncSessionLocal
 from db.models import Conversation, Message, Document
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
-from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS
+from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, FORMATTING_REMINDER
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from config import settings
 from core.web_search import search_web, build_web_context
@@ -51,7 +51,7 @@ def _is_research_query(message: str) -> bool:
 def _build_sliding_context(
     messages: list,  # list of ChatMessage objects or dicts
     max_messages: int = 20,
-    max_tokens_estimate: int = 6000,
+    max_tokens_estimate: int = 12000,
 ) -> list:
     """Build a sliding window of conversation context.
 
@@ -402,7 +402,9 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     for msg in trimmed_history:
         messages.append({"role": msg.role, "content": msg.content})
 
-    # Add current user message
+    # Add current user message (with formatting reminder for fast mode)
+    if req.mode == "fast":
+        messages.append({"role": "system", "content": FORMATTING_REMINDER})
     messages.append({"role": "user", "content": req.message})
 
     # Call LLM
