@@ -5,6 +5,7 @@ Each chunk includes text content and metadata (page number, source file, etc.)
 ready for embedding and indexing in the RAG vector store.
 """
 
+import hashlib
 import logging
 import os
 import shutil
@@ -365,3 +366,16 @@ class DocumentProcessor:
 
 # Module-level convenience instance
 document_processor = DocumentProcessor()
+
+
+async def ingest_text(text: str, source: str | None = None, source_type: str = "research") -> None:
+    """Index a raw text blob into the RAG engine with a source tag."""
+    # Local import to avoid a circular dependency (rag_engine imports DocumentChunk from here)
+    from core.rag_engine import rag_engine as _rag_engine  # noqa: PLC0415
+
+    doc_id = "research_" + hashlib.md5((source or text[:50]).encode()).hexdigest()[:8]
+    chunk = DocumentChunk(
+        text=text[:8000],
+        metadata={"source": source or "", "source_type": source_type, "page": 1},
+    )
+    await _rag_engine.ingest_chunks([chunk], doc_id=doc_id)

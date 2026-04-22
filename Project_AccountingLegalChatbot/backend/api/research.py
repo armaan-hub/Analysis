@@ -1,4 +1,3 @@
-import hashlib
 import json
 from collections.abc import AsyncGenerator
 from fastapi import APIRouter
@@ -8,7 +7,7 @@ from pydantic import BaseModel
 from core.research.deep_research_service import run_deep_research
 from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
-from core.document_processor import DocumentChunk
+from core.document_processor import ingest_text
 
 router = APIRouter(prefix="/api/chat", tags=["research"])
 
@@ -57,15 +56,6 @@ class _RAGAdapter:
         return results[:10]
 
 
-async def _ingest_text(text: str, source: str | None = None, source_type: str = "research") -> None:
-    """Ingest a raw text snippet into the RAG vector store."""
-    doc_id = "research_" + hashlib.md5((source or text[:50]).encode()).hexdigest()[:8]
-    chunk = DocumentChunk(
-        text=text[:8000],
-        metadata={"source": source or "", "source_type": source_type, "page": 1},
-    )
-    await rag_engine.ingest_chunks([chunk], doc_id=doc_id)
-
 
 class DeepResearchRequest(BaseModel):
     conversation_id: str
@@ -81,7 +71,7 @@ async def _sse_stream(req: DeepResearchRequest) -> AsyncGenerator[str, None]:
         selected_doc_ids=req.selected_doc_ids,
         llm=llm,
         rag=rag,
-        ingest=_ingest_text,
+        ingest=ingest_text,
     ):
         yield f"data: {json.dumps(event)}\n\n"
 
