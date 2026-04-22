@@ -214,7 +214,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
           <NotebookCard
             key={nb.id}
             notebook={nb}
-            onClick={id => !selectionMode && handleOpen(id)}
+            onClick={id => selectionMode ? handleToggleSelect(id) : handleOpen(id)}
             onDelete={id => setDeleteTarget(id)}
             view={viewMode}
             selectionMode={selectionMode}
