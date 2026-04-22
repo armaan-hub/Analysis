@@ -114,21 +114,23 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
       onMouseLeave={() => setHovered(false)}
     >
       <div className="notebook-card__thumb" style={thumbStyle}>
-        {titleInitials(notebook.title)}
-        {selectionMode && (
-          <div
-            style={{ position: 'absolute', top: 8, left: 8, zIndex: 2 }}
-            onClick={e => { e.stopPropagation(); onToggleSelect?.(notebook.id); }}
-          >
-            <input
-              type="checkbox"
-              checked={!!selected}
-              onChange={() => onToggleSelect?.(notebook.id)}
-              style={{ width: 18, height: 18, cursor: 'pointer' }}
-            />
-          </div>
-        )}
-      </div>
+  <span style={{ fontSize: isList ? '22px' : '28px', lineHeight: 1, pointerEvents: 'none' }}>
+    {getDomainIcon(notebook.domain)}
+  </span>
+  {selectionMode && (
+    <div
+      style={{ position: 'absolute', top: 6, left: 6, zIndex: 2 }}
+      onClick={e => { e.stopPropagation(); onToggleSelect?.(notebook.id); }}
+    >
+      <input
+        type="checkbox"
+        checked={!!selected}
+        onChange={() => onToggleSelect?.(notebook.id)}
+        style={{ width: 18, height: 18, cursor: 'pointer' }}
+      />
+    </div>
+  )}
+</div>
       <div className="notebook-card__info" style={isList ? { flex: 1, minWidth: 0 } : {}}>
         <div className="notebook-card__title">{notebook.title}</div>
         <div className="notebook-card__meta">
@@ -145,19 +147,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
           <Trash2 size={16} />
         </button>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 8,
-          right: isList ? 36 : 8,
-          fontSize: 20,
-          lineHeight: 1,
-          pointerEvents: 'none',
-        }}
-        title={notebook.domain ?? 'general'}
-      >
-        {getDomainIcon(notebook.domain)}
-      </div>
+
     </div>
   );
 }
