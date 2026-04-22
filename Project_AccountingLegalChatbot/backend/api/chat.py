@@ -229,6 +229,7 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
             title=req.message[:80] + ("..." if len(req.message) > 80 else ""),
             llm_provider=req.provider or settings.llm_provider,
             llm_model=settings.active_model,
+            mode=req.mode,
         )
         db.add(conversation)
         await db.flush()

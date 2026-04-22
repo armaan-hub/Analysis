@@ -76,6 +76,26 @@ async def test_send_accepts_mode_field(client):
 
 
 @pytest.mark.asyncio
+async def test_send_with_analyst_mode_persists_mode(client):
+    """New conversation created via send must store mode from the request."""
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier(DomainLabel.GENERAL_LAW))),
+        patch("api.chat.get_llm_provider", return_value=_mock_llm()),
+        patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": "hello", "mode": "analyst", "stream": False},
+        )
+    assert resp.status_code == 200
+    cid = resp.json()["conversation_id"]
+
+    r2 = await client.get(f"/api/chat/conversations/{cid}")
+    assert r2.status_code == 200
+    assert r2.json()["mode"] == "analyst"
+
+
+@pytest.mark.asyncio
 async def test_legacy_domain_field_acts_as_override(client):
     """The existing 'domain' field should work as override for backward compat."""
     with (
