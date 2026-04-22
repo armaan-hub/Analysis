@@ -28,15 +28,15 @@
 | `frontend/src/hooks/useDeepResearch.ts` | **Modify** | 4 |
 | `frontend/src/components/studios/LegalStudio/ResearchPanel.tsx` | **Modify** | 4 |
 | `frontend/src/components/studios/LegalStudio/LegalStudio.tsx` | **Modify** | 4 |
-| `backend/tests/api/test_chat_endpoint_domain.py` | **Modify** | 1 |
-| `backend/tests/api/test_chat_sources.py` | **Create** | 2 |
+| `backend/tests/test_chat_endpoint_domain.py` | **Modify** | 1 |
+| `backend/tests/test_chat_sources.py` | **Create** | 2 |
 | `frontend/src/components/studios/LegalStudio/__tests__/normalizeMarkdown.test.ts` | **Create** | 3 |
-| `backend/tests/api/test_deep_research_stream.py` | **Create** | 4 |
+| `backend/tests/test_deep_research_stream.py` | **Create** | 4 |
 | `frontend/src/hooks/__tests__/useDeepResearch.test.ts` | **Modify** | 4 |
-| `backend/tests/api/test_token_budget.py` | **Create** | 5 |
+| `backend/tests/test_token_budget.py` | **Create** | 5 |
 | `backend/tests/core/test_prompt_router.py` | **Modify** | 6 |
-| `backend/tests/api/test_multi_query_rag.py` | **Create** | 7 |
-| `backend/tests/api/test_session_summary.py` | **Create** | 8 |
+| `backend/tests/test_multi_query_rag.py` | **Create** | 7 |
+| `backend/tests/test_session_summary.py` | **Create** | 8 |
 
 ---
 
@@ -46,11 +46,11 @@
 
 **Files:**
 - Modify: `backend/api/chat.py:228-232`
-- Modify: `backend/tests/api/test_chat_endpoint_domain.py`
+- Modify: `backend/tests/test_chat_endpoint_domain.py`
 
 - [ ] **Step 1.1: Write the failing test**
 
-Add to `backend/tests/api/test_chat_endpoint_domain.py` (after the existing `test_send_accepts_mode_field` test):
+Add to `backend/tests/test_chat_endpoint_domain.py` (after the existing `test_send_accepts_mode_field` test):
 
 ```python
 @pytest.mark.asyncio
@@ -77,7 +77,7 @@ async def test_send_with_analyst_mode_persists_mode(client):
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_chat_endpoint_domain.py::test_send_with_analyst_mode_persists_mode -v
+python -m pytest tests/test_chat_endpoint_domain.py::test_send_with_analyst_mode_persists_mode -v
 ```
 
 Expected: FAIL — `assert r2.json()["mode"] == "analyst"` fails because the value is `"fast"`.
@@ -107,7 +107,7 @@ Replace with:
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_chat_endpoint_domain.py::test_send_with_analyst_mode_persists_mode -v
+python -m pytest tests/test_chat_endpoint_domain.py::test_send_with_analyst_mode_persists_mode -v
 ```
 
 Expected: PASS.
@@ -115,7 +115,7 @@ Expected: PASS.
 - [ ] **Step 1.5: Commit**
 
 ```
-git add backend/api/chat.py backend/tests/api/test_chat_endpoint_domain.py
+git add backend/api/chat.py backend/tests/test_chat_endpoint_domain.py
 git commit -m "fix: persist mode when send creates new conversation
 
 When POST /api/chat/send created a new conversation, Conversation()
@@ -134,11 +134,11 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 **Files:**
 - Modify: `backend/core/rag_engine.py:342`
 - Modify: `backend/api/chat.py:368`
-- Create: `backend/tests/api/test_chat_sources.py`
+- Create: `backend/tests/test_chat_sources.py`
 
 - [ ] **Step 2.1: Write the failing test**
 
-Create `backend/tests/api/test_chat_sources.py`:
+Create `backend/tests/test_chat_sources.py`:
 
 ```python
 """Tests that source names in chat responses use original_name, not UUID hash filenames."""
@@ -206,7 +206,7 @@ async def test_sources_use_original_name_not_uuid(client):
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_chat_sources.py -v
+python -m pytest tests/test_chat_sources.py -v
 ```
 
 Expected: FAIL — source is `"a1b2c3d4_vat_guide.pdf"` instead of `"UAE VAT Guide 2024.pdf"`.
@@ -255,7 +255,7 @@ Replace with:
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_chat_sources.py -v
+python -m pytest tests/test_chat_sources.py -v
 ```
 
 Expected: PASS.
@@ -263,7 +263,7 @@ Expected: PASS.
 - [ ] **Step 2.6: Commit**
 
 ```
-git add backend/core/rag_engine.py backend/api/chat.py backend/tests/api/test_chat_sources.py
+git add backend/core/rag_engine.py backend/api/chat.py backend/tests/test_chat_sources.py
 git commit -m "fix: use original_name for source display instead of UUID hash filename
 
 Two places read metadata['source'] (UUID-prefixed storage name) instead
@@ -385,12 +385,12 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `frontend/src/hooks/useDeepResearch.ts` (add `streamingContent` state)
 - Modify: `frontend/src/components/studios/LegalStudio/ResearchPanel.tsx` (add `streamingContent` prop)
 - Modify: `frontend/src/components/studios/LegalStudio/LegalStudio.tsx` (fix answer useEffect, pass streamingContent)
-- Create: `backend/tests/api/test_deep_research_stream.py`
+- Create: `backend/tests/test_deep_research_stream.py`
 - Modify: `frontend/src/hooks/__tests__/useDeepResearch.test.ts`
 
 - [ ] **Step 4.1: Write the backend failing test**
 
-Create `backend/tests/api/test_deep_research_stream.py`:
+Create `backend/tests/test_deep_research_stream.py`:
 
 ```python
 """Tests for deep research SSE streaming — Bug 3 fix."""
@@ -477,7 +477,7 @@ def test_deep_research_passes_text_key_to_llm():
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_deep_research_stream.py -v
+python -m pytest tests/test_deep_research_stream.py -v
 ```
 
 Expected: FAIL — no `chunk` events; `text` not in LLM prompt.
@@ -523,7 +523,7 @@ Replace with:
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_deep_research_stream.py -v
+python -m pytest tests/test_deep_research_stream.py -v
 ```
 
 Expected: PASS (both tests).
@@ -697,7 +697,7 @@ Replace with:
 Backend:
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_deep_research_stream.py -v
+python -m pytest tests/test_deep_research_stream.py -v
 ```
 
 Frontend:
@@ -711,7 +711,7 @@ Expected: all tests PASS.
 - [ ] **Step 4.9: Commit**
 
 ```
-git add backend/api/chat.py frontend/src/hooks/useDeepResearch.ts "frontend/src/components/studios/LegalStudio/ResearchPanel.tsx" "frontend/src/components/studios/LegalStudio/LegalStudio.tsx" backend/tests/api/test_deep_research_stream.py
+git add backend/api/chat.py frontend/src/hooks/useDeepResearch.ts "frontend/src/components/studios/LegalStudio/ResearchPanel.tsx" "frontend/src/components/studios/LegalStudio/LegalStudio.tsx" backend/tests/test_deep_research_stream.py
 git commit -m "fix: deep research now streams and displays correctly
 
 Three root causes fixed:
@@ -732,11 +732,11 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 **Files:**
 - Modify: `backend/config.py:78-79` (`top_k_results` 8→15, `max_tokens` 4096→8192)
 - Modify: `backend/api/chat.py:54` (`max_tokens_estimate` 6000→12000 in `_build_sliding_context`)
-- Create: `backend/tests/api/test_token_budget.py`
+- Create: `backend/tests/test_token_budget.py`
 
 - [ ] **Step 5.1: Write the failing test**
 
-Create `backend/tests/api/test_token_budget.py`:
+Create `backend/tests/test_token_budget.py`:
 
 ```python
 """Tests that config and sliding-context use the expanded token budget."""
@@ -772,7 +772,7 @@ def test_sliding_context_default_is_12000():
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_token_budget.py -v
+python -m pytest tests/test_token_budget.py -v
 ```
 
 Expected: FAIL — defaults are 4096, 8, and 6000 respectively.
@@ -805,7 +805,7 @@ def _build_sliding_context(history: list, max_tokens_estimate: int = 12000) -> l
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_token_budget.py -v
+python -m pytest tests/test_token_budget.py -v
 ```
 
 Expected: PASS.
@@ -813,7 +813,7 @@ Expected: PASS.
 - [ ] **Step 5.5: Commit**
 
 ```
-git add backend/config.py backend/api/chat.py backend/tests/api/test_token_budget.py
+git add backend/config.py backend/api/chat.py backend/tests/test_token_budget.py
 git commit -m "feat(fast-mode): expand token budget for richer responses
 
 max_tokens 4096->8192, top_k_results 8->15, sliding context 6000->12000.
@@ -924,11 +924,11 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Files:**
 - Modify: `backend/api/chat.py` (add `_get_query_variations` helper + replace single search with parallel gather)
-- Create: `backend/tests/api/test_multi_query_rag.py`
+- Create: `backend/tests/test_multi_query_rag.py`
 
 - [ ] **Step 7.1: Write the failing test**
 
-Create `backend/tests/api/test_multi_query_rag.py`:
+Create `backend/tests/test_multi_query_rag.py`:
 
 ```python
 """Tests for multi-query RAG in fast mode."""
@@ -1004,7 +1004,7 @@ async def test_fast_mode_calls_rag_multiple_times(client):
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_multi_query_rag.py -v
+python -m pytest tests/test_multi_query_rag.py -v
 ```
 
 Expected: `_get_query_variations` import fails (not yet defined); fast mode still calls search once.
@@ -1095,7 +1095,7 @@ Replace with:
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_multi_query_rag.py -v
+python -m pytest tests/test_multi_query_rag.py -v
 ```
 
 Expected: all PASS.
@@ -1103,7 +1103,7 @@ Expected: all PASS.
 - [ ] **Step 7.6: Commit**
 
 ```
-git add backend/api/chat.py backend/tests/api/test_multi_query_rag.py
+git add backend/api/chat.py backend/tests/test_multi_query_rag.py
 git commit -m "feat(fast-mode): multi-query RAG with deduplication
 
 Fast mode now generates 2 query variations and runs 3 parallel searches,
@@ -1123,11 +1123,11 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `backend/db/models.py` (add `summary`, `summary_msg_count` columns)
 - Modify: `backend/db/database.py` (add ALTER TABLE migrations)
 - Modify: `backend/api/chat.py` (add `_get_or_refresh_summary` helper, inject summary, fire background task)
-- Create: `backend/tests/api/test_session_summary.py`
+- Create: `backend/tests/test_session_summary.py`
 
 - [ ] **Step 8.1: Write the failing test**
 
-Create `backend/tests/api/test_session_summary.py`:
+Create `backend/tests/test_session_summary.py`:
 
 ```python
 """Tests for session summary memory in fast mode."""
@@ -1195,7 +1195,7 @@ async def test_summary_written_after_many_messages(client):
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_session_summary.py::test_summary_columns_exist -v
+python -m pytest tests/test_session_summary.py::test_summary_columns_exist -v
 ```
 
 Expected: FAIL — `Conversation.summary` attribute missing.
@@ -1341,7 +1341,7 @@ It should already be there.
 
 ```
 cd Project_AccountingLegalChatbot/backend
-python -m pytest tests/api/test_session_summary.py -v
+python -m pytest tests/test_session_summary.py -v
 ```
 
 Expected: all PASS.
@@ -1349,7 +1349,7 @@ Expected: all PASS.
 - [ ] **Step 8.8: Commit**
 
 ```
-git add backend/db/models.py backend/db/database.py backend/api/chat.py backend/tests/api/test_session_summary.py
+git add backend/db/models.py backend/db/database.py backend/api/chat.py backend/tests/test_session_summary.py
 git commit -m "feat(fast-mode): session summary memory for long conversations
 
 When fast-mode conversation exceeds 20 messages, a background task
@@ -1378,3 +1378,4 @@ All tests must PASS before declaring done.
 ---
 
 *Plan written with the writing-plans skill. Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to execute task-by-task.*
+
