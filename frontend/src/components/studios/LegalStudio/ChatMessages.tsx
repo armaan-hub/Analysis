@@ -40,6 +40,15 @@ function parseThinking(text: string): { thinking: string; answer: string } | nul
   return null;
 }
 
+export function normalizeMarkdown(text: string): string {
+  return text
+    // Blank lines around --- dividers
+    .replace(/([^\n])\n(---+)(\n|$)/g, '$1\n\n$2\n\n')
+    .replace(/(^|\n)(---+)\n([^\n])/g, '$1$2\n\n$3')
+    // Blank line before ## headers
+    .replace(/([^\n])\n(#{1,6} )/g, '$1\n\n$2');
+}
+
 function SearchIndicator({ queries }: { queries: string[] }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -98,7 +107,7 @@ function AIMessage({ msg, onSourceClick, resolve }: { msg: Message; onSourceClic
               )}
             </>
           )}
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(displayText)}</ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && isSubstantiveAnswer(msg.text || '', msg.sources) && (
           <SourcesChip sources={msg.sources} onSourceClick={onSourceClick} resolveName={resolve} />
