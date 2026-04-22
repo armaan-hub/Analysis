@@ -2534,3 +2534,20 @@ async def generate_report_stream(req: GenerateStreamRequest):
         media_type="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+@router.post("/refresh-templates")
+async def refresh_templates():
+    """Attempt to refresh template metadata from official sources."""
+    try:
+        results = template_manager.refresh_cache()
+        status = template_manager.get_cache_status()
+        return {"status": "ok", "results": results, "cache_status": status}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/template-status")
+async def template_status():
+    """Return current template cache status."""
+    return template_manager.get_cache_status()
