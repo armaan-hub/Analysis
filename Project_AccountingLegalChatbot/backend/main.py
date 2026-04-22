@@ -37,6 +37,12 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("[OK] Database initialized")
 
+    # Run schema migrations (idempotent -- safe to call every startup)
+    from db.migrations.add_conversation_mode import run_migration as _add_conv_mode
+    from config import settings as _s
+    _add_conv_mode(str(_s.database_url).replace("sqlite:///", ""))
+    logger.info("[OK] Schema migration: conversation mode column ensured")
+
     # Seed account-mapping cache from bundled CSV (INSERT OR IGNORE — safe to re-run)
     from pathlib import Path
     from core.agents.account_cache import seed_from_csv, cache_size
