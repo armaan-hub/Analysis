@@ -339,7 +339,7 @@ Context from indexed documents:
                     "metadata": meta,
                     "score": score,
                     # Structured source fields for Document Peeker
-                    "source": meta.get("source", meta.get("filename", "Unknown")),
+                    "source": meta.get("original_name") or meta.get("source", meta.get("filename", "Unknown")),
                     "page": meta.get("page", meta.get("page_number", 1)),
                     "excerpt": doc_text[:200],
                 })
