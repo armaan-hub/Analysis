@@ -38,6 +38,8 @@ class Conversation(Base):
     llm_model = Column(String(100), default="")
     checked_source_ids = Column(JSON, nullable=True)  # list of document IDs currently checked
     mode = Column(String(20), nullable=False, default="fast")
+    summary = Column(Text, nullable=True)
+    summary_msg_count = Column(Integer, default=0)
 
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
 
