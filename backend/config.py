@@ -75,8 +75,8 @@ class Settings(BaseSettings):
     # ── RAG Settings ─────────────────────────────────────────────────
     chunk_size: int = 1000
     chunk_overlap: int = 200
-    top_k_results: int = 8
-    max_tokens: int = 4096
+    top_k_results: int = 15
+    max_tokens: int = 8192
     temperature: float = 0.7
 
     model_config = SettingsConfigDict(case_sensitive=False)
