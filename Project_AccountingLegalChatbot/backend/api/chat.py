@@ -820,7 +820,7 @@ async def deep_research_stream(req: DeepResearchRequest):
                 meta = r.get("metadata") or {}
                 fname = meta.get("original_name") or meta.get("source") or "document"
                 page = meta.get("page_number") or meta.get("page") or 1
-                snippet = r.get("document", "")[:600]
+                snippet = r.get("text", "")[:600]
                 rag_context_parts.append(f"[{fname}, p.{page}]\n{snippet}")
                 doc_sources.append({"filename": fname, "page": page})
 
@@ -857,6 +857,7 @@ async def deep_research_stream(req: DeepResearchRequest):
             answer_parts: list[str] = []
             async for chunk in llm.chat_stream(messages_for_llm, temperature=0.3, max_tokens=2000):
                 answer_parts.append(chunk)
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
 
             full_answer = "".join(answer_parts)
             yield f"data: {json.dumps({'type': 'answer', 'content': full_answer, 'sources': doc_sources, 'web_sources': web_sources})}\n\n"

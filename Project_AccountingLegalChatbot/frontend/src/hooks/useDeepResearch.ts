@@ -15,6 +15,7 @@ export interface ResearchAnswer {
 export function useDeepResearch(conversationId: string) {
   const [steps, setSteps] = useState<ResearchStep[]>([]);
   const [answer, setAnswer] = useState<ResearchAnswer | null>(null);
+  const [streamingContent, setStreamingContent] = useState<string>('');
   const [running, setRunning] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -24,6 +25,8 @@ export function useDeepResearch(conversationId: string) {
       const ev = JSON.parse(raw.slice(6));
       if (ev.type === 'step') {
         setSteps(prev => [...prev, { text: ev.text, status: 'done' }]);
+      } else if (ev.type === 'chunk') {
+        setStreamingContent(prev => prev + (ev.content ?? ''));
       } else if (ev.type === 'answer') {
         setAnswer({
           content: ev.content,
@@ -52,6 +55,7 @@ export function useDeepResearch(conversationId: string) {
 
     setSteps([]);
     setAnswer(null);
+    setStreamingContent('');
     setRunning(true);
 
     try {
@@ -89,5 +93,5 @@ export function useDeepResearch(conversationId: string) {
     }
   }, [conversationId]);
 
-  return { steps, answer, running, run };
+  return { steps, answer, streamingContent, running, run };
 }

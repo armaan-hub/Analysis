@@ -3,9 +3,10 @@ import type { ResearchStep, ResearchAnswer } from '../../../hooks/useDeepResearc
 interface Props {
   steps: ResearchStep[];
   answer: ResearchAnswer | null;
+  streamingContent?: string;
 }
 
-export function ResearchPanel({ steps, answer }: Props) {
+export function ResearchPanel({ steps, answer, streamingContent }: Props) {
   return (
     <aside className="research-panel">
       <div className="research-panel__header">🔬 Research Log</div>
@@ -13,6 +14,13 @@ export function ResearchPanel({ steps, answer }: Props) {
       {steps.length === 0 && !answer && (
         <div className="research-panel__empty">
           Ask a question to begin deep research. Results and sources will appear here.
+        </div>
+      )}
+
+      {!answer && streamingContent && (
+        <div className="research-panel__section">
+          <div className="research-panel__streaming-label" style={{fontSize:'0.75rem', opacity:0.7, marginBottom:'4px'}}>Synthesising…</div>
+          <div style={{fontSize:'0.875rem', whiteSpace:'pre-wrap', opacity:0.85}}>{streamingContent}</div>
         </div>
       )}
 
