@@ -162,6 +162,7 @@ class ChatRequest(BaseModel):
     domain: Optional[str] = None  # legacy — used as domain_override if set
     mode: Literal["fast", "deep_research", "analyst"] = "fast"
     domain_override: Optional[str] = None  # DomainLabel value e.g. "vat", "corporate_tax"
+    selected_doc_ids: Optional[list[str]] = None  # Restrict RAG/hybrid search to these docs
 
 class ConversationResponse(BaseModel):
     id: str
@@ -782,3 +783,87 @@ async def export_deep_research(req: DeepResearchExportRequest):
         )
     else:
         raise HTTPException(status_code=400, detail=f"Unknown format: {req.format}")
+
+
+# ── Deep Research Endpoint ────────────────────────────────────────────────────
+
+class DeepResearchRequest(BaseModel):
+    conversation_id: Optional[str] = None
+    query: str
+    selected_doc_ids: Optional[list[str]] = None
+
+
+@router.post("/deep-research")
+async def deep_research_stream(req: DeepResearchRequest):
+    """Dedicated deep-research SSE endpoint: RAG + web synthesis with progress steps."""
+    from core.rag_engine import rag_engine
+    from core.web_search import deep_search
+
+    async def generate():
+        try:
+            # Step 1: Search indexed documents
+            doc_sources: list[dict] = []
+            if req.selected_doc_ids:
+                yield f"data: {json.dumps({'type': 'step', 'text': f'Searching {len(req.selected_doc_ids)} selected document(s)…'})}\n\n"
+                doc_filter = {"doc_id": {"": req.selected_doc_ids}}
+                raw = rag_engine.search(req.query, top_k=10, filter=doc_filter)
+            else:
+                yield f"data: {json.dumps({'type': 'step', 'text': 'Searching all indexed documents…'})}\n\n"
+                raw = rag_engine.search(req.query, top_k=10)
+
+            rag_context_parts: list[str] = []
+            for r in raw:
+                meta = r.get("metadata") or {}
+                fname = meta.get("original_name") or meta.get("source") or "document"
+                page = meta.get("page_number") or meta.get("page") or 1
+                snippet = r.get("document", "")[:600]
+                rag_context_parts.append(f"[{fname}, p.{page}]\n{snippet}")
+                doc_sources.append({"filename": fname, "page": page})
+
+            # Step 2: Web research
+            yield f"data: {json.dumps({'type': 'step', 'text': 'Running deep web research…'})}\n\n"
+            web_results = await deep_search(req.query, max_queries=5)
+            web_sources: list[dict] = []
+            web_context_parts: list[str] = []
+            for w in web_results or []:
+                url = w.get("href") or w.get("url", "")
+                title = w.get("title", url)
+                body = w.get("body", "")[:500]
+                web_sources.append({"title": title, "url": url})
+                web_context_parts.append(f"[{title}]({url})\n{body}")
+
+            # Step 3: Synthesize
+            yield f"data: {json.dumps({'type': 'step', 'text': 'Synthesising answer…'})}\n\n"
+            llm = get_llm_provider()
+            system = (
+                "You are a thorough research analyst. Synthesise the provided document excerpts and "
+                "web search results into a comprehensive, well-structured answer. Use Markdown with "
+                "## headings and bullet points. Cite sources inline as (Source Name) or [Source URL]."
+            )
+            context_block = ""
+            if rag_context_parts:
+                context_block += "## Document Context\n" + "\n\n".join(rag_context_parts) + "\n\n"
+            if web_context_parts:
+                context_block += "## Web Research\n" + "\n\n".join(web_context_parts) + "\n\n"
+
+            messages_for_llm = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": context_block + f"## Question\n{req.query}"},
+            ]
+            answer_parts: list[str] = []
+            async for chunk in llm.chat_stream(messages_for_llm, temperature=0.3, max_tokens=2000):
+                answer_parts.append(chunk)
+
+            full_answer = "".join(answer_parts)
+            yield f"data: {json.dumps({'type': 'answer', 'content': full_answer, 'sources': doc_sources, 'web_sources': web_sources})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Deep research error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
