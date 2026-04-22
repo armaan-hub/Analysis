@@ -732,7 +732,12 @@ def _build_report_system_prompt(
     structure = intel.get("structure", [])
 
     key_points_str = "\n".join(f"  - {p}" for p in key_points) if key_points else "  - Follow professional standards"
-    structure_str = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(structure)) if structure else ""
+    if isinstance(structure, str):
+        structure_str = structure
+    elif structure:
+        structure_str = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(structure))
+    else:
+        structure_str = ""
 
     period_instruction = ""
     if period_end:
@@ -2297,8 +2302,9 @@ async def compute_aging_schedule(req: AgingScheduleRequest):
 @router.post("/refresh-templates")
 async def refresh_templates():
     """Attempt to refresh template metadata from official sources."""
+    import asyncio
     try:
-        results = template_manager.refresh_cache()
+        results = await asyncio.to_thread(template_manager.refresh_cache)
         status = template_manager.get_cache_status()
         return {
             "status": "ok",
@@ -2536,18 +2542,4 @@ async def generate_report_stream(req: GenerateStreamRequest):
     )
 
 
-@router.post("/refresh-templates")
-async def refresh_templates():
-    """Attempt to refresh template metadata from official sources."""
-    try:
-        results = template_manager.refresh_cache()
-        status = template_manager.get_cache_status()
-        return {"status": "ok", "results": results, "cache_status": status}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
-
-@router.get("/template-status")
-async def template_status():
-    """Return current template cache status."""
-    return template_manager.get_cache_status()

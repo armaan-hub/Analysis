@@ -22,7 +22,7 @@ class HybridRetriever:
         self._depth = graph_expansion_depth
         self._graph_weight = graph_weight
 
-    def retrieve(self, query: str, doc_ids: list[str] | None = None,
+    async def retrieve(self, query: str, doc_ids: list[str] | None = None,
                  top_k: int = 8) -> list[dict[str, Any]]:
         """
         Return deduplicated, re-ranked list of chunk result dicts.
@@ -30,7 +30,7 @@ class HybridRetriever:
         """
         # 1. Vector search
         vec_filter = {"doc_id": {"$in": doc_ids}} if doc_ids else None
-        raw_results = self._rag.search(query, top_k=top_k, filter=vec_filter)
+        raw_results = await self._rag.search(query, top_k=top_k, filter=vec_filter)
 
         seen_ids: set[str] = set()
         merged: list[dict[str, Any]] = []

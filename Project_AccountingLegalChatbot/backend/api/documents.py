@@ -84,33 +84,35 @@ async def upload_document(
     stored_filename = f"{doc_id}{suffix}"
     upload_path = Path(settings.upload_dir) / stored_filename
 
-    # Save file to disk
+    # Read file content and compute hash BEFORE creating the file on disk
+    content = await file.read()
+    content_hash = hashlib.sha256(content).hexdigest()
+
+    # Dedup check: return existing document if same content already uploaded
+    from sqlalchemy import select as sa_select
+    existing_result = await db.execute(
+        sa_select(Document).where(Document.content_hash == content_hash)
+    )
+    existing_doc = existing_result.scalars().first()
+    if existing_doc:
+        return UploadResponse(document=DocumentResponse(
+            id=existing_doc.id,
+            filename=existing_doc.filename,
+            original_name=existing_doc.original_name,
+            file_type=existing_doc.file_type,
+            file_size=existing_doc.file_size,
+            chunk_count=existing_doc.chunk_count,
+            status=existing_doc.status,
+            error_message=existing_doc.error_message,
+            created_at=str(existing_doc.created_at),
+            summary=existing_doc.summary,
+            key_terms=existing_doc.key_terms,
+            source=existing_doc.source,
+        ), message=f"Duplicate detected: '{existing_doc.original_name}' already uploaded.")
+
+    # Save file to disk (only reached for new uploads)
     try:
         with open(upload_path, "wb") as f:
-            content = await file.read()
-            # Compute SHA-256 hash for deduplication
-            content_hash = hashlib.sha256(content).hexdigest()
-            # Check for existing document with same hash
-            from sqlalchemy import select
-            existing_result = await db.execute(
-                select(Document).where(Document.content_hash == content_hash)
-            )
-            existing_doc = existing_result.scalars().first()
-            if existing_doc:
-                return UploadResponse(document=DocumentResponse(
-                    id=existing_doc.id,
-                    filename=existing_doc.filename,
-                    original_name=existing_doc.original_name,
-                    file_type=existing_doc.file_type,
-                    file_size=existing_doc.file_size,
-                    chunk_count=existing_doc.chunk_count,
-                    status=existing_doc.status,
-                    error_message=existing_doc.error_message,
-                    created_at=str(existing_doc.created_at),
-                    summary=existing_doc.summary,
-                    key_terms=existing_doc.key_terms,
-                    source=existing_doc.source,
-                ), message=f"Duplicate detected: '{existing_doc.original_name}' already uploaded.")
             f.write(content)
         file_size = len(content)
     except Exception as e:
