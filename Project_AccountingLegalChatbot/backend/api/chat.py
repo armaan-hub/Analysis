@@ -81,7 +81,7 @@ async def _get_or_refresh_summary(conversation_id: str, history_count: int, prov
             )).scalar_one_or_none()
             if conv is None:
                 return
-            if history_count <= getattr(conv, "summary_msg_count", 0) + 10:
+            if history_count <= (conv.summary_msg_count or 0) + 10:
                 return  # Not enough new messages to re-summarise
             old_count = history_count - 20
             old_messages = (await db.execute(
@@ -614,8 +614,11 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 )
                 db.add(assistant_msg)
                 await db.commit()
+                total_msg_count = await db.scalar(
+                    select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
+                )
                 asyncio.create_task(
-                    _get_or_refresh_summary(conversation.id, len(history), getattr(req, 'provider', None))
+                    _get_or_refresh_summary(conversation.id, total_msg_count, getattr(req, 'provider', None))
                 )
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
@@ -667,8 +670,11 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     db.add(assistant_msg)
     await db.flush()
     await db.commit()
+    total_msg_count = await db.scalar(
+        select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
+    )
     asyncio.create_task(
-        _get_or_refresh_summary(conversation.id, len(history), getattr(req, 'provider', None))
+        _get_or_refresh_summary(conversation.id, total_msg_count, getattr(req, 'provider', None))
     )
 
     return ChatResponse(
