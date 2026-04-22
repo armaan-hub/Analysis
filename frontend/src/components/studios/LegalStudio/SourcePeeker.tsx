@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { X, Copy, FileText, Table2 } from 'lucide-react';
 import { API } from '../../../lib/api';
 import type { Source } from '../../../lib/api';
@@ -106,7 +106,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
       <div className="source-peeker__body" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px 16px', overflowY: 'auto' }}>
         {sources.map(source => {
           const key = `${source.source}:${source.page}`;
-          const displayName = getDisplayName(source.source);
+          const displayName = source.original_name ?? getDisplayName(source.source);
           const text = fullTexts[key] ?? source.excerpt ?? '';
           const scorePercent = Math.round(source.score * 100);
           const isHighlighted = source.source === highlightedSource;
