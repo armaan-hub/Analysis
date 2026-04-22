@@ -78,6 +78,7 @@ class Document(Base):
     summary = Column(Text, nullable=True)
     key_terms = Column(JSON, nullable=True)  # list of strings
     source = Column(String(50), nullable=True, default="upload")  # "upload" | "research"
+    content_hash = Column(String(64), nullable=True, index=True)
 
 
 # ═══════════════════════════════════════════════════════════════════
