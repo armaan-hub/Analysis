@@ -43,14 +43,6 @@ ABBREVIATION_SUFFIX = (
     "Stay on the exact topic of the question."
 )
 
-ANALYST_SYSTEM_PREFIX = (
-    "You are a financial and legal analyst. You MUST base your answers primarily on the documents "
-    "provided below. If the answer is clearly contained in the documents, cite the document and page. "
-    "If the answer is not in the documents, you may draw on your professional knowledge but must "
-    "explicitly say: \"This is based on general knowledge, not your attached documents.\" "
-    "Do NOT make up figures, dates, or entities.\n\n"
-)
-
 GROUNDING_RULES = (
     "\n\nGROUNDING RULES — always follow:\n"
     "- Answer ONLY from the provided context and your verified knowledge of UAE law.\n"
