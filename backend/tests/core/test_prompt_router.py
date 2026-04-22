@@ -1,6 +1,13 @@
-"""Tests for prompt_router: ANALYST_SYSTEM_PREFIX behaviour."""
+"""Tests for prompt_router: ANALYST_SYSTEM_PREFIX behaviour and FORMATTING_REMINDER."""
 import pytest
-from core.prompt_router import ANALYST_SYSTEM_PREFIX, DOMAIN_PROMPTS, get_system_prompt
+from core.prompt_router import ANALYST_SYSTEM_PREFIX, DOMAIN_PROMPTS, FORMATTING_REMINDER, get_system_prompt
+
+
+def test_formatting_reminder_is_exported():
+    """FORMATTING_REMINDER must exist and mention blank lines."""
+    assert isinstance(FORMATTING_REMINDER, str)
+    assert len(FORMATTING_REMINDER) > 20
+    assert "blank" in FORMATTING_REMINDER.lower() or "line" in FORMATTING_REMINDER.lower()
 
 
 def test_analyst_prefix_in_analyst_mode():
