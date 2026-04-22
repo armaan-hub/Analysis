@@ -332,10 +332,13 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
-        # Domain-aware RAG: filter by category when domain is finance or law.
-        # Analyst mode intentionally skips category filtering to search all documents.
+        # Document-scoped search takes highest priority (user explicitly selected docs)
         rag_filter = None
-        if req.mode != "analyst":
+        if req.selected_doc_ids:
+            rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+        elif req.mode != "analyst":
+            # Domain-aware RAG: filter by category when domain is finance or law.
+            # Analyst mode intentionally skips category filtering to search all documents.
             if req.domain in ("finance",):
                 rag_filter = {"category": "finance"}
             elif req.domain in ("law", "audit"):
@@ -805,11 +808,11 @@ async def deep_research_stream(req: DeepResearchRequest):
             doc_sources: list[dict] = []
             if req.selected_doc_ids:
                 yield f"data: {json.dumps({'type': 'step', 'text': f'Searching {len(req.selected_doc_ids)} selected document(s)…'})}\n\n"
-                doc_filter = {"doc_id": {"": req.selected_doc_ids}}
-                raw = rag_engine.search(req.query, top_k=10, filter=doc_filter)
+                doc_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+                raw = await rag_engine.search(req.query, top_k=10, filter=doc_filter)
             else:
                 yield f"data: {json.dumps({'type': 'step', 'text': 'Searching all indexed documents…'})}\n\n"
-                raw = rag_engine.search(req.query, top_k=10)
+                raw = await rag_engine.search(req.query, top_k=10)
 
             rag_context_parts: list[str] = []
             for r in raw:
