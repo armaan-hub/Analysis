@@ -33,7 +33,8 @@ export function useDeepResearch(conversationId: string) {
           sources: ev.sources ?? [],
           web_sources: ev.web_sources ?? [],
         });
-      } else if (ev.type === 'done') {
+        setStreamingContent('');
+      }else if (ev.type === 'done') {
         setRunning(false);
       } else if (ev.type === 'error') {
         setSteps(prev => [...prev, { text: ev.text ?? 'Error', status: 'error' }]);

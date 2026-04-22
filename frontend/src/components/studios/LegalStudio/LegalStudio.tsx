@@ -706,7 +706,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       sources: answer.sources.map(s => ({ source: s.filename, page: s.page ?? '', score: 0, excerpt: '' })),
       time: fmtTime(),
     }]);
-  }, [answer]);
+  }, [answer, steps]);
 
   // --- Render ---
   const centerContent = (
