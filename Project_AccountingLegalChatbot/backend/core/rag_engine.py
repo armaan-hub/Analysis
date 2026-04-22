@@ -226,7 +226,7 @@ Context from indexed documents:
             f"Documents in store: {doc_count}"
         )
 
-    async def ingest_chunks(self, chunks: list[DocumentChunk], doc_id: str) -> int:
+    async def ingest_chunks(self, chunks: list[DocumentChunk], doc_id: str, original_name: str | None = None) -> int:
         """
         Ingest document chunks into the vector store.
 
@@ -241,8 +241,15 @@ Context from indexed documents:
             return 0
 
         texts = [c.text for c in chunks]
-        metadatas = [c.metadata for c in chunks]
         ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
+        metas = []
+        for i, c in enumerate(chunks):
+            meta = dict(c.metadata)
+            meta["doc_id"] = doc_id
+            if original_name:
+                meta["original_name"] = original_name
+            metas.append(meta)
+        metadatas = metas
 
         # Generate embeddings
         logger.info(f"Generating embeddings for {len(texts)} chunks...")
@@ -258,6 +265,29 @@ Context from indexed documents:
 
         logger.info(f"Ingested {len(chunks)} chunks for document {doc_id}")
         return len(chunks)
+
+    def resolve_doc_names(self, source_ids: list[str]) -> dict[str, str]:
+        """Map chunk source IDs to human-readable original filenames."""
+        if not source_ids:
+            return {}
+        try:
+            results = self.collection.get(ids=source_ids, include=["metadatas"])
+            mapping: dict[str, str] = {}
+            for sid, meta in zip(results["ids"], results["metadatas"]):
+                mapping[sid] = meta.get("original_name", sid)
+            return mapping
+        except Exception:
+            return {s: s for s in source_ids}
+
+    def hybrid_search(self, query: str, doc_ids: list[str] | None = None,
+                      top_k: int = 8) -> list[dict]:
+        """Hybrid vector + graph search. Falls back to vector-only if graph has no entities."""
+        from backend.core.rag.hybrid_retriever import HybridRetriever
+        from backend.core.rag.graph_rag import GraphRAG
+        import pathlib
+        graph = GraphRAG(db_path=pathlib.Path(__file__).parent.parent / "chatbot.db")
+        retriever = HybridRetriever(rag_engine=self, graph_rag=graph)
+        return retriever.retrieve(query=query, doc_ids=doc_ids, top_k=top_k)
 
     async def search(
         self,

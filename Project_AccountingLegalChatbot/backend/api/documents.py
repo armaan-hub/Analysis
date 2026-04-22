@@ -3,6 +3,7 @@ Documents API – Upload, manage, and query indexed documents for RAG.
 """
 
 import logging
+import hashlib
 import io
 import shutil
 import uuid
@@ -87,6 +88,29 @@ async def upload_document(
     try:
         with open(upload_path, "wb") as f:
             content = await file.read()
+            # Compute SHA-256 hash for deduplication
+            content_hash = hashlib.sha256(content).hexdigest()
+            # Check for existing document with same hash
+            from sqlalchemy import select
+            existing_result = await db.execute(
+                select(Document).where(Document.content_hash == content_hash)
+            )
+            existing_doc = existing_result.scalars().first()
+            if existing_doc:
+                return UploadResponse(document=DocumentResponse(
+                    id=existing_doc.id,
+                    filename=existing_doc.filename,
+                    original_name=existing_doc.original_name,
+                    file_type=existing_doc.file_type,
+                    file_size=existing_doc.file_size,
+                    chunk_count=existing_doc.chunk_count,
+                    status=existing_doc.status,
+                    error_message=existing_doc.error_message,
+                    created_at=str(existing_doc.created_at),
+                    summary=existing_doc.summary,
+                    key_terms=existing_doc.key_terms,
+                    source=existing_doc.source,
+                ), message=f"Duplicate detected: '{existing_doc.original_name}' already uploaded.")
             f.write(content)
         file_size = len(content)
     except Exception as e:
@@ -100,6 +124,7 @@ async def upload_document(
         file_type=suffix.lstrip("."),
         file_size=file_size,
         status="processing",
+        content_hash=content_hash,
     )
     db.add(doc)
     await db.flush()
@@ -112,7 +137,7 @@ async def upload_document(
             doc.error_message = "No text could be extracted from this file"
             logger.warning(f"Document '{original_name}' produced zero chunks — marked as error")
         else:
-            chunk_count = await rag_engine.ingest_chunks(chunks, doc_id=doc_id)
+            chunk_count = await rag_engine.ingest_chunks(chunks, doc_id=doc_id, original_name=original_name)
             doc.chunk_count = chunk_count
             if chunk_count == 0:
                 doc.status = "error"
