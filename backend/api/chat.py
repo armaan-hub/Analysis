@@ -366,7 +366,7 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
             messages.append(augmented[0])  # system message with context
             sources = [
                 {
-                    "source": r["metadata"].get("source", "Unknown"),
+                    "source": r["metadata"].get("original_name") or r["metadata"].get("source", "Unknown"),
                     "page": r["metadata"].get("page", "?"),
                     "score": round(r.get("score", 0), 3),
                     "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
