@@ -8,8 +8,10 @@ describe('normalizeMarkdown', () => {
   });
 
   it('does not triple-up blank lines when blank line already present', () => {
-    const result = normalizeMarkdown('Some text\n\n## Section Title\nMore text');
-    expect(result).not.toMatch(/\n\n\n/);
+    const input = 'Some text\n\n## Section Title\nMore text';
+    const result = normalizeMarkdown(input);
+    expect(result).toBe(input);           // idempotent: already correct, no change
+    expect(result).not.toMatch(/\n\n\n/); // belt-and-suspenders
   });
 
   it('adds blank lines around --- divider with no surrounding blank lines', () => {
