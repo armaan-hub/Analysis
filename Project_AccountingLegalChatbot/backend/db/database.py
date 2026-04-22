@@ -58,6 +58,8 @@ async def init_db():
             "ALTER TABLE conversations ADD COLUMN is_pinned BOOLEAN DEFAULT 0",
             "ALTER TABLE conversations ADD COLUMN checked_source_ids JSON",
             "ALTER TABLE conversations ADD COLUMN mode VARCHAR(20) NOT NULL DEFAULT 'fast'",
+            "ALTER TABLE conversations ADD COLUMN summary TEXT",
+            "ALTER TABLE conversations ADD COLUMN summary_msg_count INTEGER DEFAULT 0",
         ):
             try:
                 await conn.execute(text(stmt))

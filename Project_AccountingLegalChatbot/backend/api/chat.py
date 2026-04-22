@@ -70,6 +70,50 @@ async def _get_query_variations(query: str, provider: str | None = None) -> list
         return [query]
 
 
+async def _get_or_refresh_summary(conversation_id: str, history_count: int, provider: str | None = None) -> None:
+    """Summarise oldest messages when conversation grows beyond 20 turns. Non-fatal."""
+    if history_count <= 20:
+        return
+    try:
+        async with AsyncSessionLocal() as db:
+            conv = (await db.execute(
+                select(Conversation).where(Conversation.id == conversation_id)
+            )).scalar_one_or_none()
+            if conv is None:
+                return
+            if history_count <= getattr(conv, "summary_msg_count", 0) + 10:
+                return  # Not enough new messages to re-summarise
+            old_count = history_count - 20
+            old_messages = (await db.execute(
+                select(Message)
+                .where(Message.conversation_id == conversation_id)
+                .order_by(Message.created_at)
+                .limit(old_count)
+            )).scalars().all()
+            if not old_messages:
+                return
+            context = "\n".join(
+                f"{m.role.upper()}: {m.content[:400]}" for m in old_messages
+            )
+            llm = get_llm_provider(provider)
+            resp = await llm.chat(
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "Summarise the following conversation excerpt in 3-5 sentences, "
+                        "capturing the main topics and conclusions:\n\n" + context
+                    ),
+                }],
+                max_tokens=600,
+                temperature=0.1,
+            )
+            conv.summary = resp.content
+            conv.summary_msg_count = history_count
+            await db.commit()
+    except Exception as exc:
+        logger.warning(f"Session summary failed for {conversation_id}: {exc}")
+
+
 
 def _build_sliding_context(
     messages: list,  # list of ChatMessage objects or dicts
@@ -354,6 +398,9 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     else:
         system_prompt = route_prompt(classifier_result.domain) + memory_block
 
+    if req.mode == "fast" and getattr(conversation, "summary", None):
+        system_prompt += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
+
     # If RAG is enabled, search for relevant context
     if req.use_rag:
         # Document-scoped search takes highest priority (user explicitly selected docs)
@@ -567,6 +614,9 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 )
                 db.add(assistant_msg)
                 await db.commit()
+                asyncio.create_task(
+                    _get_or_refresh_summary(conversation.id, len(history), getattr(req, 'provider', None))
+                )
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
             return StreamingResponse(
@@ -617,6 +667,9 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     db.add(assistant_msg)
     await db.flush()
     await db.commit()
+    asyncio.create_task(
+        _get_or_refresh_summary(conversation.id, len(history), getattr(req, 'provider', None))
+    )
 
     return ChatResponse(
         message=MessageResponse(
