@@ -73,14 +73,12 @@ export function TemplateStudio() {
   /* ── Data Fetching ───────────────────────────────────────────── */
 
   const fetchTemplates = useCallback(async () => {
-    setLoading(true);
     try {
       const { data } = await API.get('/api/templates/list', { params: { user_id: USER_ID } });
       setTemplates(data.templates ?? []);
     } catch (e) {
       setError(getErrMsg(e, 'Failed to load templates'));
-    } finally {
-      setLoading(false);
+      console.error('[TemplateStudio] fetchTemplates error:', e);
     }
   }, []);
 
@@ -90,10 +88,23 @@ export function TemplateStudio() {
       setLibrary(data.templates ?? []);
     } catch (e) {
       setError(getErrMsg(e, 'Failed to load template library'));
+      console.error('[TemplateStudio] fetchLibrary error:', e);
     }
   }, []);
 
-  useEffect(() => { fetchTemplates(); fetchLibrary(); }, [fetchTemplates, fetchLibrary]);
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([fetchTemplates(), fetchLibrary()]);
+      } catch (e) {
+        console.error('[TemplateStudio] Data loading error:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [fetchTemplates, fetchLibrary]);
 
   /* ── Upload & Learn ──────────────────────────────────────────── */
 
@@ -257,7 +268,18 @@ export function TemplateStudio() {
       <div className="ts-header">
         <Layout size={20} />
         <h2 className="ts-header__title">Template Learning Studio</h2>
-        <button className="ts-btn ts-btn--icon" onClick={() => { fetchTemplates(); fetchLibrary(); }} title="Refresh">
+        <button 
+          className="ts-btn ts-btn--icon" 
+          onClick={async () => { 
+            setLoading(true);
+            try {
+              await Promise.all([fetchTemplates(), fetchLibrary()]);
+            } finally {
+              setLoading(false);
+            }
+          }} 
+          title="Refresh"
+        >
           <RefreshCw size={16} />
         </button>
       </div>

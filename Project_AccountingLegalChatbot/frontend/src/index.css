@@ -1078,7 +1078,7 @@ body {
 .chat-msg__bubble code {
   font-family: var(--s-font-mono);
   font-size: 12px;
-  background: rgba(0,0,0,0.3);
+  background: var(--s-elevated);
   padding: 1px 5px;
   border-radius: 3px;
   color: var(--s-accent);
