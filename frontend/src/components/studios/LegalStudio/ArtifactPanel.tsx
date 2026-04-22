@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { MisKpiCards } from './MisKpiCards';
 import { MisChart, type ChartDataPoint } from './MisChart';
 
@@ -38,7 +39,7 @@ export function ArtifactPanel({ open, title, reportType, content, loading, onClo
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%',
+      display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden',
       background: 'var(--s-bg-1, #fff)', borderLeft: '1px solid var(--s-border, #e2e8f0)',
     }}>
       {/* Header */}
@@ -60,8 +61,7 @@ export function ArtifactPanel({ open, title, reportType, content, loading, onClo
         >✕</button>
       </div>
 
-      {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px' }}>
         {loading ? (
           <div style={{ color: 'var(--s-text-2)', textAlign: 'center', marginTop: 40 }}>
             ⏳ Generating report…
@@ -74,10 +74,12 @@ export function ArtifactPanel({ open, title, reportType, content, loading, onClo
                 <MisChart data={chartData} type="bar" />
               </div>
             )}
-            <pre style={{
-              whiteSpace: 'pre-wrap', fontFamily: 'var(--s-font-mono, monospace)',
-              fontSize: 12, lineHeight: 1.6, color: 'var(--s-text-1)',
-            }}>{content}</pre>
+            <div style={{
+              fontSize: 13, lineHeight: 1.7, color: 'var(--s-text-1)',
+              fontFamily: 'var(--s-font-ui, system-ui)',
+            }}>
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
           </>
         )}
       </div>

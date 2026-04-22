@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, ScanSearch } from 'lucide-react';
 import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type TextMessage, type Source, generateReportStreamUrl, detectReportMetadata } from '../../../lib/api';
@@ -301,6 +301,12 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       });
       setAuditResult(res.data);
       setShowAuditQuestionnaire(false);
+      // Route audit results to ArtifactPanel right pane
+      const auditMd = formatAuditResultAsMarkdown(res.data);
+      setArtifactTitle('🔍 Audit Analysis Result');
+      setArtifactReportType('audit');
+      setArtifactContent(auditMd);
+      setArtifactOpen(true);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Audit failed. Please try again.';
       setAuditError(errorMsg);
@@ -917,3 +923,4 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     </>
   );
 }
+
