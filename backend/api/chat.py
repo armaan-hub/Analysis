@@ -384,11 +384,14 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                     if isinstance(batch, Exception):
                         continue
                     for r in batch:
-                        key = (r["metadata"].get("doc_id", ""), r["metadata"].get("page", 0))
+                        key = (
+                            r["metadata"].get("doc_id") or r.get("text", "")[:80],
+                            r["metadata"].get("page", 0)
+                        )
                         if key not in seen:
                             seen.add(key)
                             merged.append(r)
-                search_results = sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:15]
+                search_results = sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:settings.top_k_results]
                 # Fall back to unfiltered if domain filter yields nothing
                 if rag_filter and not search_results:
                     fallback = await asyncio.gather(
@@ -401,11 +404,14 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                         if isinstance(batch, Exception):
                             continue
                         for r in batch:
-                            key = (r["metadata"].get("doc_id", ""), r["metadata"].get("page", 0))
+                            key = (
+                                r["metadata"].get("doc_id") or r.get("text", "")[:80],
+                                r["metadata"].get("page", 0)
+                            )
                             if key not in seen2:
                                 seen2.add(key)
                                 merged2.append(r)
-                    search_results = sorted(merged2, key=lambda x: x.get("score", 0), reverse=True)[:15]
+                    search_results = sorted(merged2, key=lambda x: x.get("score", 0), reverse=True)[:settings.top_k_results]
             else:
                 search_results = await rag_engine.search(
                     req.message, top_k=settings.top_k_results, filter=rag_filter
