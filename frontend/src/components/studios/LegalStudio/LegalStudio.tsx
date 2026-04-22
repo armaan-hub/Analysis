@@ -65,7 +65,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [domain, setDomain] = useState<Domain>('law');
   const { mode, setMode } = useNotebookMode(conversationId ?? null);
-  const { steps, answer, running: researchRunning, run: runDeepResearch } = useDeepResearch(conversationId ?? '');
+  const { steps, answer, streamingContent, running: researchRunning, run: runDeepResearch } = useDeepResearch(conversationId ?? '');
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [domainLocked, setDomainLocked] = useState(false);
   const [searchParams] = useSearchParams();
@@ -99,6 +99,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const chatAreaBottomRef = useRef<HTMLDivElement>(null);
   const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(false);
+  const lastResearchQuery = useRef<string>('');
 
   const [auditorFormat, setAuditorFormat] = useState<AuditorFormat>('standard');
   const [showAuditQuestionnaire, setShowAuditQuestionnaire] = useState(false);
@@ -562,6 +563,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
     if (mode === 'deep_research') {
       setLoading(false);
+      lastResearchQuery.current = text;
       await runDeepResearch(text, selectedDocIds);
       return;
     }
@@ -692,20 +694,17 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Append deep-research answer as AI message when it arrives
+  // Append deep-research answer as research message when it arrives
   useEffect(() => {
     if (!answer) return;
     setMessages(prev => [...prev, {
-      role: 'ai' as const,
-      text: answer.content,
-      time: fmtTime(),
-      sources: answer.sources.map(s => ({
-        source: s.filename,
-        page: s.page ?? '',
-        score: 0,
-        excerpt: '',
-      })),
+      role: 'research' as const,
       id: crypto.randomUUID(),
+      query: lastResearchQuery.current,
+      phases: steps.map(s => ({ phase: s.status, message: s.text })),
+      report: answer.content,
+      sources: answer.sources.map(s => ({ source: s.filename, page: s.page ?? '', score: 0, excerpt: '' })),
+      time: fmtTime(),
     }]);
   }, [answer]);
 
@@ -870,7 +869,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         <ChatWithResearchLayout
           modePills={modePills}
           chatArea={centerContent}
-          researchPanel={<ResearchPanel steps={steps} answer={answer} />}
+          researchPanel={<ResearchPanel steps={steps} answer={answer} streamingContent={streamingContent} />}
         />
         {customTemplatePicker}
       </>
