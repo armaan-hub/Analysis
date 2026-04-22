@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SourcesChip } from './SourcesChip';
+import { normalizeMarkdown } from './ChatMessages';
 import { API_BASE, type Source } from '../../../lib/api';
 
 interface ResearchPhase {
@@ -113,9 +114,7 @@ export function ResearchBubble({ phases, report, sources, query, onSourceClick }
       {/* Final report — rendered as Markdown */}
       {report && (
         <div className="report-markdown" style={{ marginTop: 8 }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {report}
-          </ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(report)}</ReactMarkdown>
         </div>
       )}
 

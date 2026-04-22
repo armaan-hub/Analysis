@@ -40,6 +40,14 @@ function parseThinking(text: string): { thinking: string; answer: string } | nul
   return null;
 }
 
+/**
+ * Normalises LLM-generated markdown so ReactMarkdown renders --- dividers
+ * and ## headers structurally rather than as plain text.
+ *
+ * NOTE: This transform intentionally breaks setext-style H2 headings
+ * (text followed immediately by ---). LLMs don't emit setext headings,
+ * so this trade-off is acceptable.
+ */
 export function normalizeMarkdown(text: string): string {
   return text
     // Blank lines around --- dividers
