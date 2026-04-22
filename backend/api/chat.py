@@ -28,6 +28,9 @@ from core.web_search import search_web, build_web_context
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
+# Type aliases
+ConversationMode = Literal["fast", "deep_research", "analyst"]
+
 _RESEARCH_KEYWORDS = {
     "research", "deep analysis", "deep dive", "analyze", "analyse",
     "investigate", "comprehensive", "detailed report", "full breakdown",
@@ -187,9 +190,6 @@ class ChatResponse(BaseModel):
 class ExportRequest(BaseModel):
     message_id: str
     format: str  # "word" | "pdf" | "excel"
-
-
-ConversationMode = Literal["fast", "deep_research", "analyst"]
 
 
 class ConversationCreate(BaseModel):
