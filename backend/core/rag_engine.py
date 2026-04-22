@@ -366,7 +366,7 @@ Context from indexed documents:
         if search_results:
             context_parts = []
             for i, result in enumerate(search_results, 1):
-                source = result["metadata"].get("source", "Unknown")
+                source = result["metadata"].get("original_name") or result["metadata"].get("source", "Unknown")
                 page = result["metadata"].get("page", "?")
                 score = result.get("score", 0)
                 context_parts.append(

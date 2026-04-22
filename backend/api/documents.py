@@ -248,7 +248,7 @@ async def search_documents(
         "results": [
             DocumentSearchResult(
                 text=r["text"],
-                source=r["metadata"].get("source", "Unknown"),
+                source=r["metadata"].get("original_name") or r["metadata"].get("source", "Unknown"),
                 page=r["metadata"].get("page", "?"),
                 score=round(r.get("score", 0), 3),
             )
