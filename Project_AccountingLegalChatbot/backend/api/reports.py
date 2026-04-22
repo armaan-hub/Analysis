@@ -2294,6 +2294,27 @@ async def compute_aging_schedule(req: AgingScheduleRequest):
 
 # ── Template Management ────────────────────────────────────────────────────
 
+@router.post("/refresh-templates")
+async def refresh_templates():
+    """Attempt to refresh template metadata from official sources."""
+    try:
+        results = template_manager.refresh_cache()
+        status = template_manager.get_cache_status()
+        return {
+            "status": "ok",
+            "results": results,
+            "cache_status": status,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/template-status")
+async def template_status():
+    """Return current template cache status."""
+    return template_manager.get_cache_status()
+
+
 @router.post("/extract-audit-template", response_model=TemplateResponse)
 async def extract_audit_template(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     """Extract audit report template from an uploaded prior year PDF."""
