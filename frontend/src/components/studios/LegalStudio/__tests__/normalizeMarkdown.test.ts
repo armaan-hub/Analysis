@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMarkdown } from '../ChatMessages';
+import { normalizeMarkdown } from '../../../../lib/utils/normalizeMarkdown';
 
 describe('normalizeMarkdown', () => {
   it('adds blank line before ## header when preceded by a non-blank line', () => {

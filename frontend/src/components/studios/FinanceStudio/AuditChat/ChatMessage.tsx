@@ -2,7 +2,7 @@ import type { ChatMessage as CM } from '../types';
 import { FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { normalizeMarkdown } from '../../LegalStudio/ChatMessages';
+import { normalizeMarkdown } from '../../../../lib/utils/normalizeMarkdown';
 
 export function ChatMessage({ msg }: { msg: CM }) {
   return (
