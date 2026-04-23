@@ -24,6 +24,9 @@ import { useDeepResearch } from '../../../hooks/useDeepResearch';
 import { ChatOnlyLayout } from './ChatOnlyLayout';
 import { ChatWithResearchLayout } from './ChatWithResearchLayout';
 import { ResearchPanel } from './ResearchPanel';
+import { useCouncil } from '../../../hooks/useCouncil';
+import { CouncilPanel } from './CouncilPanel';
+import { CouncilButton } from './CouncilButton';
 
 type Domain = 'general' | 'finance' | 'law' | 'audit' | 'vat' | 'aml' | 'legal' | 'corporate_tax'
   | 'peppol' | 'e_invoicing' | 'labour' | 'commercial' | 'ifrs' | 'general_law'
@@ -114,6 +117,11 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(false);
   const lastResearchQuery = useRef<string>('');
+
+  const council = useCouncil();
+  const [councilOpen, setCouncilOpen] = useState(false);
+  const [lastQuestion, setLastQuestion] = useState('');
+  const [lastAnswer, setLastAnswer] = useState('');
 
   const [auditorFormat, setAuditorFormat] = useState<AuditorFormat>('standard');
   const [showAuditQuestionnaire, setShowAuditQuestionnaire] = useState(false);
@@ -290,6 +298,11 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       sendMessageAbortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const { abort } = council;
+    return () => { abort(); };
+  }, [council.abort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Audit flow handlers ---
   const auditFields: PrefilledField[] = useMemo(() => [
@@ -538,8 +551,15 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       return;
     }
 
+    if (text.trim().startsWith('/council')) {
+      setCouncilOpen(true);
+      council.run(lastQuestion, lastAnswer);
+      return;
+    }
+
     const userMsg: Message = { role: 'user', text, time: fmtTime(), id: crypto.randomUUID() };
     setMessages(prev => [...prev, userMsg]);
+    setLastQuestion(text);
     setLoading(true);
     setWebSearching(false);
 
@@ -648,6 +668,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           } catch { /* skip unparseable lines */ }
         }
       }
+      setLastAnswer(aiText);
     } catch (err) {
       const isAbort = err instanceof Error && err.name === 'AbortError';
       console.error('[sendMessage] failed', err);
@@ -673,7 +694,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     API.get('/api/chat/conversations').then(r => {
       onConversationsChange?.(r.data ?? []);
     }).catch(() => {});
-  }, [conversationId, domain, mode, onConversationsChange, domainLocked, artifactOpen, artifactContent, handleRefinement, selectedDocIds, runDeepResearch]);
+  }, [conversationId, domain, mode, onConversationsChange, domainLocked, artifactOpen, artifactContent, handleRefinement, selectedDocIds, runDeepResearch, council, lastQuestion, lastAnswer]);
 
   // --- Source click handler ---
   const handleSourceClick = useCallback((source: Source) => {
@@ -844,10 +865,32 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         mode={mode}
         onModeChange={mode === 'analyst' ? setMode : undefined}
       />
+      {councilOpen && (
+        <div style={{ borderTop: '1px solid #e2e8f0', maxHeight: 500, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', background: '#f7fafc' }}>
+            <span style={{ fontWeight: 600 }}>Council Review</span>
+            <button onClick={() => setCouncilOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+          </div>
+          <CouncilPanel
+            experts={council.experts}
+            synthesis={council.synthesis}
+            running={council.running}
+            error={council.error}
+          />
+        </div>
+      )}
     </>
   );
 
-  const modePills = <ModePills value={mode} onChange={setMode} />;
+  const modePills = (
+    <>
+      <ModePills value={mode} onChange={setMode} />
+      <CouncilButton
+        onClick={() => { setCouncilOpen(true); council.run(lastQuestion, lastAnswer); }}
+        disabled={council.running || mode === 'fast'}
+      />
+    </>
+  );
 
   const customTemplatePicker = (
     <CustomTemplatePicker
