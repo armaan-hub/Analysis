@@ -22,6 +22,7 @@ from core.llm_manager import get_llm_provider
 from core.rag_engine import rag_engine
 from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, FORMATTING_REMINDER
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
+from core.chat.intent_classifier import classify_intent
 from config import settings
 from core.web_search import search_web, build_web_context
 
@@ -419,6 +420,19 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     if req.mode == "fast" and getattr(conversation, "summary", None):
         system_prompt += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
+
+    # Two-pass intent classification: inject output-type directive into system prompt
+    try:
+        classifier_llm = get_llm_provider(req.provider)
+        intent = await classify_intent(req.message, classifier_llm)
+        intent_directive = (
+            f"\n\nUSER INTENT: The user wants a `{intent.output_type}` about `{intent.topic}`. "
+            f"Respond ONLY in that form. Do not produce a different output type. "
+            f"Stay strictly on topic; do not drift to related but unasked subjects."
+        )
+        system_prompt = system_prompt + intent_directive
+    except Exception:
+        pass  # classifier failure is non-fatal
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
