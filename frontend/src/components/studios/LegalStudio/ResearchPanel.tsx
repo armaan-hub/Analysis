@@ -1,12 +1,45 @@
+import { useState } from 'react';
 import type { ResearchStep, ResearchAnswer } from '../../../hooks/useDeepResearch';
+import { API_BASE } from '../../../lib/api';
 
 interface Props {
   steps: ResearchStep[];
   answer: ResearchAnswer | null;
   streamingContent?: string;
+  query?: string;
 }
 
-export function ResearchPanel({ steps, answer, streamingContent }: Props) {
+export function ResearchPanel({ steps, answer, streamingContent, query = '' }: Props) {
+  const [downloading, setDownloading] = useState<'pdf' | 'docx' | null>(null);
+
+  async function downloadResearch(format: 'pdf' | 'docx') {
+    if (!answer) return;
+    setDownloading(format);
+    try {
+      const allSources = [
+        ...answer.sources.map(s => ({ filename: s.filename, page: s.page })),
+        ...answer.web_sources.map(w => ({ title: w.title, url: w.url })),
+      ];
+      const res = await fetch(`${API_BASE}/api/chat/export-deep-research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: answer.content, sources: allSources, query, format }),
+      });
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `deep_research_report.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[downloadResearch]', err);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
   return (
     <aside className="research-panel">
       <div className="research-panel__header">🔬 Research Log</div>
@@ -61,6 +94,30 @@ export function ResearchPanel({ steps, answer, streamingContent }: Props) {
               </ul>
             </section>
           )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '0 0 4px' }}>
+            <button
+              onClick={() => downloadResearch('pdf')}
+              disabled={downloading !== null}
+              style={{
+                flex: 1, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+                border: '1px solid var(--s-border, #e2e8f0)', borderRadius: 6,
+                background: 'var(--s-bg-2, #f8fafc)', color: 'var(--s-text-1, #1e293b)',
+              }}
+            >
+              {downloading === 'pdf' ? '⏳ Exporting…' : '⬇ Download PDF'}
+            </button>
+            <button
+              onClick={() => downloadResearch('docx')}
+              disabled={downloading !== null}
+              style={{
+                flex: 1, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+                border: '1px solid var(--s-border, #e2e8f0)', borderRadius: 6,
+                background: 'var(--s-bg-2, #f8fafc)', color: 'var(--s-text-1, #1e293b)',
+              }}
+            >
+              {downloading === 'docx' ? '⏳ Exporting…' : '⬇ Download DOCX'}
+            </button>
+          </div>
         </>
       )}
     </aside>

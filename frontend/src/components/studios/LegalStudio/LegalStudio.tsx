@@ -876,7 +876,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                   Deep research failed: {researchError}
                 </div>
               )}
-              <ResearchPanel steps={steps} answer={answer} streamingContent={streamingContent} />
+              <ResearchPanel steps={steps} answer={answer} streamingContent={streamingContent} query={lastResearchQuery.current} />
             </>
           }
         />
