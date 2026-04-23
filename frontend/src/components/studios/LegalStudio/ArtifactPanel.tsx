@@ -1,7 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, Suspense, lazy } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { MisKpiCards } from './MisKpiCards';
-import { MisChart, type ChartDataPoint } from './MisChart';
+import type { ChartDataPoint } from './MisChart';
+
+const MisKpiCards = lazy(() =>
+  import('./MisKpiCards').then(m => ({ default: m.MisKpiCards }))
+);
+const MisChart = lazy(() =>
+  import('./MisChart').then(m => ({ default: m.MisChart }))
+);
 
 interface Props {
   open: boolean;
@@ -68,11 +74,17 @@ export function ArtifactPanel({ open, title, reportType, content, loading, onClo
           </div>
         ) : (
           <>
-            {reportType === 'mis' && kpis.length > 0 && <MisKpiCards kpis={kpis} />}
+            {reportType === 'mis' && kpis.length > 0 && (
+              <Suspense fallback={<div className="loading-placeholder">Loading charts…</div>}>
+                <MisKpiCards kpis={kpis} />
+              </Suspense>
+            )}
             {reportType === 'mis' && chartData.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <MisChart data={chartData} type="bar" />
-              </div>
+              <Suspense fallback={<div className="loading-placeholder">Loading charts…</div>}>
+                <div style={{ marginBottom: 16 }}>
+                  <MisChart data={chartData} type="bar" />
+                </div>
+              </Suspense>
             )}
             <div style={{
               fontSize: 13, lineHeight: 1.7, color: 'var(--s-text-1)',
