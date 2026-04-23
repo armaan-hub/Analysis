@@ -2,7 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SourcesChip } from './SourcesChip';
-import { normalizeMarkdown } from './ChatMessages';
+import { normalizeMarkdown } from '../../../lib/utils/normalizeMarkdown';
 import { API_BASE, type Source } from '../../../lib/api';
 
 interface ResearchPhase {

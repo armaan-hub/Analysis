@@ -102,7 +102,6 @@ from api.audit_profiles import router as audit_profiles_router
 from api.templates import router as templates_router
 from api import audit_studio
 from api.legal_studio import router as legal_studio_router
-from api.research import router as research_router
 
 app.include_router(chat_router)
 app.include_router(documents_router)
@@ -113,7 +112,6 @@ app.include_router(audit_profiles_router)
 app.include_router(templates_router)
 app.include_router(audit_studio.router)
 app.include_router(legal_studio_router)
-app.include_router(research_router)
 
 
 # ── Root Endpoint ─────────────────────────────────────────────────
