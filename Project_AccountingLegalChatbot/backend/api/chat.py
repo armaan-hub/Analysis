@@ -417,10 +417,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
         try:
             if req.mode == "fast":
-                query_variations = await _get_query_variations(req.message, getattr(req, 'provider', None))
+                query_variations = await _get_query_variations(req.message, req.provider)
                 all_results = await asyncio.gather(
                     *[
-                        rag_engine.search(q, top_k=settings.top_k_results, filter=rag_filter)
+                        rag_engine.search(q, top_k=settings.fast_top_k, filter=rag_filter)
                         for q in query_variations
                     ],
                     return_exceptions=True,
@@ -438,11 +438,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         if key not in seen:
                             seen.add(key)
                             merged.append(r)
-                search_results = sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:settings.top_k_results]
+                search_results = sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:settings.fast_top_k]
                 # Fall back to unfiltered if domain filter yields nothing
                 if rag_filter and not search_results:
                     fallback = await asyncio.gather(
-                        *[rag_engine.search(q, top_k=settings.top_k_results) for q in query_variations],
+                        *[rag_engine.search(q, top_k=settings.fast_top_k) for q in query_variations],
                         return_exceptions=True,
                     )
                     seen2: set[tuple] = set()
@@ -458,7 +458,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             if key not in seen2:
                                 seen2.add(key)
                                 merged2.append(r)
-                    search_results = sorted(merged2, key=lambda x: x.get("score", 0), reverse=True)[:settings.top_k_results]
+                    search_results = sorted(merged2, key=lambda x: x.get("score", 0), reverse=True)[:settings.fast_top_k]
             else:
                 search_results = await rag_engine.search(
                     req.message, top_k=settings.top_k_results, filter=rag_filter
@@ -590,7 +590,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     async for chunk in llm.chat_stream(
                         messages,
                         temperature=settings.temperature,
-                        max_tokens=settings.max_tokens,
+                        max_tokens=settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens,
                     ):
                         full_response += chunk
                         yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
@@ -633,7 +633,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         response = await llm.chat(
             messages,
             temperature=settings.temperature,
-            max_tokens=settings.max_tokens,
+            max_tokens=settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens,
         )
     except Exception as e:
         import httpx as _httpx

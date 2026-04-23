@@ -75,8 +75,10 @@ class Settings(BaseSettings):
     # ── RAG Settings ─────────────────────────────────────────────────
     chunk_size: int = 1000
     chunk_overlap: int = 200
-    top_k_results: int = 15
-    max_tokens: int = 8192
+    top_k_results: int = 8       # default for analyst / deep_research modes
+    max_tokens: int = 4096       # default for analyst / deep_research modes
+    fast_top_k: int = 15         # fast mode: higher retrieval budget
+    fast_max_tokens: int = 8192  # fast mode: larger response window
     temperature: float = 0.7
 
     model_config = SettingsConfigDict(case_sensitive=False)
