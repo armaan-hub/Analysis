@@ -13,8 +13,8 @@ async def test_intent_directive_is_appended(client):
     captured = {}
 
     async def fake_chat(messages, **kw):
-        # Intent classifier call uses max_tokens=120
-        if kw.get("max_tokens") == 120:
+        content = messages[0].get("content", "") if messages else ""
+        if "Classify the user" in content:
             from types import SimpleNamespace
             return SimpleNamespace(content='{"output_type":"list","topic":"VAT exempt items"}')
         # Final LLM call — capture messages so we can assert on the system prompt

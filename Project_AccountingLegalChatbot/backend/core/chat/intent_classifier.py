@@ -1,10 +1,14 @@
 from __future__ import annotations
 import json
+import logging
 import re
 from dataclasses import dataclass
 from typing import Literal
 
+logger = logging.getLogger(__name__)
+
 OutputType = Literal["answer", "explanation", "list", "table", "report", "comparison", "calculation"]
+VALID_OUTPUT_TYPES = frozenset({"answer", "explanation", "list", "table", "report", "comparison", "calculation"})
 
 @dataclass
 class Intent:
@@ -28,9 +32,12 @@ async def classify_intent(question: str, llm) -> Intent:
         if not match:
             return Intent(output_type="answer", topic=question[:80])
         data = json.loads(match.group())
+        raw_type = data.get("output_type", "answer")
+        output_type: OutputType = raw_type if raw_type in VALID_OUTPUT_TYPES else "answer"
         return Intent(
-            output_type=data.get("output_type", "answer"),
-            topic=data.get("topic", question[:80]),
+            output_type=output_type,
+            topic=data.get("topic", question[:80])[:80],
         )
-    except Exception:
+    except Exception as exc:
+        logger.debug("Intent classification failed (non-fatal): %s", exc)
         return Intent(output_type="answer", topic=question[:80])
