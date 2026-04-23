@@ -63,6 +63,12 @@ async def test_notebook_sources_falls_back_to_id_when_doc_missing(client, db_ses
 
 
 @pytest.mark.asyncio
+async def test_notebook_sources_404_for_unknown_conversation(client):
+    resp = await client.get("/api/legal-studio/notebook/does-not-exist/sources")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_notebook_sources_empty_when_no_sources(client, db_session):
     """Endpoint returns empty sources list when conversation has no checked sources."""
     conv = Conversation(
