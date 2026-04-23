@@ -552,6 +552,15 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     }
 
     if (text.trim().startsWith('/council')) {
+      if (!lastAnswer) {
+        setMessages(prev => [...prev, {
+          role: 'ai' as const,
+          text: '⚠️ Ask a question first before running the council.',
+          time: fmtTime(),
+          id: crypto.randomUUID(),
+        }]);
+        return;
+      }
       setCouncilOpen(true);
       council.run(lastQuestion, lastAnswer);
       return;
@@ -887,7 +896,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       <ModePills value={mode} onChange={setMode} />
       <CouncilButton
         onClick={() => { setCouncilOpen(true); council.run(lastQuestion, lastAnswer); }}
-        disabled={council.running || mode === 'fast'}
+        disabled={council.running || mode === 'fast' || !lastAnswer}
       />
     </>
   );
