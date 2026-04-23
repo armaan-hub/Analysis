@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface State { hasError: boolean; error: Error | null; }
-interface Props { children: React.ReactNode; onReset?: () => void; }
+interface Props { children: React.ReactNode; onReset?: () => void; onError?: (error: Error, info: React.ErrorInfo) => void; }
 
 export class AnalystErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, error: null };
@@ -12,6 +12,8 @@ export class AnalystErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[AnalystErrorBoundary]', error, info);
+    // TODO: integrate with error monitoring (e.g. Sentry.captureException)
+    this.props.onError?.(error, info);
   }
 
   handleReset = () => {
@@ -27,7 +29,7 @@ export class AnalystErrorBoundary extends React.Component<Props, State> {
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#555', marginBottom: 16 }}>
             {this.state.error?.message}
           </pre>
-          <button type="button" onClick={this.handleReset} className="btn-secondary">
+          <button type="button" onClick={this.handleReset} className="btn btn-secondary">
             Reset Analyst
           </button>
         </div>
