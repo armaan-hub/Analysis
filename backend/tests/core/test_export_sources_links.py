@@ -16,9 +16,14 @@ def test_pdf_appendix_contains_url():
 
 def test_docx_appendix_contains_url():
     docx_bytes = to_branded_docx("# Body\nContent here", SOURCES, "Test query")
-    # DOCX is a ZIP; extract document.xml to check for hyperlink
-    with zipfile.ZipFile(io.BytesIO(docx_bytes), 'r') as z:
-        doc_xml = z.read('word/document.xml')
-        assert b"tax.gov.ae" in doc_xml
-        assert b"article-31" in doc_xml
+    import io, zipfile
+    with zipfile.ZipFile(io.BytesIO(docx_bytes), "r") as z:
+        rels_xml = z.read("word/_rels/document.xml.rels")
+        doc_xml  = z.read("word/document.xml")
+    # The hyperlink target must be registered as an external relationship
+    assert b"tax.gov.ae" in rels_xml
+    assert b"article-31" in rels_xml
+    assert b'TargetMode="External"' in rels_xml
+    # Display text also appears in document body
+    assert b"tax.gov.ae" in doc_xml
 
