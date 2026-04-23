@@ -4,6 +4,7 @@ Produces professional documents with cover page, headings, body, and sources app
 """
 from __future__ import annotations
 
+import html
 import io
 import logging
 import re
@@ -176,9 +177,9 @@ def to_branded_pdf(content: str, sources: list[dict[str, Any]], query: str) -> b
             ))
             url = src.get("url")
             if url:
-                safe_url = url.replace("&", "&amp;")
                 story.append(Paragraph(
-                    f'<link href="{safe_url}" color="#1a365d"><u>{safe_url}</u></link>',
+                    f'<link href="{html.escape(url, quote=True)}" color="#1a365d">'
+                    f'<u>{html.escape(url)}</u></link>',
                     source_style,
                 ))
             if excerpt:
