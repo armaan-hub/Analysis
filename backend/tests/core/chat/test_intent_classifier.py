@@ -36,3 +36,9 @@ async def test_classify_list_type():
     intent = await classify_intent("Give me a list of VAT exempt items", llm)
     assert intent.output_type == "list"
     assert "VAT" in intent.topic
+
+@pytest.mark.asyncio
+async def test_classify_falls_back_to_answer_on_unknown_output_type():
+    llm = _FakeLLM('{"output_type":"essay","topic":"VAT"}')
+    intent = await classify_intent("Explain VAT", llm)
+    assert intent.output_type == "answer"  # "essay" is not a valid type

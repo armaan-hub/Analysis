@@ -422,17 +422,17 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         system_prompt += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
 
     # Two-pass intent classification: inject output-type directive into system prompt
+    llm = get_llm_provider(req.provider)  # single instantiation, used for both classifier and main LLM
     try:
-        classifier_llm = get_llm_provider(req.provider)
-        intent = await classify_intent(req.message, classifier_llm)
+        intent = await classify_intent(req.message, llm)
         intent_directive = (
             f"\n\nUSER INTENT: The user wants a `{intent.output_type}` about `{intent.topic}`. "
             f"Respond ONLY in that form. Do not produce a different output type. "
             f"Stay strictly on topic; do not drift to related but unasked subjects."
         )
         system_prompt = system_prompt + intent_directive
-    except Exception:
-        pass  # classifier failure is non-fatal
+    except Exception as exc:
+        logger.warning("Intent classification failed (non-fatal): %s", exc)
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
@@ -531,8 +531,6 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     # Call LLM
     try:
-        llm = get_llm_provider(req.provider)
-
         if req.stream:
             # For streaming, return SSE response
             async def generate():
