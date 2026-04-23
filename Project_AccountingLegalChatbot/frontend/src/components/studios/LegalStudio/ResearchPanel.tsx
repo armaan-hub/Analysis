@@ -19,8 +19,8 @@ export function ResearchPanel({ steps, answer, streamingContent }: Props) {
 
       {!answer && streamingContent && (
         <div className="research-panel__section">
-          <div className="research-panel__streaming-label" style={{fontSize:'0.75rem', opacity:0.7, marginBottom:'4px'}}>Synthesising…</div>
-          <div style={{fontSize:'0.875rem', whiteSpace:'pre-wrap', opacity:0.85}}>{streamingContent}</div>
+          <div className="research-panel__streaming-label">Synthesising…</div>
+          <div className="research-panel__streaming-preview">{streamingContent}</div>
         </div>
       )}
 
