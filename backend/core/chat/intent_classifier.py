@@ -15,16 +15,16 @@ class Intent:
     output_type: OutputType
     topic: str
 
-CLASSIFY_PROMPT = (
+_CLASSIFY_PROMPT_PREFIX = (
     "Classify the user's question. Return ONLY JSON of the form "
-    '{{"output_type":"answer|explanation|list|table|report|comparison|calculation",'
-    '"topic":"<short topic>"}}. No explanation.\n\nQuestion: {q}'
+    '{"output_type":"answer|explanation|list|table|report|comparison|calculation",'
+    '"topic":"<short topic>"}. No explanation.\n\nQuestion: '
 )
 
 async def classify_intent(question: str, llm) -> Intent:
     try:
         resp = await llm.chat(
-            messages=[{"role": "user", "content": CLASSIFY_PROMPT.format(q=question)}],
+            messages=[{"role": "user", "content": _CLASSIFY_PROMPT_PREFIX + question}],
             max_tokens=120,
             temperature=0.0,
         )

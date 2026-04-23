@@ -7,6 +7,7 @@ interface Props {
   error: string | null;
 }
 
+// Must match Expert.name values in backend/core/council/personas.py
 const ORDER = ['Senior CA', 'CPA', 'CMA', 'Financial Analyst'];
 
 export function CouncilPanel({ experts, synthesis, running, error }: Props) {

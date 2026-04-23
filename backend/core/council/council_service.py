@@ -67,10 +67,16 @@ async def run_council(*, question: str, base_answer: str, llm) -> AsyncGenerator
             synth_prompt = _build_synthesis_prompt(question, base_answer, prior_critiques)
             yield {"type": "council_synthesis", "status": "thinking"}
             synth_buf: list[str] = []
-            async for piece in llm.stream(synth_prompt, max_tokens=800, temperature=0.2):
-                synth_buf.append(piece)
-                yield {"type": "council_synthesis", "delta": piece}
-            yield {"type": "council_synthesis", "content": "".join(synth_buf), "final": True}
+            try:
+                async for piece in llm.stream(synth_prompt, max_tokens=800, temperature=0.2):
+                    synth_buf.append(piece)
+                    yield {"type": "council_synthesis", "delta": piece}
+                yield {"type": "council_synthesis", "content": "".join(synth_buf), "final": True}
+            except Exception as exc:
+                if synth_buf:
+                    yield {"type": "council_synthesis", "content": "".join(synth_buf),
+                           "final": True, "truncated": True}
+                raise
     except GeneratorExit:
         return
     except Exception as exc:

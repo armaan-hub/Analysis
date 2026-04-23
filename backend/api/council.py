@@ -33,4 +33,8 @@ async def council_stream(req: CouncilRequest):
             yield f"data: {json.dumps({'type': 'council_error', 'error': str(exc)})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'error': str(exc)})}\n\n"
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
