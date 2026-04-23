@@ -872,15 +872,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           researchPanel={
             <>
               {researchError && (
-                <div style={{
-                  background: '#fff5f5',
-                  border: '1px solid #fed7d7',
-                  borderRadius: 6,
-                  padding: '8px 12px',
-                  color: '#c53030',
-                  fontSize: 13,
-                  marginBottom: 8,
-                }}>
+                <div className="error-banner" role="alert" style={{ marginBottom: 8 }}>
                   Deep research failed: {researchError}
                 </div>
               )}
