@@ -543,6 +543,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
     try {
       const body: any = {
         message: text, conversation_id: conversationId,
@@ -552,9 +555,10 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
       const reader = response.body?.getReader();
-      if (!reader) { setLoading(false); return; }
+      if (!reader) return;
 
       let aiText = '';
       let sources: Source[] = [];
@@ -620,10 +624,19 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           } catch { /* skip unparseable lines */ }
         }
       }
-    } catch { /* ignore */ }
-
-    setLoading(false);
-    setWebSearching(false);
+    } catch (err) {
+      console.error('[sendMessage] failed', err);
+      setMessages(prev => [...prev, {
+        role: 'ai',
+        text: '⚠️ Request failed or timed out. Please try again.',
+        time: fmtTime(),
+        id: crypto.randomUUID(),
+      }]);
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setWebSearching(false);
+    }
 
     // Refresh conversations
     API.get('/api/chat/conversations').then(r => {
