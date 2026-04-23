@@ -65,7 +65,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [domain, setDomain] = useState<Domain>('law');
   const { mode, setMode } = useNotebookMode(conversationId ?? null);
-  const { steps, answer, streamingContent, running: researchRunning, run: runDeepResearch } = useDeepResearch(conversationId ?? '');
+  const { steps, answer, streamingContent, running: researchRunning, error: researchError, run: runDeepResearch } = useDeepResearch(conversationId ?? '');
   const [detectedDomain, setDetectedDomain] = useState<DomainLabel | null>(null);
   const [domainLocked, setDomainLocked] = useState(false);
   const [searchParams] = useSearchParams();
@@ -869,7 +869,24 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         <ChatWithResearchLayout
           modePills={modePills}
           chatArea={centerContent}
-          researchPanel={<ResearchPanel steps={steps} answer={answer} streamingContent={streamingContent} />}
+          researchPanel={
+            <>
+              {researchError && (
+                <div style={{
+                  background: '#fff5f5',
+                  border: '1px solid #fed7d7',
+                  borderRadius: 6,
+                  padding: '8px 12px',
+                  color: '#c53030',
+                  fontSize: 13,
+                  marginBottom: 8,
+                }}>
+                  Deep research failed: {researchError}
+                </div>
+              )}
+              <ResearchPanel steps={steps} answer={answer} streamingContent={streamingContent} />
+            </>
+          }
         />
         {customTemplatePicker}
       </>
