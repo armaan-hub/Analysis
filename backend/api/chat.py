@@ -54,6 +54,8 @@ QUERY_VARIATION_PROMPT = (
 
 async def _get_query_variations(query: str, provider: str | None = None) -> list[str]:
     """Return [original, variation1, variation2]. Falls back to [original] on any error."""
+    if len(query.split()) <= 3:
+        return [query]
     try:
         llm = get_llm_provider(provider)
         resp = await llm.chat(
@@ -69,6 +71,23 @@ async def _get_query_variations(query: str, provider: str | None = None) -> list
     except Exception:
         return [query]
 
+
+def _dedup_merge(batches: list, top_k: int) -> list:
+    """Deduplicate and merge RAG result batches, returning top-k by score."""
+    seen: set[tuple] = set()
+    merged: list = []
+    for batch in batches:
+        if isinstance(batch, Exception):
+            continue
+        for r in batch:
+            key = (
+                r["metadata"].get("doc_id") or r.get("text", "")[:80],
+                r["metadata"].get("page", 0)
+            )
+            if key not in seen:
+                seen.add(key)
+                merged.append(r)
+    return sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:top_k]
 
 async def _get_or_refresh_summary(conversation_id: str, history_count: int, provider: str | None = None) -> None:
     """Summarise oldest messages when conversation grows beyond 20 turns. Non-fatal."""
@@ -310,7 +329,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
         prev_conv = prev_conv_result.scalar_one_or_none()
         if prev_conv:
-            now_naive = datetime.utcnow()
+            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
             updated_naive = prev_conv.updated_at.replace(tzinfo=None) if prev_conv.updated_at.tzinfo else prev_conv.updated_at
             idle_minutes = (now_naive - updated_naive).total_seconds() / 60
             if idle_minutes >= 30:
@@ -425,40 +444,14 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     ],
                     return_exceptions=True,
                 )
-                seen: set[tuple] = set()
-                merged: list = []
-                for batch in all_results:
-                    if isinstance(batch, Exception):
-                        continue
-                    for r in batch:
-                        key = (
-                            r["metadata"].get("doc_id") or r.get("text", "")[:80],
-                            r["metadata"].get("page", 0)
-                        )
-                        if key not in seen:
-                            seen.add(key)
-                            merged.append(r)
-                search_results = sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:settings.fast_top_k]
+                search_results = _dedup_merge(all_results, settings.fast_top_k)
                 # Fall back to unfiltered if domain filter yields nothing
                 if rag_filter and not search_results:
                     fallback = await asyncio.gather(
                         *[rag_engine.search(q, top_k=settings.fast_top_k) for q in query_variations],
                         return_exceptions=True,
                     )
-                    seen2: set[tuple] = set()
-                    merged2: list = []
-                    for batch in fallback:
-                        if isinstance(batch, Exception):
-                            continue
-                        for r in batch:
-                            key = (
-                                r["metadata"].get("doc_id") or r.get("text", "")[:80],
-                                r["metadata"].get("page", 0)
-                            )
-                            if key not in seen2:
-                                seen2.add(key)
-                                merged2.append(r)
-                    search_results = sorted(merged2, key=lambda x: x.get("score", 0), reverse=True)[:settings.fast_top_k]
+                    search_results = _dedup_merge(fallback, settings.fast_top_k)
             else:
                 search_results = await rag_engine.search(
                     req.message, top_k=settings.top_k_results, filter=rag_filter
