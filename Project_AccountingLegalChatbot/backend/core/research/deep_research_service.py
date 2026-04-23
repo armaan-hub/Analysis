@@ -87,13 +87,17 @@ async def run_deep_research(
             ],
         }
         answer_emitted = True
+    except GeneratorExit:
+        return  # Client disconnected — do not yield, let generator close cleanly
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
         yield {"type": "step", "text": f"Error: {error}"}
-    finally:
-        done_payload: dict = {"type": "done"}
-        if error:
-            done_payload["error"] = error
-        if not answer_emitted:
-            done_payload["partial"] = True
-        yield done_payload
+
+    # Emit done — runs after normal completion OR after except Exception,
+    # but NOT after except GeneratorExit (which returns early above).
+    done_payload: dict = {"type": "done"}
+    if error:
+        done_payload["error"] = error
+    if not answer_emitted:
+        done_payload["partial"] = True
+    yield done_payload

@@ -41,3 +41,4 @@ async def test_done_event_emitted_even_on_llm_failure(monkeypatch):
     done_evt = next(e for e in events if e["type"] == "done")
     assert "error" in done_evt
     assert "LLM exploded" in done_evt["error"]
+    assert done_evt.get("partial") is True, "done event should mark partial=True when no answer was emitted"
