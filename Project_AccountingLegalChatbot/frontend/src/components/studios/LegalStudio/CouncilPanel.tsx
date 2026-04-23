@@ -1,4 +1,4 @@
-import { ExpertState } from '../../../hooks/useCouncil';
+import type { ExpertState } from '../../../hooks/useCouncil';
 
 interface Props {
   experts: Record<string, ExpertState>;
