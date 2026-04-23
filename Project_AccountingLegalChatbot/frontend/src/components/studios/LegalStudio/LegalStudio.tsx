@@ -10,6 +10,7 @@ import { SourcePeeker } from './SourcePeeker';
 import { SourcesSidebar, type SourceDoc } from './SourcesSidebar';
 import { StudioPanel } from './StudioPanel';
 import { ThreePaneLayout } from './ThreePaneLayout';
+import { AnalystErrorBoundary } from './AnalystErrorBoundary';
 import { ModePills } from './ModePills';
 import { DomainChip, type DomainLabel } from './DomainChip';
 import { QuestionnaireMessage, type PrefilledField } from './QuestionnaireMessage';
@@ -888,6 +889,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   // analyst mode — ThreePaneLayout
   return (
     <>
+    <AnalystErrorBoundary onReset={() => setMode('fast')}>
     <ThreePaneLayout
       left={
         <>
@@ -927,6 +929,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         <StudioPanel sourceIds={selectedDocIds} mode={mode} onReportRequest={handleReportRequest} auditorFormat={auditorFormat} onFormatChange={setAuditorFormat} />
       )}
     />
+    </AnalystErrorBoundary>
     {customTemplatePicker}
     </>
   );
