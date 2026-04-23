@@ -54,7 +54,7 @@ function isRefinementInstruction(text: string): boolean {
   return REFINEMENT_STARTS.some(s => text.toLowerCase().startsWith(s));
 }
 
-interface AuditFinding { severity: 'low' | 'medium' | 'high' | string; document: string; finding: string; }
+interface AuditFinding { severity: 'low' | 'medium' | 'high'; document: string; finding: string; }
 interface AuditResultData {
   risk_flags: AuditFinding[];
   anomalies: AuditFinding[];
