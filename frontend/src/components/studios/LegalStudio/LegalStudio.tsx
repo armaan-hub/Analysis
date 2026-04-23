@@ -51,7 +51,7 @@ function isRefinementInstruction(text: string): boolean {
   return REFINEMENT_STARTS.some(s => text.toLowerCase().startsWith(s));
 }
 
-interface AuditFinding { severity: string; document: string; finding: string; }
+interface AuditFinding { severity: 'low' | 'medium' | 'high' | string; document: string; finding: string; }
 interface AuditResultData {
   risk_flags: AuditFinding[];
   anomalies: AuditFinding[];
@@ -71,7 +71,7 @@ function formatAuditResultAsMarkdown(data: AuditResultData): string {
     const rows = data[key] ?? [];
     if (rows.length) {
       lines.push(`### ${label}\n`);
-      for (const f of rows) { lines.push(`- **[${f.severity.toUpperCase()}]** ${f.document}: ${f.finding}`); }
+       for (const f of rows) { lines.push(`- **[${(f.severity ?? 'unknown').toUpperCase()}]** ${f.document}: ${f.finding}`); }
       lines.push('');
     }
   }
@@ -103,9 +103,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [auditResult, setAuditResult] = useState<{
-    risk_flags: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
-    anomalies: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
-    compliance_gaps: { severity: 'low' | 'medium' | 'high'; document: string; finding: string }[];
+    risk_flags: AuditFinding[];
+    anomalies: AuditFinding[];
+    compliance_gaps: AuditFinding[];
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
