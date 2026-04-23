@@ -36,7 +36,9 @@ export function useDeepResearch(conversationId: string) {
         });
         setStreamingContent('');
       } else if (ev.type === 'done') {
-        if (ev.error) setError(ev.error as string);
+        if (ev.error != null) {
+          setError(typeof ev.error === 'string' ? ev.error : String(ev.error));
+        }
         setRunning(false);
       } else if (ev.type === 'error') {
         setSteps(prev => [...prev, { text: ev.text ?? 'Error', status: 'error' }]);
