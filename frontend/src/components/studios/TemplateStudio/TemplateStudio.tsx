@@ -58,7 +58,7 @@ export function TemplateStudio() {
 
   // Detail modal
   const [selectedDetail, setSelectedDetail] = useState<TemplateDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading] = useState(false);
 
   // Editor
   const [editingTemplate, setEditingTemplate] = useState<TemplateDetail | null>(null);
@@ -159,18 +159,6 @@ export function TemplateStudio() {
   }, []);
 
   /* ── Actions ─────────────────────────────────────────────────── */
-
-  const viewDetail = async (id: string) => {
-    setDetailLoading(true);
-    try {
-      const { data } = await API.get<TemplateDetail>(`/api/templates/${id}`);
-      setSelectedDetail(data);
-    } catch (e) {
-      setError(getErrMsg(e, 'Failed to load template'));
-    } finally {
-      setDetailLoading(false);
-    }
-  };
 
   const publishTemplate = async (id: string) => {
     try {

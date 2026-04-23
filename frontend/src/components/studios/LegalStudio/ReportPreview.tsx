@@ -8,6 +8,7 @@ const FORMAT_LABELS: Record<AuditorFormat, string> = {
   big4: 'Big 4 Format',
   legal: 'Legal Brief Format',
   compliance: 'Compliance Format',
+  custom: 'Custom Format',
 };
 
 const REPORT_LABELS: Partial<Record<ReportType, string>> = {

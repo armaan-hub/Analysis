@@ -13,7 +13,7 @@ beforeEach(() => {
       closeSse = () => controller.close();
     },
   });
-  global.fetch = vi.fn().mockResolvedValue({ ok: true, body: stream } as any);
+  (globalThis as Record<string, unknown>).fetch = vi.fn().mockResolvedValue({ ok: true, body: stream } as any);
 });
 
 describe('useDeepResearch', () => {

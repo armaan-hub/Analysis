@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Message, ResearchMessage, Source } from '../../../lib/api';
+import type { Message, ResearchMessage, Source, TextMessage } from '../../../lib/api';
 import { ChatMessageActions } from '../../ChatMessageActions';
 import { SourcesChip } from './SourcesChip';
 import { ResearchBubble } from './ResearchBubble';
@@ -125,7 +125,7 @@ export function ChatMessages({ messages, loading, webSearching, onSourceClick, a
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const title = messages.find(m => m.role === 'user')?.text;
+  const title = messages.find((m): m is TextMessage => m.role === 'user')?.text;
 
   if (messages.length === 0 && !loading) {
     return (

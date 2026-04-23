@@ -45,12 +45,6 @@ function titleToGradient(title: string): string {
   return `linear-gradient(135deg, hsl(${h1}, 60%, 35%), hsl(${h2}, 50%, 25%))`;
 }
 
-function titleInitials(title: string): string {
-  const trimmed = title.trim();
-  if (!trimmed) return '?';
-  return trimmed.length === 1 ? trimmed[0].toUpperCase() : trimmed.slice(0, 2).toUpperCase();
-}
-
 export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selectionMode, selected, onToggleSelect }: Props) {
   const [hovered, setHovered] = useState(false);
 
