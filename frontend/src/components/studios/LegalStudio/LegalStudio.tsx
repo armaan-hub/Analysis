@@ -138,6 +138,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const [artifactContent, setArtifactContent] = useState('');
   const [artifactLoading, setArtifactLoading] = useState(false);
   const abortReportRef = useRef<AbortController | null>(null);
+  const sendMessageAbortRef = useRef<AbortController | null>(null);
   const [artifactEntityName, setArtifactEntityName] = useState('');
   const [artifactPeriodEnd, setArtifactPeriodEnd] = useState('');
 
@@ -283,6 +284,12 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       }
     };
   }, [conversationId, selectedDocIds]);
+
+  useEffect(() => {
+    return () => {
+      sendMessageAbortRef.current?.abort();
+    };
+  }, []);
 
   // --- Audit flow handlers ---
   const auditFields: PrefilledField[] = useMemo(() => [
@@ -539,12 +546,27 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     if (mode === 'deep_research') {
       setLoading(false);
       lastResearchQuery.current = text;
-      await runDeepResearch(text, selectedDocIds);
+      try {
+        await runDeepResearch(text, selectedDocIds);
+      } catch (err) {
+        console.error('[sendMessage] deep_research failed', err);
+        setMessages(prev => [...prev, {
+          role: 'ai',
+          text: '⚠️ Deep research failed. Please try again.',
+          time: fmtTime(),
+          id: crypto.randomUUID(),
+        }]);
+      }
       return;
     }
 
+    const aiMsgId = crypto.randomUUID();
+    sendMessageAbortRef.current?.abort();
     const controller = new AbortController();
+    sendMessageAbortRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
     try {
       const body: any = {
@@ -557,14 +579,16 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      const reader = response.body?.getReader();
-      if (!reader) return;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      reader = response.body!.getReader();
 
       let aiText = '';
       let sources: Source[] = [];
       const decoder = new TextDecoder();
 
-      const aiMsg: Message = { role: 'ai', text: '', time: fmtTime(), id: crypto.randomUUID() };
+      const aiMsg: Message = { role: 'ai', text: '', time: fmtTime(), id: aiMsgId };
       setMessages(prev => [...prev, aiMsg]);
 
       while (true) {
@@ -625,15 +649,22 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         }
       }
     } catch (err) {
+      const isAbort = err instanceof Error && err.name === 'AbortError';
       console.error('[sendMessage] failed', err);
-      setMessages(prev => [...prev, {
-        role: 'ai',
-        text: '⚠️ Request failed or timed out. Please try again.',
-        time: fmtTime(),
-        id: crypto.randomUUID(),
-      }]);
+      setMessages(prev => {
+        const withoutPartial = prev.filter(m => m.id !== aiMsgId);
+        return [...withoutPartial, {
+          role: 'ai',
+          text: isAbort
+            ? '⚠️ Request timed out (30s). Please try again.'
+            : '⚠️ Request failed. Please check your connection and try again.',
+          time: fmtTime(),
+          id: crypto.randomUUID(),
+        }];
+      });
     } finally {
       clearTimeout(timeoutId);
+      reader?.cancel();
       setLoading(false);
       setWebSearching(false);
     }
@@ -642,7 +673,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     API.get('/api/chat/conversations').then(r => {
       onConversationsChange?.(r.data ?? []);
     }).catch(() => {});
-  }, [conversationId, domain, mode, onConversationsChange]);
+  }, [conversationId, domain, mode, onConversationsChange, domainLocked, artifactOpen, artifactContent, handleRefinement, selectedDocIds, runDeepResearch]);
 
   // --- Source click handler ---
   const handleSourceClick = useCallback((source: Source) => {
