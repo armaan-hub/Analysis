@@ -241,14 +241,17 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     isInitialLoadRef.current = false;
     API.get(`/api/legal-studio/notebook/${initialConversationId}/sources`)
       .then(r => {
-        const ids: string[] = r.data?.source_ids ?? [];
-        if (ids.length > 0) {
+        const rawSources: Array<{ id: string; name: string }> =
+          r.data?.sources ??
+          (r.data?.source_ids ?? []).map((id: string) => ({ id, name: id }));
+        if (rawSources.length > 0) {
           isInitialLoadRef.current = true;
-          setSelectedDocIds(ids);
-          setDocs(ids.map(id => ({
-            id,
-            filename: id,
-            source: id,
+          setSelectedDocIds(rawSources.map(s => s.id));
+          setDocs(rawSources.map(s => ({
+            id: s.id,
+            filename: s.name,
+            original_name: s.name,
+            source: s.name,
             status: 'ready' as const,
           })));
         }

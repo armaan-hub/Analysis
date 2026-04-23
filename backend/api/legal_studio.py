@@ -242,12 +242,27 @@ async def save_checked_sources(req: SaveSourcesRequest, db: AsyncSession = Depen
 
 @router.get("/notebook/{conversation_id}/sources")
 async def get_notebook_sources(conversation_id: str, db: AsyncSession = Depends(get_db)):
-    """Get persisted checked source IDs for a notebook."""
+    """Get persisted checked source IDs for a notebook, resolved to original_name."""
     result = await db.execute(
         select(Conversation.checked_source_ids).where(Conversation.id == conversation_id)
     )
     row = result.scalar_one_or_none()
-    return {"source_ids": row or []}
+    ids: list[str] = row or []
+
+    if not ids:
+        return {"source_ids": [], "sources": []}
+
+    docs_result = await db.execute(select(Document).where(Document.id.in_(ids)))
+    docs_by_id = {d.id: d for d in docs_result.scalars().all()}
+
+    sources = [
+        {
+            "id": did,
+            "name": docs_by_id[did].original_name if did in docs_by_id else did,
+        }
+        for did in ids
+    ]
+    return {"source_ids": ids, "sources": sources}
 
 
 @router.delete("/notebook/{conversation_id}")
