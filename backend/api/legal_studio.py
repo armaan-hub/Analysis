@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import delete as sa_delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
@@ -166,9 +167,6 @@ async def stream_research(job_id: str):
 
 # ── Notebook Source Persist + Delete ──────────────────────────────
 
-from sqlalchemy import select, update
-from sqlalchemy import delete as sa_delete
-
 
 async def extract_entity_name(source_ids: list[str], db: AsyncSession) -> str | None:
     """Run a quick LLM extraction on the first available source doc.
@@ -240,14 +238,26 @@ async def save_checked_sources(req: SaveSourcesRequest, db: AsyncSession = Depen
     return {"status": "ok"}
 
 
-@router.get("/notebook/{conversation_id}/sources")
+class NotebookSourceItem(BaseModel):
+    id: str
+    name: str
+
+
+class NotebookSourcesResponse(BaseModel):
+    source_ids: list[str]
+    sources: list[NotebookSourceItem]
+
+
+@router.get("/notebook/{conversation_id}/sources", response_model=NotebookSourcesResponse)
 async def get_notebook_sources(conversation_id: str, db: AsyncSession = Depends(get_db)):
     """Get persisted checked source IDs for a notebook, resolved to original_name."""
     result = await db.execute(
         select(Conversation.checked_source_ids).where(Conversation.id == conversation_id)
     )
-    row = result.scalar_one_or_none()
-    ids: list[str] = row or []
+    row = result.one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Notebook not found")
+    ids: list[str] = row[0] if isinstance(row[0], list) else []
 
     if not ids:
         return {"source_ids": [], "sources": []}
@@ -258,7 +268,7 @@ async def get_notebook_sources(conversation_id: str, db: AsyncSession = Depends(
     sources = [
         {
             "id": did,
-            "name": docs_by_id[did].original_name if did in docs_by_id else did,
+            "name": (lambda raw: raw.strip() or did)(docs_by_id[did].original_name if did in docs_by_id else ""),
         }
         for did in ids
     ]

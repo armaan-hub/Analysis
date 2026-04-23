@@ -242,8 +242,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     API.get(`/api/legal-studio/notebook/${initialConversationId}/sources`)
       .then(r => {
         const rawSources: Array<{ id: string; name: string }> =
-          r.data?.sources ??
-          (r.data?.source_ids ?? []).map((id: string) => ({ id, name: id }));
+          r.data?.sources ?? [];
         if (rawSources.length > 0) {
           isInitialLoadRef.current = true;
           setSelectedDocIds(rawSources.map(s => s.id));
