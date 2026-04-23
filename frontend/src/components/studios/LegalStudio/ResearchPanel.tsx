@@ -11,9 +11,11 @@ interface Props {
 
 export function ResearchPanel({ steps, answer, streamingContent, query = '' }: Props) {
   const [downloading, setDownloading] = useState<'pdf' | 'docx' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   async function downloadResearch(format: 'pdf' | 'docx') {
     if (!answer) return;
+    setExportError(null);
     setDownloading(format);
     try {
       const allSources = [
@@ -31,10 +33,13 @@ export function ResearchPanel({ steps, answer, streamingContent, query = '' }: P
       const a = document.createElement('a');
       a.href = url;
       a.download = `deep_research_report.${format}`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('[downloadResearch]', err);
+      setExportError(err instanceof Error ? err.message : 'Export failed. Please try again.');
     } finally {
       setDownloading(null);
     }
@@ -67,6 +72,11 @@ export function ResearchPanel({ steps, answer, streamingContent, query = '' }: P
 
       {answer && (
         <>
+          {exportError && (
+            <p role="alert" style={{ color: 'var(--red, #dc2626)', fontSize: 12, margin: '4px 0' }}>
+              {exportError}
+            </p>
+          )}
           {answer.web_sources.length > 0 && (
             <section className="research-panel__section">
               <h4>Web Sources</h4>
@@ -96,6 +106,7 @@ export function ResearchPanel({ steps, answer, streamingContent, query = '' }: P
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '0 0 4px' }}>
             <button
+              type="button"
               onClick={() => downloadResearch('pdf')}
               disabled={downloading !== null}
               style={{
@@ -107,6 +118,7 @@ export function ResearchPanel({ steps, answer, streamingContent, query = '' }: P
               {downloading === 'pdf' ? '⏳ Exporting…' : '⬇ Download PDF'}
             </button>
             <button
+              type="button"
               onClick={() => downloadResearch('docx')}
               disabled={downloading !== null}
               style={{
