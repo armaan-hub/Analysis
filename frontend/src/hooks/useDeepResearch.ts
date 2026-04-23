@@ -17,6 +17,7 @@ export function useDeepResearch(conversationId: string) {
   const [answer, setAnswer] = useState<ResearchAnswer | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
   const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const handleFrame = (raw: string) => {
@@ -35,6 +36,7 @@ export function useDeepResearch(conversationId: string) {
         });
         setStreamingContent('');
       } else if (ev.type === 'done') {
+        if (ev.error) setError(ev.error as string);
         setRunning(false);
       } else if (ev.type === 'error') {
         setSteps(prev => [...prev, { text: ev.text ?? 'Error', status: 'error' }]);
@@ -57,6 +59,7 @@ export function useDeepResearch(conversationId: string) {
     setSteps([]);
     setAnswer(null);
     setStreamingContent('');
+    setError(null);
     setRunning(true);
 
     try {
@@ -94,5 +97,5 @@ export function useDeepResearch(conversationId: string) {
     }
   }, [conversationId]);
 
-  return { steps, answer, streamingContent, running, run };
+  return { steps, answer, streamingContent, running, error, run };
 }
