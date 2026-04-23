@@ -10,7 +10,7 @@ import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select, desc, func
@@ -279,7 +279,7 @@ class ConversationPatch(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @router.post("/send", response_model=ChatResponse)
-async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Send a message and get an AI response."""
     start_time = time.time()
 
@@ -617,9 +617,10 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 total_msg_count = await db.scalar(
                     select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
                 )
-                asyncio.create_task(
-                    _get_or_refresh_summary(conversation.id, total_msg_count, getattr(req, 'provider', None))
-                )
+                if req.mode == "fast":
+                    asyncio.create_task(
+                        _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
+                    )
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
             return StreamingResponse(
@@ -673,9 +674,10 @@ async def send_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     total_msg_count = await db.scalar(
         select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
     )
-    asyncio.create_task(
-        _get_or_refresh_summary(conversation.id, total_msg_count, getattr(req, 'provider', None))
-    )
+    if req.mode == "fast":
+        background_tasks.add_task(
+            _get_or_refresh_summary, conversation.id, total_msg_count, req.provider
+        )
 
     return ChatResponse(
         message=MessageResponse(
