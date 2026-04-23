@@ -30,57 +30,70 @@ async def run_deep_research(
     ingest,
 ) -> AsyncGenerator[dict, None]:
     """Yield SSE-ready event dicts for a deep research run."""
-    yield {"type": "step", "text": "Analyzing query..."}
+    error: str | None = None
+    answer_emitted = False
+    try:
+        yield {"type": "step", "text": "Analyzing query..."}
 
-    sub_queries = await decompose_query(query, llm)
-    yield {"type": "step", "text": f"Generated {len(sub_queries)} search queries"}
+        sub_queries = await decompose_query(query, llm)
+        yield {"type": "step", "text": f"Generated {len(sub_queries)} search queries"}
 
-    for q in sub_queries:
-        yield {"type": "step", "text": f"Searching: {q}"}
+        for q in sub_queries:
+            yield {"type": "step", "text": f"Searching: {q}"}
 
-    search_results = await asyncio.gather(
-        *[brave_search(q, max_results=5) for q in sub_queries],
-        return_exceptions=True,
-    )
-    web: list[dict] = []
-    for r in search_results:
-        if isinstance(r, Exception):
-            continue
-        web.extend(r)
+        search_results = await asyncio.gather(
+            *[brave_search(q, max_results=5) for q in sub_queries],
+            return_exceptions=True,
+        )
+        web: list[dict] = []
+        for r in search_results:
+            if isinstance(r, Exception):
+                continue
+            web.extend(r)
 
-    yield {"type": "step", "text": f"Found {len(web)} web results across {len(sub_queries)} searches"}
+        yield {"type": "step", "text": f"Found {len(web)} web results across {len(sub_queries)} searches"}
 
-    yield {"type": "step", "text": "Searching your documents..."}
-    doc_chunks = await rag.search(query, doc_ids=selected_doc_ids) if rag else []
-    yield {"type": "step", "text": f"Found {len(doc_chunks)} relevant document chunks"}
+        yield {"type": "step", "text": "Searching your documents..."}
+        doc_chunks = await rag.search(query, doc_ids=selected_doc_ids) if rag else []
+        yield {"type": "step", "text": f"Found {len(doc_chunks)} relevant document chunks"}
 
-    # Persist web content to RAG for future reuse
-    for r in web:
-        try:
-            await ingest(
-                text=f"{r.get('title','')}\n\n{r.get('content','')}",
-                source=r.get("url"),
-                source_type="research",
-            )
-        except Exception:
-            pass
+        # Persist web content to RAG for future reuse
+        for r in web:
+            try:
+                await ingest(
+                    text=f"{r.get('title','')}\n\n{r.get('content','')}",
+                    source=r.get("url"),
+                    source_type="research",
+                )
+            except Exception:
+                pass
 
-    yield {"type": "step", "text": "Synthesizing answer..."}
-    prompt = _build_synthesis_prompt(query, web, doc_chunks)
+        yield {"type": "step", "text": "Synthesizing answer..."}
+        prompt = _build_synthesis_prompt(query, web, doc_chunks)
 
-    answer_parts: list[str] = []
-    async for piece in llm.stream(prompt, max_tokens=1200, temperature=0.2):
-        answer_parts.append(piece)
-    answer = "".join(answer_parts)
+        answer_parts: list[str] = []
+        async for piece in llm.stream(prompt, max_tokens=1200, temperature=0.2):
+            answer_parts.append(piece)
+        answer = "".join(answer_parts)
 
-    yield {
-        "type": "answer",
-        "content": answer,
-        "sources": [
-            {"filename": c.get("source"), "page": c.get("page")} for c in doc_chunks
-        ],
-        "web_sources": [
-            {"title": r.get("title"), "url": r.get("url")} for r in web
-        ],
-    }
-    yield {"type": "done"}
+        yield {
+            "type": "answer",
+            "content": answer,
+            "sources": [
+                {"filename": c.get("source"), "page": c.get("page")} for c in doc_chunks
+            ],
+            "web_sources": [
+                {"title": r.get("title"), "url": r.get("url")} for r in web
+            ],
+        }
+        answer_emitted = True
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        yield {"type": "step", "text": f"Error: {error}"}
+    finally:
+        done_payload: dict = {"type": "done"}
+        if error:
+            done_payload["error"] = error
+        if not answer_emitted:
+            done_payload["partial"] = True
+        yield done_payload
