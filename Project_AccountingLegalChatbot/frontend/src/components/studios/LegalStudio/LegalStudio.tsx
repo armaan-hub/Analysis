@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, ScanSearch } from 'lucide-react';
-import { API_BASE, API, fmtTime, type Message, type ResearchMessage, type TextMessage, type Source, generateReportStreamUrl, detectReportMetadata } from '../../../lib/api';
+import { API_BASE, API, fmtTime, type Message, type TextMessage, type Source, generateReportStreamUrl, detectReportMetadata } from '../../../lib/api';
 import { ConfirmReportCard } from './ConfirmReportCard';
 import { ArtifactPanel } from './ArtifactPanel';
 import { ChatMessages } from './ChatMessages';
@@ -51,6 +51,33 @@ function isRefinementInstruction(text: string): boolean {
   return REFINEMENT_STARTS.some(s => text.toLowerCase().startsWith(s));
 }
 
+interface AuditFinding { severity: string; document: string; finding: string; }
+interface AuditResultData {
+  risk_flags: AuditFinding[];
+  anomalies: AuditFinding[];
+  compliance_gaps: AuditFinding[];
+  summary: string;
+}
+
+function formatAuditResultAsMarkdown(data: AuditResultData): string {
+  const lines: string[] = ['## Audit Analysis Result\n'];
+  if (data.summary) { lines.push('### Summary\n', data.summary, ''); }
+  const sections: Array<{ key: keyof Pick<AuditResultData, 'risk_flags' | 'anomalies' | 'compliance_gaps'>; label: string }> = [
+    { key: 'risk_flags', label: 'Risk Flags' },
+    { key: 'anomalies', label: 'Anomalies' },
+    { key: 'compliance_gaps', label: 'Compliance Gaps' },
+  ];
+  for (const { key, label } of sections) {
+    const rows = data[key] ?? [];
+    if (rows.length) {
+      lines.push(`### ${label}\n`);
+      for (const f of rows) { lines.push(`- **[${f.severity.toUpperCase()}]** ${f.document}: ${f.finding}`); }
+      lines.push('');
+    }
+  }
+  return lines.join('\n');
+}
+
 interface Conversation { id: string; title: string; updated_at: string; }
 interface LegalStudioProps {
   onConversationsChange?: (convos: Conversation[]) => void;
@@ -82,20 +109,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     summary: string;
   } | null>(null);
   const [auditing, setAuditing] = useState(false);
-
-  // ── Report questionnaire flow state ──
-  const [activeQuestionnaire, setActiveQuestionnaire] = useState<{
-    reportType: string;
-    fields: PrefilledField[];
-    label: string;
-  } | null>(null);
-  const [reportGenerating, setReportGenerating] = useState(false);
-  const [reportResults, setReportResults] = useState<Array<{
-    reportType: string;
-    date: string;
-    content?: string;
-    error?: string;
-  }>>([]);
 
   const chatAreaBottomRef = useRef<HTMLDivElement>(null);
   const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -483,47 +496,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     }
   }, [artifactReportType, artifactContent, selectedDocIds, artifactEntityName, artifactPeriodEnd]);
 
-  const handleQuestionnaireConfirm = useCallback(async (confirmedFields: Record<string, string>) => {
-    if (!activeQuestionnaire) return;
-    const { reportType, label } = activeQuestionnaire;
-    setReportGenerating(true);
-
-    try {
-      const backendType = reportType === 'forecast' ? 'financial_analysis' : reportType;
-      const backendFormat = toBackendFormat(auditorFormat);
-      const res = await API.post(`/api/reports/generate/${backendType}`, {
-        mapped_data: [],
-        requirements: {},
-        source_ids: selectedDocIds,
-        company_name: confirmedFields.entity_name || 'Analysis',
-        ...confirmedFields,
-        auditor_format: backendFormat,
-        ...(reportType === 'forecast' ? { sub_type: 'forecast' } : {}),
-      });
-      const content = res.data.report_text ?? res.data.draft ?? 'Report generated successfully.';
-      setReportResults(prev => [...prev, {
-        reportType: label,
-        date: new Date().toISOString(),
-        content,
-      }]);
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.detail ?? err?.message ?? 'Report generation failed. Please try again.';
-      setReportResults(prev => [...prev, {
-        reportType: label,
-        date: new Date().toISOString(),
-        error: errorMsg,
-      }]);
-    } finally {
-      setReportGenerating(false);
-      setActiveQuestionnaire(null);
-      setTimeout(() => chatAreaBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    }
-  }, [activeQuestionnaire, selectedDocIds, auditorFormat]);
-
-  const handleQuestionnaireCancel = useCallback(() => {
-    setActiveQuestionnaire(null);
-  }, []);
-
   // --- Chat send ---
   const sendMessage = useCallback(async (text: string, attachedFiles?: File[]) => {
     // Pre-upload any quick-attached files
@@ -788,22 +760,6 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           activeSourceId={activeSource?.source}
           docs={docs}
         />
-
-        {/* Report results from chat-redirect flow */}
-        {reportResults.map((result, idx) => (
-          <div key={`report-result-${idx}`} className="legal-section-pad">
-            <InlineResultCard
-              reportType={result.reportType}
-              date={result.date}
-              content={result.content}
-              error={result.error}
-              onRetry={result.error ? () => {
-                const config = Object.values(REPORT_CONFIGS).find(c => c.label === result.reportType);
-                if (config) handleReportRequest(config.type);
-              } : undefined}
-            />
-          </div>
-        ))}
 
         {/* ConfirmReportCard — analyst detect flow */}
         {confirmCard && (

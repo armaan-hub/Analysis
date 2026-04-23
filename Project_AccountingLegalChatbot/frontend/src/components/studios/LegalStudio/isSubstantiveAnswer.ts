@@ -1,5 +1,6 @@
 export interface SourceLike {
   filename?: string;
+  source?: string;
 }
 
 const NON_ANSWER_PHRASES = [
