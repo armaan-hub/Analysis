@@ -15,10 +15,10 @@ Write-Host "✓ Git hooks enabled" -ForegroundColor Green
 Write-Host "`n⌨️  Setting up Git aliases..." -ForegroundColor Yellow
 
 # Alias for major update commit + push
-git config alias.major '!powershell -NoProfile -Command "& ''./auto-commit.ps1'' @args major"'
+Invoke-Expression "git config alias.major '!powershell -NoProfile -Command `".\auto-commit.ps1 @args major`"'"
 
 # Alias for minor update commit (no push)
-git config alias.minor '!powershell -NoProfile -Command "& ''./auto-commit.ps1'' @args minor"'
+Invoke-Expression "git config alias.minor '!powershell -NoProfile -Command `".\auto-commit.ps1 @args minor`"'"
 
 # Alias for checking repository status
 git config alias.status-check 'log --oneline -10 --graph --decorate'

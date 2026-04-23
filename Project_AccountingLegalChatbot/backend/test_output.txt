@@ -1,0 +1,283 @@
+...........F............................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................F....s.......... [ 55%]
+.......................F..F............................s................ [ 74%]
+....FsF................................................................. [ 93%]
+...........................                                              [100%]
+================================== FAILURES ===================================
+_______________________ test_deep_research_streams_sse ________________________
+tests\api\test_research_sse.py:16: in test_deep_research_streams_sse
+    with patch("api.research.run_deep_research", _fake_events):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\unittest\mock.py:1487: in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\pkgutil.py:473: in resolve_name
+    result = getattr(result, p)
+             ^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'api' has no attribute 'research'
+____________________________ test_delete_document _____________________________
+tests\test_documents.py:44: in test_delete_document
+    resp = await client.delete(f"/api/documents/{doc_id}")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1966: in delete
+    return await self.request(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\applications.py:1160: in __call__
+    await super().__call__(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py:87: in __call__
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:130: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:116: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:670: in app
+    raw_response = await run_endpoint_function(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:324: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\documents.py:394: in delete_document
+    removed_chunks = await rag_engine.delete_document(doc_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core\rag_engine.py:397: in delete_document
+    results = self.collection.get(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\api\models\Collection.py:159: in get
+    get_results = self._client._get(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\api\rust.py:410: in _get
+    rust_response = self.bindings.get(
+E   chromadb.errors.InternalError: Error executing plan: Error sending backfill request to compactor: Error reading from metadata segment reader: error occurred while decoding column 0: mismatched types; Rust type `u64` (as SQL type `INTEGER`) is not compatible with SQL type `BLOB`
+---------------------------- Captured stdout call -----------------------------
+05:28:49 | INFO     | core.document_processor | Processing document: 2c1d4dc5-5566-4bdb-b552-0dae6e24e8d5.txt (type: .txt)
+05:28:49 | INFO     | core.document_processor | Document '2c1d4dc5-5566-4bdb-b552-0dae6e24e8d5.txt' split into 1 chunks
+05:28:49 | INFO     | core.rag_engine | Generating embeddings for 1 chunks...
+05:28:50 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+05:28:50 | ERROR    | api.documents | Document processing error for 'to_delete.txt': Error in compaction: Error reading from metadata segment reader: error occurred while decoding column 0: mismatched types; Rust type `u64` (as SQL type `INTEGER`) is not compatible with SQL type `BLOB` 
+05:28:50 | INFO     | httpx | HTTP Request: POST http://test/api/documents/upload "HTTP/1.1 200 OK"
+------------------------------ Captured log call ------------------------------
+INFO     core.document_processor:document_processor.py:123 Processing document: 2c1d4dc5-5566-4bdb-b552-0dae6e24e8d5.txt (type: .txt)
+INFO     core.document_processor:document_processor.py:139 Document '2c1d4dc5-5566-4bdb-b552-0dae6e24e8d5.txt' split into 1 chunks
+INFO     core.rag_engine:rag_engine.py:255 Generating embeddings for 1 chunks...
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+ERROR    api.documents:documents.py:180 Document processing error for 'to_delete.txt': Error in compaction: Error reading from metadata segment reader: error occurred while decoding column 0: mismatched types; Rust type `u64` (as SQL type `INTEGER`) is not compatible with SQL type `BLOB` 
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/documents/upload "HTTP/1.1 200 OK"
+________________________________ test_root_ok _________________________________
+tests\test_health.py:9: in test_root_ok
+    resp = await client.get("/")
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1768: in get
+    return await self.request(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\applications.py:1160: in __call__
+    await super().__call__(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py:87: in __call__
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:130: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:116: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:670: in app
+    raw_response = await run_endpoint_function(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:324: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+main.py:131: in root
+    "documents_indexed": rag_engine.get_stats()["total_chunks"],
+                         ^^^^^^^^^^^^^^^^^^^^^^
+core\rag_engine.py:410: in get_stats
+    "total_chunks": self.collection.count(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\api\models\Collection.py:53: in count
+    return self._client._count(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\api\rust.py:367: in _count
+    return self.bindings.count(str(collection_id), tenant, database)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   chromadb.errors.InternalError: Error executing plan: Error sending backfill request to compactor: Error reading from metadata segment reader: error occurred while decoding column 0: mismatched types; Rust type `u64` (as SQL type `INTEGER`) is not compatible with SQL type `BLOB`
+____________________________ test_documents_stats _____________________________
+tests\test_health.py:32: in test_documents_stats
+    resp = await client.get("/api/documents/stats")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1768: in get
+    return await self.request(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\applications.py:1160: in __call__
+    await super().__call__(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py:87: in __call__
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:130: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:116: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:670: in app
+    raw_response = await run_endpoint_function(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py:324: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\documents.py:411: in document_stats
+    rag_stats = rag_engine.get_stats()
+                ^^^^^^^^^^^^^^^^^^^^^^
+core\rag_engine.py:410: in get_stats
+    "total_chunks": self.collection.count(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\api\models\Collection.py:53: in count
+    return self._client._count(
+C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\api\rust.py:367: in _count
+    return self.bindings.count(str(collection_id), tenant, database)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   chromadb.errors.InternalError: Error executing plan: Error sending backfill request to compactor: Error reading from metadata segment reader: error occurred while decoding column 0: mismatched types; Rust type `u64` (as SQL type `INTEGER`) is not compatible with SQL type `BLOB`
+________________________ test_source_content_not_found ________________________
+tests\test_source_content.py:13: in test_source_content_not_found
+    assert resp.status_code == 404
+E   assert 502 == 404
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+---------------------------- Captured stdout call -----------------------------
+05:28:52 | INFO     | httpx | HTTP Request: GET http://test/api/documents/source-content?source=nonexistent_file.pdf "HTTP/1.1 502 Bad Gateway"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/api/documents/source-content?source=nonexistent_file.pdf "HTTP/1.1 502 Bad Gateway"
+_____________________ test_source_content_response_shape ______________________
+tests\test_source_content.py:54: in test_source_content_response_shape
+    assert resp.status_code == 404
+E   assert 502 == 404
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+---------------------------- Captured stdout call -----------------------------
+05:28:53 | INFO     | httpx | HTTP Request: GET http://test/api/documents/source-content?source=any_file.pdf&page=1 "HTTP/1.1 502 Bad Gateway"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/api/documents/source-content?source=any_file.pdf&page=1 "HTTP/1.1 502 Bad Gateway"
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128
+  C:\Users\Armaan\AppData\Local\Programs\Python\Python314\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+tests/test_chat_endpoint_domain.py: 4 warnings
+tests/test_chat_sources.py: 1 warning
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_multi_query_rag.py: 1 warning
+tests/test_session_summary.py: 1 warning
+  C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\Project_AccountingLegalChatbot\backend\api\chat.py:313: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_naive = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/api/test_research_sse.py::test_deep_research_streams_sse - Attri...
+FAILED tests/test_documents.py::test_delete_document - chromadb.errors.Intern...
+FAILED tests/test_health.py::test_root_ok - chromadb.errors.InternalError: Er...
+FAILED tests/test_health.py::test_documents_stats - chromadb.errors.InternalE...
+FAILED tests/test_source_content.py::test_source_content_not_found - assert 5...
+FAILED tests/test_source_content.py::test_source_content_response_shape - ass...
+6 failed, 378 passed, 3 skipped, 20 warnings in 28.32s
