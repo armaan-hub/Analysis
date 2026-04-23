@@ -174,6 +174,13 @@ def to_branded_pdf(content: str, sources: list[dict[str, Any]], query: str) -> b
                 f"<b>[{idx}]</b> {name}{page_str}{score_str}",
                 source_style,
             ))
+            url = src.get("url")
+            if url:
+                safe_url = url.replace("&", "&amp;")
+                story.append(Paragraph(
+                    f'<link href="{safe_url}" color="#1a365d"><u>{safe_url}</u></link>',
+                    source_style,
+                ))
             if excerpt:
                 story.append(Paragraph(f"<i>{excerpt}…</i>", source_style))
             story.append(Spacer(1, 4))
@@ -185,6 +192,36 @@ def to_branded_pdf(content: str, sources: list[dict[str, Any]], query: str) -> b
 # ---------------------------------------------------------------------------
 # DOCX (python-docx)
 # ---------------------------------------------------------------------------
+
+def _add_hyperlink(paragraph, url: str, text: str) -> None:
+    """Add a clickable hyperlink to a python-docx paragraph."""
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    part = paragraph.part
+    r_id = part.relate_to(
+        url,
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+        is_external=True,
+    )
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), r_id)
+
+    new_run = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+    color_el = OxmlElement("w:color")
+    color_el.set(qn("w:val"), "1A365D")
+    rPr.append(color_el)
+    u_el = OxmlElement("w:u")
+    u_el.set(qn("w:val"), "single")
+    rPr.append(u_el)
+    new_run.append(rPr)
+    t_el = OxmlElement("w:t")
+    t_el.text = text
+    new_run.append(t_el)
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
+
 
 def to_branded_docx(content: str, sources: list[dict[str, Any]], query: str) -> bytes:
     """Return branded DOCX bytes with cover page, body, and sources appendix."""
@@ -325,6 +362,10 @@ def to_branded_docx(content: str, sources: list[dict[str, Any]], query: str) -> 
             run = p.add_run(f"[{idx}] {name}{page_str}{score_str}")
             run.bold = True
             run.font.size = Pt(10)
+            url = src.get("url")
+            if url:
+                p_url = doc.add_paragraph()
+                _add_hyperlink(p_url, url, url)
             if excerpt:
                 p2 = doc.add_paragraph()
                 run2 = p2.add_run(f"{excerpt}…")
