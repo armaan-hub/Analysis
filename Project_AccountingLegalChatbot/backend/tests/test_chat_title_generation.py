@@ -260,7 +260,7 @@ async def test_title_uses_background_tasks_not_create_task_streaming(client):
 async def test_generate_title_has_defensive_delay():
     """_generate_title must await asyncio.sleep at startup for DB-commit safety."""
     import asyncio
-    from unittest.mock import patch, AsyncMock, call
+    from unittest.mock import patch, AsyncMock, MagicMock
 
     sleep_calls: list = []
     _orig_sleep = asyncio.sleep
@@ -269,19 +269,31 @@ async def test_generate_title_has_defensive_delay():
         sleep_calls.append(delay)
         return await _orig_sleep(0)  # don't actually wait in tests
 
-    with patch("asyncio.sleep", side_effect=_capture_sleep):
+    with patch("api.chat.asyncio.sleep", side_effect=_capture_sleep):
         # Import the function so we can call it directly
-        from api.chat import _generate_title
+        from api.chat import _generate_title, _TITLE_GENERATION_DELAY_S
+        from core.llm_manager import LLMResponse
+        
         # Patch its DB session factory so it doesn't hit real DB
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session.get = AsyncMock(return_value=None)  # conversation not found → early return
+        
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None  # conv not found → function exits early
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        
+        # Mock LLM provider
+        mock_llm = AsyncMock()
+        mock_llm.chat = AsyncMock(
+            return_value=LLMResponse(content="Test Title", tokens_used=5, provider="mock", model="m")
+        )
 
-        with patch("api.chat.AsyncSessionLocal", return_value=mock_session):
-            await _generate_title(conversation_id=1, message="test", provider="openai")
+        with patch("api.chat.AsyncSessionLocal", return_value=mock_session), \
+             patch("api.chat.get_llm_provider", return_value=mock_llm):
+            await _generate_title(conversation_id="00000000-0000-0000-0000-000000000001", message="test", provider="openai")
 
-    assert 0.1 in sleep_calls, (
-        "_generate_title must call `await asyncio.sleep(0.1)` as its first statement. "
-        f"Actual sleep calls: {sleep_calls}"
+    assert sleep_calls and sleep_calls[0] == _TITLE_GENERATION_DELAY_S, (
+        f"_generate_title must call `await asyncio.sleep({_TITLE_GENERATION_DELAY_S})` as its FIRST statement. "
+        f"Actual sleep calls (in order): {sleep_calls}"
     )

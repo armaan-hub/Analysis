@@ -39,6 +39,8 @@ _RESEARCH_KEYWORDS = {
     "everything about", "all about",
 }
 
+_TITLE_GENERATION_DELAY_S: float = 0.1  # allow send_message's DB commit to propagate
+
 
 def _is_research_query(message: str) -> bool:
     """Return True if the message contains research-mode trigger keywords."""
@@ -247,7 +249,7 @@ _TITLE_PROMPT = (
 
 async def _generate_title(conversation_id: str, message: str, provider: str | None = None) -> None:
     """Generate a short AI title for a new conversation and persist it. Non-fatal."""
-    await asyncio.sleep(0.1)  # allow DB transaction to commit before querying
+    await asyncio.sleep(_TITLE_GENERATION_DELAY_S)  # defensive: let send_message's DB commit propagate
     try:
         llm = get_llm_provider(provider)
         resp = await llm.chat(
