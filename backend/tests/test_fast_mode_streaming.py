@@ -1,5 +1,6 @@
 """Verify that the streaming path yields the meta SSE event before
 any chunk events, proving classify_domain runs inside generate()."""
+import asyncio
 import json
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -88,14 +89,14 @@ async def test_streaming_meta_contains_correct_domain(client):
 
 @pytest.mark.asyncio
 async def test_streaming_meta_arrives_before_heavy_ops(client):
-    """meta must be yielded before slow intent classification completes."""
-    import asyncio as _asyncio
+    """meta must be the first event in the stream even when classify_intent is slow.
 
-    intent_completed = _asyncio.Event()
+    Note: verifies ordering in collected SSE event list, not real-time arrival order.
+    A proper timing guard would need a frame-by-frame streaming client.
+    """
 
     async def _slow_intent(msg, llm):
-        await _asyncio.sleep(0.15)
-        intent_completed.set()
+        await asyncio.sleep(0.15)
         return type("I", (), {"output_type": "answer", "topic": "vat"})()
 
     with (

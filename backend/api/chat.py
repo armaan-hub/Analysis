@@ -679,6 +679,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
             except Exception as _db_exc:
                 logger.error("DB save failed after streaming: %s", _db_exc)
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Response streamed but could not be saved'})}\n\n"
                 return
 
