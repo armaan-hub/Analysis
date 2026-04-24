@@ -676,7 +676,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     )
                 if _title_args:
                     asyncio.create_task(_generate_title(*_title_args), name="generate-title")
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
             except Exception as _db_exc:
                 logger.error("DB save failed after streaming: %s", _db_exc)
                 try:
@@ -885,11 +885,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         background_tasks.add_task(
             _get_or_refresh_summary, conversation.id, total_msg_count, req.provider
         )
-    # Schedule after commit so _generate_title can see the committed row.
-    # asyncio.create_task (not background_tasks) keeps it out of the ASGI response
-    # cycle so it never interferes with test mocks.
+    # Schedule via BackgroundTasks so it runs after get_db's session.commit()
+    # cleanup, guaranteeing the Conversation row is visible when _generate_title
+    # opens its own AsyncSessionLocal session.
     if _title_args:
-        asyncio.create_task(_generate_title(*_title_args), name="generate-title")
+        background_tasks.add_task(_generate_title, *_title_args)
 
     return ChatResponse(
         message=MessageResponse(
