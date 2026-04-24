@@ -2,12 +2,13 @@
 Document endpoint tests — upload/list/delete flow.
 """
 import io
+import uuid
 import pytest
 
 
 @pytest.mark.asyncio
 async def test_upload_txt_document(client):
-    content = b"This is a test document about UAE VAT regulations."
+    content = b"Random content " + str(uuid.uuid4()).encode() + b" about UAE VAT regulations."
     resp = await client.post(
         "/api/documents/upload",
         files={"file": ("test_vat.txt", io.BytesIO(content), "text/plain")},
@@ -17,7 +18,7 @@ async def test_upload_txt_document(client):
     # API returns {"document": {...}, "message": "..."}
     doc = data["document"]
     assert doc["original_name"] == "test_vat.txt"
-    assert doc["status"] in ("indexed", "processing", "error")
+    assert doc["status"] == "indexed"
 
 
 @pytest.mark.asyncio
@@ -46,3 +47,23 @@ async def test_delete_document(client):
     list_resp = await client.get("/api/documents/")
     ids = [d["id"] for d in list_resp.json()]
     assert doc_id not in ids
+
+
+def test_vector_store_uses_temp_dir_not_real_store():
+    """Regression: vector store must NOT be the real backend/vector_store_v2 during tests.
+
+    Spec: docs/superpowers/specs/SKILL.md §3 'Isolated Vector Store'
+    Root cause of past corruption: vector_store_v2_backup_corrupted exists because
+    tests wrote to the real ChromaDB and a Python version mismatch corrupted it.
+    """
+    from config import settings
+    from pathlib import Path
+
+    real_store = (Path(__file__).parent.parent / "vector_store_v2").resolve()
+    test_store = Path(settings.vector_store_dir).resolve()
+
+    assert test_store != real_store, (
+        f"Tests are writing to the REAL vector store at {real_store}!\n"
+        "This violates the isolation spec (docs/superpowers/specs/SKILL.md §3).\n"
+        "Fix: set VECTOR_STORE_DIR env var to a temp dir in conftest.py before app import."
+    )
