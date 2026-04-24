@@ -247,6 +247,7 @@ _TITLE_PROMPT = (
 
 async def _generate_title(conversation_id: str, message: str, provider: str | None = None) -> None:
     """Generate a short AI title for a new conversation and persist it. Non-fatal."""
+    await asyncio.sleep(0.1)  # allow DB transaction to commit before querying
     try:
         llm = get_llm_provider(provider)
         resp = await llm.chat(
