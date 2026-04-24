@@ -254,7 +254,7 @@ async def _generate_title(conversation_id: str, message: str, provider: str | No
             max_tokens=30,
             temperature=0.2,
         )
-        title = resp.content.strip().strip('"').strip("'")
+        title = re.sub(r'^[`*_"\'\s]+|[`*_"\'\s.]+$', '', resp.content.strip())
         if not title:
             return
         title = title[:100]
@@ -676,7 +676,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     )
                 # Schedule after commit so _generate_title can see the committed row
                 if _title_args:
-                    asyncio.create_task(_generate_title(*_title_args))
+                    asyncio.create_task(_generate_title(*_title_args), name="generate-title")
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
             return StreamingResponse(
@@ -738,7 +738,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     # asyncio.create_task (not background_tasks) keeps it out of the ASGI response
     # cycle so it never interferes with test mocks.
     if _title_args:
-        asyncio.create_task(_generate_title(*_title_args))
+        asyncio.create_task(_generate_title(*_title_args), name="generate-title")
 
     return ChatResponse(
         message=MessageResponse(
