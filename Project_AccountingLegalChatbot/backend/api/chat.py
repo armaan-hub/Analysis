@@ -675,7 +675,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
                     )
                 if _title_args:
-                    asyncio.create_task(_generate_title(*_title_args), name="generate-title")
+                    background_tasks.add_task(_generate_title, *_title_args)
                 yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
             except Exception as _db_exc:
                 logger.error("DB save failed after streaming: %s", _db_exc)

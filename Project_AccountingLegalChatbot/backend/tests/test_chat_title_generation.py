@@ -203,3 +203,54 @@ async def test_title_uses_background_tasks_not_create_task(client):
         "Title generation must use background_tasks, not asyncio.create_task. "
         f"Registered funcs: {[getattr(f, '__name__', repr(f)) for f in registered_funcs]}"
     )
+
+
+@pytest.mark.asyncio
+async def test_title_uses_background_tasks_not_create_task_streaming(client):
+    """Streaming path must also register _generate_title via background_tasks.add_task."""
+    from fastapi import BackgroundTasks
+    from unittest.mock import patch, AsyncMock
+    from core.chat.domain_classifier import DomainLabel, ClassifierResult
+    from core.llm_manager import LLMResponse
+
+    registered_funcs: list = []
+    _orig_add_task = BackgroundTasks.add_task
+
+    def _capture_add_task(self, func, *args, **kwargs):
+        registered_funcs.append(func)
+        return _orig_add_task(self, func, *args, **kwargs)
+
+    mock_gt = AsyncMock()
+    mock_llm = AsyncMock()
+    mock_llm.chat = AsyncMock(
+        return_value=LLMResponse(content="Answer", tokens_used=5, provider="mock", model="m")
+    )
+
+    async def _fake_stream(*a, **kw):
+        yield "Answer"
+
+    mock_llm.chat_stream = _fake_stream
+
+    with (
+        patch.object(BackgroundTasks, 'add_task', new=_capture_add_task),
+        patch("api.chat._generate_title", new=mock_gt),
+        patch("api.chat.classify_domain", new=AsyncMock(
+            return_value=ClassifierResult(domain=DomainLabel.VAT, confidence=0.9, alternatives=[])
+        )),
+        patch("api.chat.get_llm_provider", return_value=mock_llm),
+        patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat.classify_intent", new=AsyncMock(
+            return_value=type("I", (), {"output_type": "answer", "topic": "vat"})()
+        )),
+    ):
+        resp = await client.post("/api/chat/send", json={
+            "message": "I have a client who sold a hotel apartment",
+            "mode": "fast",
+            "stream": True,
+        })
+
+    assert resp.status_code == 200
+    assert mock_gt in registered_funcs, (
+        "Streaming path: _generate_title was not registered via background_tasks.add_task. "
+        f"Registered funcs: {[getattr(f, '__name__', repr(f)) for f in registered_funcs]}"
+    )
