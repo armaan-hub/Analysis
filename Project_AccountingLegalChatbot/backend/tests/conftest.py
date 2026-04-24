@@ -152,5 +152,12 @@ async def client(db_session):
              patch("api.chat.AsyncSessionLocal", _fresh_test_session):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 yield ac
-        
+            # Drain any background tasks (e.g. _generate_title) while the session
+            # factory patch is still active.  Without this, they run after the patch
+            # exits and may corrupt the shared in-memory test DB connection.
+            _cur = asyncio.current_task()
+            _bg = [t for t in asyncio.all_tasks() if t is not _cur]
+            if _bg:
+                await asyncio.wait(_bg, timeout=1.0)
+
         app.dependency_overrides.clear()

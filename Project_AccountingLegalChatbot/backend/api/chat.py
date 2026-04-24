@@ -336,6 +336,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     start_time = time.time()
 
     # Get or create conversation
+    _title_args: tuple[str, str, str | None] | None = None  # set when new conversation created
     if req.conversation_id:
         result = await db.execute(
             select(Conversation).where(Conversation.id == req.conversation_id)
@@ -352,8 +353,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
         db.add(conversation)
         await db.flush()
-        # Generate a meaningful AI title in the background (non-fatal, never delays response)
-        asyncio.create_task(_generate_title(conversation.id, req.message, req.provider))
+        # Store args; task is scheduled AFTER db.commit() so the row is visible to _generate_title
+        _title_args = (conversation.id, req.message, req.provider)
 
         # Background: extract memory from previous conversation if idle 30+ min
         prev_conv_result = await db.execute(
@@ -664,14 +665,18 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     sources=sources if sources else None,
                 )
                 db.add(assistant_msg)
-                await db.commit()
+                await db.flush()
                 total_msg_count = await db.scalar(
                     select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
                 )
+                await db.commit()
                 if req.mode == "fast":
                     asyncio.create_task(
                         _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
                     )
+                # Schedule after commit so _generate_title can see the committed row
+                if _title_args:
+                    asyncio.create_task(_generate_title(*_title_args))
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
             return StreamingResponse(
@@ -721,14 +726,19 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     )
     db.add(assistant_msg)
     await db.flush()
-    await db.commit()
     total_msg_count = await db.scalar(
         select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
     )
+    await db.commit()
     if req.mode == "fast":
         background_tasks.add_task(
             _get_or_refresh_summary, conversation.id, total_msg_count, req.provider
         )
+    # Schedule after commit so _generate_title can see the committed row.
+    # asyncio.create_task (not background_tasks) keeps it out of the ASGI response
+    # cycle so it never interferes with test mocks.
+    if _title_args:
+        asyncio.create_task(_generate_title(*_title_args))
 
     return ChatResponse(
         message=MessageResponse(
