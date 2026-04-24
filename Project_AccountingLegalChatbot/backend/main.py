@@ -7,6 +7,7 @@ Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 import logging
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,25 +32,30 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     logger.info("  Accounting & Legal AI Chatbot – Starting...")
     logger.info("=" * 60)
+    _startup_t0 = time.perf_counter()
 
     # Initialize database tables
+    _t = time.perf_counter()
     from db.database import init_db
     await init_db()
-    logger.info("[OK] Database initialized")
+    logger.info(f"[OK] Database initialized ({time.perf_counter()-_t:.2f}s)")
 
     # Run schema migrations (idempotent -- safe to call every startup)
+    _t = time.perf_counter()
     from db.migrations.add_conversation_mode import run_migration as _add_conv_mode
     from config import settings as _s
     _add_conv_mode(str(_s.database_url).replace("sqlite:///", ""))
-    logger.info("[OK] Schema migration: conversation mode column ensured")
+    logger.info(f"[OK] Schema migration: conversation mode column ensured ({time.perf_counter()-_t:.2f}s)")
 
     # Seed account-mapping cache from bundled CSV (INSERT OR IGNORE — safe to re-run)
-    from pathlib import Path
+    _t = time.perf_counter()
     from core.agents.account_cache import seed_from_csv, cache_size
     _csv = Path("data/account_grouping_labels.csv")
     if _csv.exists():
         _seeded = await seed_from_csv(_csv)
-        logger.info(f"[OK] Account mapping cache: {_seeded} CSV rows processed, {await cache_size()} total entries")
+        logger.info(f"[OK] Account mapping cache: {_seeded} CSV rows processed, {await cache_size()} total entries ({time.perf_counter()-_t:.2f}s)")
+    else:
+        logger.warning(f"[SKIP] Account mapping CSV not found at {_csv} — cache seed skipped ({time.perf_counter()-_t:.2f}s)")
 
     # Log config
     from config import settings
@@ -59,9 +65,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"[OK] Server: http://{settings.host}:{settings.port}")
     
     # Start APScheduler
+    _t = time.perf_counter()
     from monitoring.scheduler import start_scheduler, scheduler
     start_scheduler()
+    logger.info(f"[OK] Scheduler started ({time.perf_counter()-_t:.2f}s)")
     
+    logger.info(f"[OK] Total startup time: {time.perf_counter()-_startup_t0:.2f}s")
     logger.info("=" * 60)
 
     yield
