@@ -50,7 +50,18 @@ function New-BackendJob {
         param($bp, $py)
         Set-Location $bp
         $env:PYTHONUTF8 = "1"   # prevents UnicodeEncodeError on Windows cp1252 terminals
-        & $py -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload 2>&1
+        # Restrict the file watcher to the application source only.
+        # --reload-dir "." limits watching to the backend directory.
+        # --reload-exclude "venv" prevents venv .py files (synced by OneDrive)
+        # from triggering spurious reloads; likewise for data/db/cache dirs.
+        & $py -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload `
+            --reload-dir "." `
+            --reload-exclude "venv" `
+            --reload-exclude "data" `
+            --reload-exclude "__pycache__" `
+            --reload-exclude "vector_store_v2" `
+            --reload-exclude "uploads" `
+            2>&1
     } -ArgumentList $backendPath, $pythonExe
 }
 
@@ -74,32 +85,38 @@ $backendJob    = New-BackendJob  $BACKEND $PYTHON
 $backendFails  = 0
 $backendStart  = Get-Date
 
-# Wait for backend to be ready
-$maxWait = 60
-$elapsed = 0
+# Wait for backend to be ready — stream output while polling so the user
+# sees progress rather than a blank screen. Use a deadline instead of a
+# counter so the timeout is correct regardless of sleep duration.
+$backendDeadline = (Get-Date).AddSeconds(60)
 Write-Host "Waiting for backend to be ready..."
-while ($elapsed -lt $maxWait) {
+while ((Get-Date) -lt $backendDeadline) {
+    # Forward any backend output accumulated since last poll
+    $out = Receive-Job -Job $backendJob -ErrorAction SilentlyContinue
+    if ($out) {
+        $out | ForEach-Object {
+            Write-Host "[backend]  $_" -ForegroundColor DarkCyan
+            Add-Content -Path $BACKEND_LOG -Value $_ -Encoding UTF8 -ErrorAction SilentlyContinue
+        }
+    }
+
     if ($backendJob.State -in "Failed", "Stopped") {
-        Write-Host "ERROR: Backend job failed to start. Check backend_server.log"
+        Write-Log "ERROR: Backend job failed to start. Check backend_server.log" Red
         break
     }
     try {
         $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
-            Write-Host "Backend is ready!"
+            Write-Log "Backend is ready!" Green
             break
         }
     } catch {
         # Not ready yet, continue waiting
-        $elapsed += 1
-        Start-Sleep -Seconds 1
-        continue
     }
-    Start-Sleep -Seconds 1
-    $elapsed += 1
+    Start-Sleep -Milliseconds 500
 }
-if ($elapsed -ge $maxWait) {
-    Write-Host "Warning: Backend did not become ready within $maxWait seconds. Starting frontend anyway."
+if ((Get-Date) -ge $backendDeadline) {
+    Write-Log "Warning: Backend did not become ready within 60 seconds. Starting frontend anyway." Yellow
 }
 
 Write-Log "[2/2] Starting frontend ..." Green
@@ -167,7 +184,7 @@ try {
             Write-Log "[OK] Frontend restarted." Green
         }
 
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 200
     }
 }
 finally {
