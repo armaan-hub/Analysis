@@ -237,6 +237,38 @@ async def extract_and_save_memory(
         logger.warning(f"Memory extraction failed (non-fatal): {exc}")
 
 
+_TITLE_PROMPT = (
+    "Summarise the following user query as a short notebook title "
+    "(maximum 8 words, Title Case). "
+    "Return ONLY the title — no punctuation at the end, no quotation marks.\n"
+    "Query: {message}"
+)
+
+
+async def _generate_title(conversation_id: str, message: str, provider: str | None = None) -> None:
+    """Generate a short AI title for a new conversation and persist it. Non-fatal."""
+    try:
+        llm = get_llm_provider(provider)
+        resp = await llm.chat(
+            messages=[{"role": "user", "content": _TITLE_PROMPT.format(message=message[:400])}],
+            max_tokens=30,
+            temperature=0.2,
+        )
+        title = resp.content.strip().strip('"').strip("'")
+        if not title:
+            return
+        title = title[:100]
+        async with AsyncSessionLocal() as db:
+            conv = (await db.execute(
+                select(Conversation).where(Conversation.id == conversation_id)
+            )).scalar_one_or_none()
+            if conv:
+                conv.title = title
+                await db.commit()
+    except Exception as exc:
+        logger.warning("Title generation failed (non-fatal): %s", exc)
+
+
 # ── Request / Response Schemas────────────────────────────────────
 
 class ChatRequest(BaseModel):
@@ -320,6 +352,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
         db.add(conversation)
         await db.flush()
+        # Generate a meaningful AI title in the background (non-fatal, never delays response)
+        asyncio.create_task(_generate_title(conversation.id, req.message, req.provider))
 
         # Background: extract memory from previous conversation if idle 30+ min
         prev_conv_result = await db.execute(
