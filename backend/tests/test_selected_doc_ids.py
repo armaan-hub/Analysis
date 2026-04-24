@@ -26,7 +26,9 @@ def _mock_llm():
 async def test_selected_doc_ids_scopes_rag_filter(client):
     """When selected_doc_ids is provided, rag_engine.search must be called
     with filter={'doc_id': {'$in': selected_doc_ids}}."""
-    mock_search = AsyncMock(return_value=[])
+    mock_search = AsyncMock(return_value=[
+        {"text": "stub chunk", "score": 0.9, "metadata": {"source": "test.pdf"}}
+    ])
 
     with (
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_cls())),
@@ -51,6 +53,14 @@ async def test_selected_doc_ids_scopes_rag_filter(client):
     assert any(
         f == {"doc_id": {"$in": ["doc-aaa", "doc-bbb"]}} for f in filter_args
     ), f"No call with correct doc_id filter. Calls: {mock_search.call_args_list}"
+    # No call should be made without the doc_id filter (fallback must not fire)
+    unfiltered_calls = [
+        c for c in mock_search.call_args_list
+        if c.kwargs.get("filter") != {"doc_id": {"$in": ["doc-aaa", "doc-bbb"]}}
+    ]
+    assert not unfiltered_calls, (
+        f"Unfiltered (fallback) RAG calls occurred: {unfiltered_calls}"
+    )
 
 
 @pytest.mark.asyncio
