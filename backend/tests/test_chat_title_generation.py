@@ -100,7 +100,7 @@ async def test_generate_title_is_non_fatal_on_llm_error(title_db):
 
 @pytest.mark.asyncio
 async def test_title_scheduled_on_new_conversation(client):
-    """Posting a new message must trigger _generate_title via asyncio.create_task."""
+    """Posting a new message must trigger _generate_title in the background (non-streaming)."""
     from api.chat import _generate_title
 
     title_calls = []
@@ -125,8 +125,10 @@ async def test_title_scheduled_on_new_conversation(client):
 
     mock_llm.chat_stream = _stream
 
+    mock_generate_title = AsyncMock(side_effect=_fake_generate_title)
+
     with (
-        _patch("api.chat._generate_title", side_effect=_fake_generate_title),
+        _patch("api.chat._generate_title", new=mock_generate_title),
         _patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_cls())),
         _patch("api.chat.get_llm_provider", return_value=mock_llm),
         _patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
@@ -139,9 +141,6 @@ async def test_title_scheduled_on_new_conversation(client):
             "mode": "fast",
             "stream": False,
         })
-
-    import asyncio as _asyncio
-    await _asyncio.sleep(0)  # yield to let create_task'd coroutine run
 
     assert resp.status_code == 200
     assert len(title_calls) == 1, (
