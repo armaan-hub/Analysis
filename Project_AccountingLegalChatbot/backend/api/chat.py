@@ -424,6 +424,267 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     )
     history = list(reversed(history_result.scalars().all()))
 
+    if req.stream:
+        async def generate():  # noqa: C901
+            nonlocal _title_args
+
+            # ── 1. Domain classification ──────────────────────────────────────
+            _eff = req.domain_override or req.domain
+            if _eff:
+                try:
+                    _cls = ClassifierResult(
+                        domain=DomainLabel(_eff), confidence=1.0, alternatives=[]
+                    )
+                except ValueError:
+                    _cls = await classify_domain(req.message)
+            else:
+                _cls = await classify_domain(req.message)
+
+            if not conversation.domain:
+                conversation.domain = _cls.domain.value
+
+            # ── 2. Yield meta (client gets first byte here, ~1-2 s) ───────────
+            _meta_payload = json.dumps({
+                "type": "meta",
+                "conversation_id": conversation.id,
+                "detected_domain": _cls.domain.value,
+                "classifier": _cls.model_dump(),
+                "mode": req.mode,
+            })
+            yield f"data: {_meta_payload}\n\n"
+
+            # ── 3. System prompt ───────────────────────────────────────────────
+            if req.mode == "analyst":
+                _sys = DOMAIN_PROMPTS.get("analyst", DOMAIN_PROMPTS["general"]) + memory_block
+            else:
+                _sys = route_prompt(_cls.domain) + memory_block
+            if req.mode == "fast" and getattr(conversation, "summary", None):
+                _sys += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
+
+            # ── 4. Intent + query variations in parallel ──────────────────────
+            _llm = get_llm_provider(req.provider)
+            _intent_task = asyncio.create_task(classify_intent(req.message, _llm))
+            if req.mode == "fast":
+                _vars_task = asyncio.create_task(
+                    _get_query_variations(req.message, req.provider)
+                )
+                _intent_res, _query_vars = await asyncio.gather(
+                    _intent_task, _vars_task, return_exceptions=True
+                )
+            else:
+                _intent_res = await _intent_task
+                _query_vars = [req.message]
+
+            if not isinstance(_intent_res, Exception):
+                _sys += (
+                    f"\n\nUSER INTENT: The user wants a `{_intent_res.output_type}` "
+                    f"about `{_intent_res.topic}`. "
+                    "Respond ONLY in that form. Do not produce a different output type. "
+                    "Stay strictly on topic; do not drift to related but unasked subjects."
+                )
+            else:
+                logger.warning("Intent classification failed (non-fatal): %s", _intent_res)
+
+            if isinstance(_query_vars, Exception):
+                _query_vars = [req.message]
+
+            # ── 5. RAG search ─────────────────────────────────────────────────
+            _rag_filter: dict | None = None
+            _doc_scoped = False
+            _search_results: list = []
+            _sources: list = []
+
+            if req.use_rag:
+                if req.selected_doc_ids:
+                    _rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+                    _doc_scoped = True
+                elif req.mode != "analyst":
+                    if req.domain in ("finance",):
+                        _rag_filter = {"category": "finance"}
+                    elif req.domain in ("law", "audit"):
+                        _rag_filter = {"category": "law"}
+
+                try:
+                    if req.mode == "fast":
+                        _all = await asyncio.gather(
+                            *[rag_engine.search(q, top_k=settings.fast_top_k, filter=_rag_filter)
+                              for q in _query_vars],
+                            return_exceptions=True,
+                        )
+                        _search_results = _dedup_merge(_all, settings.fast_top_k)
+                        if _rag_filter and not _search_results and not _doc_scoped:
+                            _fb = await asyncio.gather(
+                                *[rag_engine.search(q, top_k=settings.fast_top_k)
+                                  for q in _query_vars],
+                                return_exceptions=True,
+                            )
+                            _search_results = _dedup_merge(_fb, settings.fast_top_k)
+                    else:
+                        _search_results = await rag_engine.search(
+                            req.message, top_k=settings.top_k_results, filter=_rag_filter
+                        )
+                        if _rag_filter and not _search_results and not _doc_scoped:
+                            _search_results = await rag_engine.search(
+                                req.message, top_k=settings.top_k_results
+                            )
+                except Exception as _rag_exc:
+                    logger.warning("RAG search failed, falling back to no-context mode: %s", _rag_exc)
+                    _search_results = []
+
+            # ── 6. Build messages list ────────────────────────────────────────
+            _msgs: list[dict] = []
+            if _search_results:
+                _aug = rag_engine.build_augmented_prompt(
+                    req.message, _search_results, system_prompt=_sys
+                )
+                _msgs.append(_aug[0])
+                _sources = [
+                    {
+                        "source": (
+                            r.get("source")
+                            or r["metadata"].get("original_name")
+                            or r["metadata"].get("source", "Unknown")
+                        ),
+                        "page": r["metadata"].get("page", "?"),
+                        "score": round(r.get("score", 0), 3),
+                        "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
+                    }
+                    for r in _search_results
+                ]
+            else:
+                _msgs.append({"role": "system", "content": _sys})
+
+            # ── 7. Structured text injection ──────────────────────────────────
+            try:
+                if _search_results:
+                    _doc_srcs = {
+                        r["metadata"].get("source", "")
+                        for r in _search_results
+                        if r.get("metadata")
+                    }
+                    if _doc_srcs:
+                        _st_res = await db.execute(
+                            select(Document).where(Document.filename.in_(_doc_srcs))
+                        )
+                        for _d in _st_res.scalars().all():
+                            _meta_d = _d.metadata_json if isinstance(_d.metadata_json, dict) else {}
+                            _st = _meta_d.get("structured_text")
+                            if _st:
+                                _msgs[0]["content"] += (
+                                    f"\n\n[Full structured data from {_d.original_name}]\n{_st}"
+                                )
+            except Exception as _e:
+                logger.warning("Structured text enrichment failed: %s", _e)
+
+            # Add conversation history
+            _th = _build_sliding_context(history[:-1])
+            for _m in _th:
+                _msgs.append({"role": _m.role, "content": _m.content})
+            if req.mode == "fast":
+                _msgs.append({"role": "system", "content": FORMATTING_REMINDER})
+            _msgs.append({"role": "user", "content": req.message})
+
+            # ── 8. Web search fallback (if no RAG results) ───────────────────
+            if not _search_results:
+                is_research = _is_research_query(req.message)
+                if is_research:
+                    yield f"data: {json.dumps({'type': 'status', 'status': 'researching', 'message': 'Deep research in progress…'})}\n\n"
+                    from core.web_search import deep_search
+                    web_results = await deep_search(req.message, max_queries=6)
+                else:
+                    yield f"data: {json.dumps({'type': 'status', 'status': 'searching_web'})}\n\n"
+                    web_results = await search_web(req.message, max_results=5)
+                if web_results:
+                    web_context = build_web_context(web_results)
+                    if is_research:
+                        web_instruction = (
+                            "IMPORTANT: You have comprehensive research results from multiple sources below. "
+                            "Synthesize ALL sources into a well-structured response. "
+                            "Use numbered sections with bold headings. "
+                            "Cite sources as [Source Name] inline where relevant. "
+                            "Be thorough — the user asked for deep research.\n\n"
+                            + web_context
+                        )
+                    else:
+                        web_instruction = (
+                            "IMPORTANT: Answer ONLY using the web search results provided below. "
+                            "Do not add information from your training data. "
+                            "Cite the source URLs inline. Take your time and be accurate.\n\n"
+                            + web_context
+                        )
+                    _msgs[0] = {"role": "system", "content": _sys + "\n\n" + web_instruction}
+                    _sources = [
+                        {
+                            "source": r.get("href", ""),
+                            "page": "web",
+                            "score": 1.0,
+                            "excerpt": r.get("body", "")[:200],
+                            "is_web": True,
+                        }
+                        for r in web_results
+                    ]
+                else:
+                    yield f"data: {json.dumps({'type': 'status', 'status': 'web_search_failed'})}\n\n"
+
+            # ── 9. Stream LLM response ────────────────────────────────────────
+            full_response = ""
+            try:
+                async for chunk in _llm.chat_stream(
+                    _msgs,
+                    temperature=settings.temperature,
+                    max_tokens=settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens,
+                ):
+                    full_response += chunk
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+            except Exception as stream_exc:
+                err = repr(stream_exc) if str(stream_exc) == "" else f"{type(stream_exc).__name__}: {stream_exc}"
+                logger.error("LLM streaming error: %s", err)
+                yield f"data: {json.dumps({'type': 'error', 'message': err})}\n\n"
+                return
+
+            # ── 10. Sources + web auto-ingest ─────────────────────────────────
+            if _sources:
+                yield f"data: {json.dumps({'type': 'sources', 'sources': _sources})}\n\n"
+                from core.document_processor import ingest_text
+                for s in _sources:
+                    if s.get("is_web") and s.get("source") and s.get("excerpt"):
+                        asyncio.create_task(
+                            ingest_text(
+                                f"{s.get('source')}\n\n{s.get('excerpt')}",
+                                source=s.get("source"),
+                                source_type="research",
+                            )
+                        )
+
+            # ── 11. Save assistant message ────────────────────────────────────
+            assistant_msg = Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=full_response,
+                sources=_sources if _sources else None,
+            )
+            db.add(assistant_msg)
+            await db.flush()
+            total_msg_count = await db.scalar(
+                select(func.count()).select_from(Message).where(
+                    Message.conversation_id == conversation.id
+                )
+            )
+            await db.commit()
+            if req.mode == "fast":
+                asyncio.create_task(
+                    _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
+                )
+            if _title_args:
+                asyncio.create_task(_generate_title(*_title_args), name="generate-title")
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+        )
+
     # Build messages list
     messages = []
     sources = []
@@ -568,123 +829,6 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     # Call LLM
     try:
-        if req.stream:
-            # For streaming, return SSE response
-            async def generate():
-                nonlocal sources  # allow modification inside nested function
-
-                # First event: metadata
-                meta: dict = {
-                    "type": "meta",
-                    "conversation_id": conversation.id,
-                    "detected_domain": classifier_result.domain.value,
-                    "classifier": classifier_result.model_dump(),
-                    "mode": req.mode,
-                }
-                yield f"data: {json.dumps(meta)}\n\n"
-
-                # If RAG returned nothing, try web search
-                if not search_results:
-                    is_research = _is_research_query(req.message)
-                    if is_research:
-                        yield f"data: {json.dumps({'type': 'status', 'status': 'researching', 'message': 'Deep research in progress…'})}\n\n"
-                        from core.web_search import deep_search
-                        web_results = await deep_search(req.message, max_queries=6)
-                    else:
-                        yield f"data: {json.dumps({'type': 'status', 'status': 'searching_web'})}\n\n"
-                        web_results = await search_web(req.message, max_results=5)
-                    if web_results:
-                        web_context = build_web_context(web_results)
-                        if is_research:
-                            web_instruction = (
-                                "IMPORTANT: You have comprehensive research results from multiple sources below. "
-                                "Synthesize ALL sources into a well-structured response. "
-                                "Use numbered sections with bold headings. "
-                                "Cite sources as [Source Name] inline where relevant. "
-                                "Be thorough — the user asked for deep research.\n\n"
-                                + web_context
-                            )
-                        else:
-                            web_instruction = (
-                                "IMPORTANT: Answer ONLY using the web search results provided below. "
-                                "Do not add information from your training data. "
-                                "Cite the source URLs inline. Take your time and be accurate.\n\n"
-                                + web_context
-                            )
-                        # Replace the system message with web-augmented version
-                        messages[0] = {"role": "system", "content": system_prompt + "\n\n" + web_instruction}
-                        # Build sources list from web results
-                        sources = [
-                            {
-                                "source": r.get("href", ""),
-                                "page": "web",
-                                "score": 1.0,
-                                "excerpt": r.get("body", "")[:200],
-                                "is_web": True,
-                            }
-                            for r in web_results
-                        ]
-                    else:
-                        yield f"data: {json.dumps({'type': 'status', 'status': 'web_search_failed'})}\n\n"
-
-                full_response = ""
-                try:
-                    async for chunk in llm.chat_stream(
-                        messages,
-                        temperature=settings.temperature,
-                        max_tokens=settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens,
-                    ):
-                        full_response += chunk
-                        yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
-                except Exception as stream_exc:
-                    err = repr(stream_exc) if str(stream_exc) == '' else f"{type(stream_exc).__name__}: {stream_exc}"
-                    logger.error(f"LLM streaming error: {err}")
-                    yield f"data: {json.dumps({'type': 'error', 'message': err})}\n\n"
-                    return
-
-                if sources:
-                    yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
-
-                # Auto-ingest web results when ingest_text method is available
-                if sources:
-                    from core.document_processor import ingest_text
-                    for s in sources:
-                        if s.get("is_web") and s.get("source") and s.get("excerpt"):
-                            # Combine title and excerpt for ingestion
-                            # Search for title in original web_results if needed, but sources has enough info
-                            # Actually, web_results has 'title', let's use it if possible.
-                            # But sources is already built.
-                            text_to_ingest = f"{s.get('source')}\n\n{s.get('excerpt')}"
-                            asyncio.create_task(ingest_text(text_to_ingest, source=s.get("source"), source_type="research"))
-
-                # Save assistant message after streaming completes
-                assistant_msg = Message(
-                    conversation_id=conversation.id,
-                    role="assistant",
-                    content=full_response,
-                    sources=sources if sources else None,
-                )
-                db.add(assistant_msg)
-                await db.flush()
-                total_msg_count = await db.scalar(
-                    select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
-                )
-                await db.commit()
-                if req.mode == "fast":
-                    asyncio.create_task(
-                        _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
-                    )
-                # Schedule after commit so _generate_title can see the committed row
-                if _title_args:
-                    asyncio.create_task(_generate_title(*_title_args), name="generate-title")
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-            return StreamingResponse(
-                generate(),
-                media_type="text/event-stream",
-                headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
-            )
-
         # Non-streaming response
         response = await llm.chat(
             messages,
