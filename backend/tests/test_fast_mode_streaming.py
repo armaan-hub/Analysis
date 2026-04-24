@@ -84,3 +84,32 @@ async def test_streaming_meta_contains_correct_domain(client):
     meta = next((e for e in events if e.get("type") == "meta"), None)
     assert meta is not None, "No meta event found"
     assert meta["detected_domain"] == "vat", f"Expected 'vat', got: {meta['detected_domain']}"
+
+
+@pytest.mark.asyncio
+async def test_streaming_meta_arrives_before_heavy_ops(client):
+    """meta must be yielded before slow intent classification completes."""
+    import asyncio as _asyncio
+
+    intent_completed = _asyncio.Event()
+
+    async def _slow_intent(msg, llm):
+        await _asyncio.sleep(0.15)
+        intent_completed.set()
+        return type("I", (), {"output_type": "answer", "topic": "vat"})()
+
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_cls())),
+        patch("api.chat.classify_intent", new=AsyncMock(side_effect=_slow_intent)),
+        patch("api.chat.get_llm_provider", return_value=_mock_llm()),
+        patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._get_query_variations", new=AsyncMock(return_value=["Q?"])),
+        patch("api.chat.search_web", new=AsyncMock(return_value=[])),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": "What is UAE VAT?", "stream": True, "mode": "fast"},
+        )
+
+    events = _parse_sse(resp.content)
+    assert events[0]["type"] == "meta", "meta event must be first, before slow intent completes"

@@ -426,8 +426,6 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     if req.stream:
         async def generate():  # noqa: C901
-            nonlocal _title_args
-
             # ── 1. Domain classification ──────────────────────────────────────
             _eff = req.domain_override or req.domain
             if _eff:
@@ -657,27 +655,32 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         )
 
             # ── 11. Save assistant message ────────────────────────────────────
-            assistant_msg = Message(
-                conversation_id=conversation.id,
-                role="assistant",
-                content=full_response,
-                sources=_sources if _sources else None,
-            )
-            db.add(assistant_msg)
-            await db.flush()
-            total_msg_count = await db.scalar(
-                select(func.count()).select_from(Message).where(
-                    Message.conversation_id == conversation.id
+            try:
+                assistant_msg = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=full_response,
+                    sources=_sources if _sources else None,
                 )
-            )
-            await db.commit()
-            if req.mode == "fast":
-                asyncio.create_task(
-                    _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
+                db.add(assistant_msg)
+                await db.flush()
+                total_msg_count = await db.scalar(
+                    select(func.count()).select_from(Message).where(
+                        Message.conversation_id == conversation.id
+                    )
                 )
-            if _title_args:
-                asyncio.create_task(_generate_title(*_title_args), name="generate-title")
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                await db.commit()
+                if req.mode == "fast":
+                    asyncio.create_task(
+                        _get_or_refresh_summary(conversation.id, total_msg_count, req.provider)
+                    )
+                if _title_args:
+                    asyncio.create_task(_generate_title(*_title_args), name="generate-title")
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            except Exception as _db_exc:
+                logger.error("DB save failed after streaming: %s", _db_exc)
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Response streamed but could not be saved'})}\n\n"
+                return
 
         return StreamingResponse(
             generate(),
