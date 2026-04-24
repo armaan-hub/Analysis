@@ -24,3 +24,26 @@ def test_route_all_labels_have_prompts():
 def test_router_requires_enum_not_string():
     with pytest.raises((TypeError, ValueError, KeyError)):
         route_prompt("unknown_string")  # type: ignore[arg-type]
+
+
+def test_vat_prompt_contains_commercial_property_guidance():
+    """VAT prompt must cover non-registered-person hotel-apartment sale workflow."""
+    p = route_prompt(DomainLabel.VAT)
+    assert "commercial property" in p.lower(), "VAT prompt missing 'commercial property'"
+    assert "Payment of VAT on Commercial Property Sale" in p, (
+        "VAT prompt missing FTA portal service name"
+    )
+    assert "non-registered" in p.lower(), "VAT prompt missing non-registered-person case"
+
+
+def test_vat_few_shot_example_covers_hotel_apartment():
+    """VAT few-shot example must mention hotel apartment and FTA portal steps."""
+    from core.prompt_router import FEW_SHOT_EXAMPLES
+    ex = FEW_SHOT_EXAMPLES.get("vat", "")
+    assert "hotel apartment" in ex.lower(), "VAT few-shot missing hotel apartment scenario"
+    assert "tax.gov.ae" in ex.lower() or "fta" in ex.lower(), (
+        "VAT few-shot missing FTA portal reference"
+    )
+    assert "title deed" in ex.lower() or "oqood" in ex.lower(), (
+        "VAT few-shot missing document list"
+    )
