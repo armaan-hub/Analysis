@@ -1,6 +1,6 @@
 """Tests for the route_prompt function."""
 import pytest
-from core.prompt_router import route_prompt
+from core.prompt_router import route_prompt, FEW_SHOT_EXAMPLES
 from core.chat.domain_classifier import DomainLabel
 
 
@@ -34,15 +34,15 @@ def test_vat_prompt_contains_commercial_property_guidance():
         "VAT prompt missing FTA portal service name"
     )
     assert "non-registered" in p.lower(), "VAT prompt missing non-registered-person case"
+    assert "tax.gov.ae" in p.lower(), "VAT prompt missing FTA portal URL (tax.gov.ae)"
 
 
 def test_vat_few_shot_example_covers_hotel_apartment():
     """VAT few-shot example must mention hotel apartment and FTA portal steps."""
-    from core.prompt_router import FEW_SHOT_EXAMPLES
     ex = FEW_SHOT_EXAMPLES.get("vat", "")
     assert "hotel apartment" in ex.lower(), "VAT few-shot missing hotel apartment scenario"
-    assert "tax.gov.ae" in ex.lower() or "fta" in ex.lower(), (
-        "VAT few-shot missing FTA portal reference"
+    assert "tax.gov.ae" in ex.lower(), (
+        "VAT few-shot missing FTA portal URL (tax.gov.ae)"
     )
     assert "title deed" in ex.lower() or "oqood" in ex.lower(), (
         "VAT few-shot missing document list"
