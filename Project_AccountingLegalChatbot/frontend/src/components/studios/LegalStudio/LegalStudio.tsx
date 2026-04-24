@@ -593,7 +593,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     sendMessageAbortRef.current?.abort();
     const controller = new AbortController();
     sendMessageAbortRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = setTimeout(() => controller.abort(), 90_000);
 
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
@@ -601,6 +601,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       const body: any = {
         message: text, conversation_id: conversationId,
         stream: true, domain: userDomain ?? domain, mode,
+        ...(selectedDocIds.length > 0 && { selected_doc_ids: selectedDocIds }),
       };
       const response = await fetch(`${API_BASE}/api/chat/send`, {
         method: 'POST',
