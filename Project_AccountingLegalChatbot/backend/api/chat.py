@@ -72,7 +72,7 @@ async def _get_query_variations(query: str, provider: str | None = None) -> list
     except Exception:
         return [query]
 
-
+
 def _dedup_merge(batches: list, top_k: int) -> list:
     """Deduplicate and merge RAG result batches, returning top-k by score."""
     seen: set[tuple] = set()
@@ -438,8 +438,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     if req.use_rag:
         # Document-scoped search takes highest priority (user explicitly selected docs)
         rag_filter = None
+        _doc_scoped = False  # True when user explicitly selected docs — never fall back to all-docs
         if req.selected_doc_ids:
             rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+            _doc_scoped = True
         elif req.mode != "analyst":
             # Domain-aware RAG: filter by category when domain is finance or law.
             # Analyst mode intentionally skips category filtering to search all documents.
@@ -460,7 +462,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 )
                 search_results = _dedup_merge(all_results, settings.fast_top_k)
                 # Fall back to unfiltered if domain filter yields nothing
-                if rag_filter and not search_results:
+                if rag_filter and not search_results and not _doc_scoped:
                     fallback = await asyncio.gather(
                         *[rag_engine.search(q, top_k=settings.fast_top_k) for q in query_variations],
                         return_exceptions=True,
@@ -472,7 +474,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 )
                 # If strict domain filter yields no matches, fall back to unfiltered
                 # retrieval so chat still uses available indexed context.
-                if rag_filter and not search_results:
+                if rag_filter and not search_results and not _doc_scoped:
                     search_results = await rag_engine.search(
                         req.message, top_k=settings.top_k_results
                     )
@@ -608,7 +610,17 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 if sources:
                     yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
 
-                # TODO: auto-ingest web results when ingest_text method is available
+                # Auto-ingest web results when ingest_text method is available
+                if sources:
+                    from core.document_processor import ingest_text
+                    for s in sources:
+                        if s.get("is_web") and s.get("source") and s.get("excerpt"):
+                            # Combine title and excerpt for ingestion
+                            # Search for title in original web_results if needed, but sources has enough info
+                            # Actually, web_results has 'title', let's use it if possible.
+                            # But sources is already built.
+                            text_to_ingest = f"{s.get('source')}\n\n{s.get('excerpt')}"
+                            asyncio.create_task(ingest_text(text_to_ingest, source=s.get("source"), source_type="research"))
 
                 # Save assistant message after streaming completes
                 assistant_msg = Message(
