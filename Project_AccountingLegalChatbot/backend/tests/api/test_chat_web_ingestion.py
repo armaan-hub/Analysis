@@ -52,25 +52,24 @@ async def test_chat_auto_ingests_web_results(client):
 
 @pytest.mark.asyncio
 async def test_chat_uses_compute_safe_max_tokens(client):
-    """chat.py must call compute_safe_max_tokens() — not raw settings.max_tokens."""
-    from unittest.mock import patch
+    """chat.py must call compute_safe_max_tokens() with the correct arguments."""
+    from unittest.mock import patch, AsyncMock
 
     async def _fake_stream(*args, **kwargs):
         yield "Budget test response"
 
-    call_count = {"n": 0}
+    call_args_captured = {}
 
     def _spy_compute(self, messages, requested_max=None):
-        call_count["n"] += 1
+        call_args_captured["messages"] = messages
+        call_args_captured["requested_max"] = requested_max
+        call_args_captured["call_count"] = call_args_captured.get("call_count", 0) + 1
         return 1024
 
-    with patch(
-        "core.llm_manager.BaseLLMProvider.compute_safe_max_tokens",
-        _spy_compute,
-    ), patch(
-        "core.llm_manager.NvidiaProvider.chat_stream",
-        _fake_stream,
-    ):
+    with patch("core.rag_engine.RAGEngine.search", return_value=[]), \
+         patch("api.chat._generate_title", new=AsyncMock()), \
+         patch("core.llm_manager.BaseLLMProvider.compute_safe_max_tokens", _spy_compute), \
+         patch("core.llm_manager.NvidiaProvider.chat_stream", _fake_stream):
         response = await client.post(
             "/api/chat/send",
             json={
@@ -80,5 +79,11 @@ async def test_chat_uses_compute_safe_max_tokens(client):
                 "stream": True,
             },
         )
+
     assert response.status_code == 200
-    assert call_count["n"] >= 1, "compute_safe_max_tokens was not called"
+    assert call_args_captured.get("call_count", 0) == 1, \
+        f"compute_safe_max_tokens should be called exactly once, got {call_args_captured.get('call_count', 0)}"
+    assert isinstance(call_args_captured.get("messages"), list), \
+        "messages argument must be a list"
+    assert len(call_args_captured.get("messages", [])) > 0, \
+        "messages argument must not be empty"

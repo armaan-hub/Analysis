@@ -633,12 +633,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             # ── 9. Stream LLM response ────────────────────────────────────────
             full_response = ""
+            _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
+            _safe_max = _llm.compute_safe_max_tokens(_msgs, _requested_max)
             try:
-                _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
                 async for chunk in _llm.chat_stream(
                     _msgs,
                     temperature=settings.temperature,
-                    max_tokens=_llm.compute_safe_max_tokens(_msgs, _requested_max),
+                    max_tokens=_safe_max,
                 ):
                     full_response += chunk
                     yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
@@ -866,13 +867,14 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     messages.append({"role": "user", "content": req.message})
 
     # Call LLM
+    _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
+    _safe_max = llm.compute_safe_max_tokens(messages, _requested_max)
     try:
         # Non-streaming response
-        _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
         response = await llm.chat(
             messages,
             temperature=settings.temperature,
-            max_tokens=llm.compute_safe_max_tokens(messages, _requested_max),
+            max_tokens=_safe_max,
         )
     except Exception as e:
         import httpx as _httpx
