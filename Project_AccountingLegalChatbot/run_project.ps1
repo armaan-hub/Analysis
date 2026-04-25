@@ -88,7 +88,8 @@ $backendStart  = Get-Date
 # Wait for backend to be ready — stream output while polling so the user
 # sees progress rather than a blank screen. Use a deadline instead of a
 # counter so the timeout is correct regardless of sleep duration.
-$backendDeadline = (Get-Date).AddSeconds(60)
+# Increased timeout to 120 seconds to accommodate slower systems or first-time initialization
+$backendDeadline = (Get-Date).AddSeconds(120)
 Write-Host "Waiting for backend to be ready..."
 while ((Get-Date) -lt $backendDeadline) {
     # Forward any backend output accumulated since last poll
@@ -116,7 +117,7 @@ while ((Get-Date) -lt $backendDeadline) {
     Start-Sleep -Milliseconds 500
 }
 if ((Get-Date) -ge $backendDeadline) {
-    Write-Log "Warning: Backend did not become ready within 60 seconds. Starting frontend anyway." Yellow
+    Write-Log "Warning: Backend did not become ready within 120 seconds. Starting frontend anyway." Yellow
 }
 
 Write-Log "[2/2] Starting frontend ..." Green

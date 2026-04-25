@@ -6,6 +6,7 @@ import {
   ChevronRight, Download,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { API_BASE_URL } from '../../../../../api-config';
 
 interface Props { outputType: OutputType; label: string; }
 
@@ -57,7 +58,7 @@ export function ExportCard({ outputType, label }: Props) {
       {latest?.status === 'ready' && latest.download_url && (
         <a
           className="export-card__download"
-          href={`http://localhost:8000${latest.download_url}`}
+          href={`${API_BASE_URL}${latest.download_url}`}
           onClick={e => e.stopPropagation()}
         >
           <Download size={12} /> Download

@@ -1,5 +1,6 @@
 import { useFinanceStudio } from '../FinanceStudioContext';
 import { PreviewPage } from './PreviewPage';
+import { API_BASE_URL } from '../../../../../api-config';
 
 export function ReportPreview() {
   const { outputs } = useFinanceStudio();
@@ -21,7 +22,7 @@ export function ReportPreview() {
   return (
     <div className="report-preview">
       <iframe
-        src={`http://localhost:8000${readyReport.download_url}`}
+        src={`${API_BASE_URL}${readyReport.download_url}`}
         title="Audit Report Preview"
         className="report-preview__iframe"
       />

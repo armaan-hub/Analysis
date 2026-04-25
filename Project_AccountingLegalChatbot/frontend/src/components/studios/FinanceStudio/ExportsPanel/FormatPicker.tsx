@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useFinanceStudio } from '../FinanceStudioContext';
+import { API_BASE_URL } from '../../../../../api-config';
 
 interface Template { id: string; name: string; confidence?: number; is_prebuilt?: boolean; }
 
@@ -10,8 +11,8 @@ export function FormatPicker() {
   useEffect(() => {
     (async () => {
       const [custom, prebuilt] = await Promise.all([
-        fetch('http://localhost:8000/api/templates/list').then(r => r.json()),
-        fetch('http://localhost:8000/api/templates/prebuilt').then(r => r.json()),
+        fetch(`${API_BASE_URL}/api/templates/list`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/api/templates/prebuilt`).then(r => r.json()),
       ]);
       const all: Template[] = [
         ...(prebuilt.templates || []).map((t: Template) => ({ ...t, is_prebuilt: true })),

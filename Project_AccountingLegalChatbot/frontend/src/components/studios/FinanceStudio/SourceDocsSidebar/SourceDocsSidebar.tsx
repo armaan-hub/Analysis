@@ -4,6 +4,7 @@ import { DocumentCard } from './DocumentCard';
 import { LearnedProfileTree } from './LearnedProfileTree';
 import { VersionSwitcher } from './VersionSwitcher';
 import { Plus, Upload } from 'lucide-react';
+import { API_BASE_URL } from '../../../../../api-config';
 
 export function SourceDocsSidebar() {
   const { profileId, sourceDocs, refreshDocs, selectedSourceIds, toggleSource } = useFinanceStudio();
@@ -15,7 +16,7 @@ export function SourceDocsSidebar() {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('doc_type', 'trial_balance');
-    await fetch(`http://localhost:8000/api/audit-profiles/${profileId}/upload-source`, {
+    await fetch(`${API_BASE_URL}/api/audit-profiles/${profileId}/upload-source`, {
       method: 'POST', body: fd,
     });
     e.target.value = '';
@@ -24,7 +25,7 @@ export function SourceDocsSidebar() {
 
   async function onDelete(docId: string) {
     if (!profileId) return;
-    await fetch(`http://localhost:8000/api/audit-profiles/${profileId}/source-documents/${docId}`, {
+    await fetch(`${API_BASE_URL}/api/audit-profiles/${profileId}/source-documents/${docId}`, {
       method: 'DELETE',
     });
     await refreshDocs();
@@ -50,7 +51,7 @@ export function SourceDocsSidebar() {
           const fd = new FormData();
           fd.append('file', file);
           fd.append('doc_type', 'trial_balance');
-          await fetch(`http://localhost:8000/api/audit-profiles/${profileId}/upload-source`, {
+          await fetch(`${API_BASE_URL}/api/audit-profiles/${profileId}/upload-source`, {
             method: 'POST', body: fd,
           });
           await refreshDocs();
