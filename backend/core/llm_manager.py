@@ -69,6 +69,9 @@ class LLMResponse:
 class BaseLLMProvider:
     """Abstract base for all LLM providers."""
 
+    _MIN_RESPONSE_TOKENS: int = 512  # minimum for professional legal/accounting responses
+    _TOKEN_SAFETY_BUFFER: int = 500
+
     def __init__(self, api_key: str, model: str, base_url: str = ""):
         self.api_key = api_key
         self.model = model
@@ -88,8 +91,22 @@ class BaseLLMProvider:
                 return window
         return _CONTEXT_WINDOW_FALLBACK
 
-    _MIN_RESPONSE_TOKENS: int = 256
-    _TOKEN_SAFETY_BUFFER: int = 500
+    @staticmethod
+    def _count_content_chars(content) -> int:
+        """Return approximate char count for a message content value.
+
+        Handles both str (plain text) and list-of-parts (OpenAI multi-modal format).
+        Image bytes are intentionally ignored — only text parts are counted.
+        """
+        if isinstance(content, str):
+            return len(content)
+        if isinstance(content, list):
+            return sum(
+                len(part.get("text") or "")
+                for part in content
+                if isinstance(part, dict)
+            )
+        return 0
 
     def compute_safe_max_tokens(
         self,
@@ -100,7 +117,7 @@ class BaseLLMProvider:
 
         Algorithm:
             input_chars  = sum of all message content character lengths
-            input_tokens = input_chars // 4   (≈ 4 chars per token, conservative)
+            input_tokens = input_chars // 3   (≈ 3 chars per token — conservative for legal/accounting text)
             available    = context_window - input_tokens - safety_buffer
 
         If ``available`` ≤ 0 (input alone fills the window) returns
@@ -109,10 +126,17 @@ class BaseLLMProvider:
         If ``requested_max`` is ``None`` (no ceiling requested), returns
         ``available``.  Otherwise returns ``min(requested_max, available)``.
         """
-        input_chars = sum(len(msg.get("content") or "") for msg in messages)
-        input_tokens = input_chars // 4
+        input_chars = sum(self._count_content_chars(msg.get("content")) for msg in messages)
+        input_tokens = input_chars // 3  # conservative: legal text ~3 chars/token
         available = self.get_context_window() - input_tokens - self._TOKEN_SAFETY_BUFFER
         if available <= 0:
+            logger.warning(
+                "compute_safe_max_tokens: estimated input (%d tokens) exceeds context "
+                "window (%d). Returning minimum %d. Caller should truncate messages.",
+                input_tokens,
+                self.get_context_window(),
+                self._MIN_RESPONSE_TOKENS,
+            )
             return self._MIN_RESPONSE_TOKENS
         if requested_max is None:
             return available
