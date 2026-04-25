@@ -499,23 +499,27 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 if req.selected_doc_ids:
                     _rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
                     _doc_scoped = True
-                elif req.mode != "analyst":
-                    if req.domain in ("finance",):
-                        _rag_filter = {"category": "finance"}
-                    elif req.domain in ("law", "audit"):
-                        _rag_filter = {"category": "law"}
+                else:
+                    _rag_filter = {"category": {"$in": ["law", "finance"]}}
 
                 try:
                     if req.mode == "fast":
                         _all = await asyncio.gather(
-                            *[rag_engine.search(q, top_k=settings.fast_top_k, filter=_rag_filter)
-                              for q in _query_vars],
+                            *[rag_engine.search(
+                                q,
+                                top_k=settings.fast_top_k,
+                                filter=_rag_filter,
+                                min_score=settings.rag_min_score,
+                            ) for q in _query_vars],
                             return_exceptions=True,
                         )
                         _search_results = _dedup_merge(_all, settings.fast_top_k)
                     else:
                         _search_results = await rag_engine.search(
-                            req.message, top_k=settings.top_k_results, filter=_rag_filter
+                            req.message,
+                            top_k=settings.top_k_results,
+                            filter=_rag_filter,
+                            min_score=settings.rag_min_score,
                         )
                 except Exception as _rag_exc:
                     logger.warning("RAG search failed, falling back to no-context mode: %s", _rag_exc)
@@ -731,26 +735,27 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
-        # Document-scoped search takes highest priority (user explicitly selected docs)
         rag_filter = None
-        _doc_scoped = False  # True when user explicitly selected docs — never fall back to all-docs
+        _doc_scoped = False
         if req.selected_doc_ids:
+            # User explicitly selected documents — search within those only
             rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
             _doc_scoped = True
-        elif req.mode != "analyst":
-            # Domain-aware RAG: filter by category when domain is finance or law.
-            # Analyst mode intentionally skips category filtering to search all documents.
-            if req.domain in ("finance",):
-                rag_filter = {"category": "finance"}
-            elif req.domain in ("law", "audit"):
-                rag_filter = {"category": "law"}
+        else:
+            # Default: search professional knowledge base (law + finance documents)
+            rag_filter = {"category": {"$in": ["law", "finance"]}}
 
         try:
             if req.mode == "fast":
                 query_variations = await _get_query_variations(req.message, req.provider)
                 all_results = await asyncio.gather(
                     *[
-                        rag_engine.search(q, top_k=settings.fast_top_k, filter=rag_filter)
+                        rag_engine.search(
+                            q,
+                            top_k=settings.fast_top_k,
+                            filter=rag_filter,
+                            min_score=settings.rag_min_score,
+                        )
                         for q in query_variations
                     ],
                     return_exceptions=True,
@@ -758,7 +763,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 search_results = _dedup_merge(all_results, settings.fast_top_k)
             else:
                 search_results = await rag_engine.search(
-                    req.message, top_k=settings.top_k_results, filter=rag_filter
+                    req.message,
+                    top_k=settings.top_k_results,
+                    filter=rag_filter,
+                    min_score=settings.rag_min_score,
                 )
         except Exception as rag_exc:
             logger.warning(f"RAG search failed, falling back to no-context mode: {rag_exc}")
