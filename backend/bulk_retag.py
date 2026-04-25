@@ -58,11 +58,20 @@ async def main() -> None:
                 continue
 
             # Get all chunk IDs for this document from ChromaDB
+            # Query by original_name (not doc_id) because duplicate uploads create new doc_ids
+            # but chunks from old uploads still exist with old doc_ids
             try:
                 existing = rag_engine.collection.get(
-                    where={"doc_id": doc.id},
+                    where={"original_name": doc.original_name},
                     include=["metadatas"],
                 )
+                # Fallback: old chunks ingested before the fix have no original_name metadata.
+                # Try finding them by doc_id instead.
+                if not existing or not existing["ids"]:
+                    existing = rag_engine.collection.get(
+                        where={"doc_id": doc.id},
+                        include=["metadatas"],
+                    )
             except Exception as exc:
                 print(f"  ERR  (query)        {doc.original_name}: {exc}")
                 totals["error"] += 1
@@ -77,9 +86,13 @@ async def main() -> None:
             current_metas = existing["metadatas"]
 
             # Check if already correctly tagged (both category AND original_name must match)
-            already_tagged = all(
-                m.get("category") == category and m.get("original_name") == doc.original_name
-                for m in current_metas
+            # IMPORTANT: require at least one chunk AND all chunks must match
+            already_tagged = (
+                len(current_metas) > 0
+                and all(
+                    m.get("category") == category and m.get("original_name") == doc.original_name
+                    for m in current_metas
+                )
             )
             if already_tagged:
                 print(f"  SKIP (already ok)   {doc.original_name}  [{category}]")

@@ -736,11 +736,9 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
         rag_filter = None
-        _doc_scoped = False
         if req.selected_doc_ids:
             # User explicitly selected documents — search within those only
             rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
-            _doc_scoped = True
         else:
             # Default: search professional knowledge base (law + finance documents)
             rag_filter = {"category": {"$in": ["law", "finance"]}}

@@ -2062,7 +2062,7 @@ async def detect_report_metadata(req: DetectRequest):
     if not req.selected_doc_ids:
         return DetectResponse(confidence="none")
 
-    doc_filter = {"document_id": {"$in": req.selected_doc_ids}} if req.selected_doc_ids else None
+    doc_filter = {"doc_id": {"$in": req.selected_doc_ids}} if req.selected_doc_ids else None
 
     entity_results = []
     period_results = []
@@ -2482,12 +2482,17 @@ async def generate_report_stream(req: GenerateStreamRequest):
     """Stream report generation over SSE. Streams {type: chunk, content: str} + {type: done}."""
 
     async def _stream():
-        doc_filter = {"doc_id": {"$in": req.selected_doc_ids}} if req.selected_doc_ids else None
+        doc_filter = (
+            {"doc_id": {"$in": req.selected_doc_ids}}
+            if req.selected_doc_ids
+            else {"category": {"$in": ["law", "finance"]}}
+        )
         try:
             rag_results = await rag_engine.search(
                 f"{req.entity_name} {req.period_end} {req.report_type}",
                 top_k=10,
                 filter=doc_filter,
+                min_score=settings.rag_min_score,
             )
         except Exception as e:
             logger.warning(f"RAG search failed in generate-stream: {e}")
