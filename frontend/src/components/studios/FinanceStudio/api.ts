@@ -2,8 +2,9 @@ import type {
   AuditProfile, ProfileVersion, SourceDoc, ChatMessage,
   GeneratedOutput, OutputType,
 } from './types';
+import { API_BASE_URL } from '../../../api-config';
 
-const BASE = 'http://localhost:8000';
+const BASE = API_BASE_URL;
 
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
