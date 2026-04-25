@@ -76,8 +76,11 @@ async def main() -> None:
             chunk_ids = existing["ids"]
             current_metas = existing["metadatas"]
 
-            # Check if already correctly tagged
-            already_tagged = all(m.get("category") == category for m in current_metas)
+            # Check if already correctly tagged (both category AND original_name must match)
+            already_tagged = all(
+                m.get("category") == category and m.get("original_name") == doc.original_name
+                for m in current_metas
+            )
             if already_tagged:
                 print(f"  SKIP (already ok)   {doc.original_name}  [{category}]")
                 totals["skipped"] += 1

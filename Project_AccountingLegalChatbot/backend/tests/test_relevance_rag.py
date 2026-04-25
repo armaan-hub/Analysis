@@ -89,7 +89,7 @@ def test_bulk_ingest_passes_category_to_ingest_chunks():
     )
 
 
-def test_bulk_retag_script_exists_and_is_importable():
+def test_bulk_retag_script_exists_and_has_correct_structure():
     """bulk_retag.py must exist and define a main() coroutine."""
     retag_path = Path(__file__).parent.parent / "bulk_retag.py"
     assert retag_path.exists(), "backend/bulk_retag.py must exist"
