@@ -579,7 +579,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _msgs.append({"role": "user", "content": req.message})
 
             # ── 8. Web search fallback (if no RAG results) ───────────────────
-            if not _search_results:
+            if not _search_results and not _doc_scoped:
                 is_research = _is_research_query(req.message)
                 if is_research:
                     yield f"data: {json.dumps({'type': 'status', 'status': 'researching', 'message': 'Deep research in progress…'})}\n\n"
@@ -1140,10 +1140,18 @@ async def deep_research_stream(req: DeepResearchRequest):
             if req.selected_doc_ids:
                 yield f"data: {json.dumps({'type': 'step', 'text': f'Searching {len(req.selected_doc_ids)} selected document(s)…'})}\n\n"
                 doc_filter = {"doc_id": {"$in": req.selected_doc_ids}}
-                raw = await rag_engine.search(req.query, top_k=10, filter=doc_filter)
+                raw = await rag_engine.search(
+                    req.query, top_k=10, filter=doc_filter,
+                    min_score=settings.rag_min_score,
+                )
             else:
-                yield f"data: {json.dumps({'type': 'step', 'text': 'Searching all indexed documents…'})}\n\n"
-                raw = await rag_engine.search(req.query, top_k=10)
+                yield f"data: {json.dumps({'type': 'step', 'text': 'Searching law & finance knowledge base…'})}\n\n"
+                raw = await rag_engine.search(
+                    req.query,
+                    top_k=10,
+                    filter={"category": {"$in": ["law", "finance"]}},
+                    min_score=settings.rag_min_score,
+                )
 
             rag_context_parts: list[str] = []
             for r in raw:

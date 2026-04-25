@@ -137,7 +137,7 @@ async def test_chat_selected_docs_override_default_filter(client):
     search_calls = []
 
     async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
-        search_calls.append({"filter": filter})
+        search_calls.append({"filter": filter, "min_score": min_score})
         return []
 
     with (
@@ -155,8 +155,12 @@ async def test_chat_selected_docs_override_default_filter(client):
 
     assert resp.status_code == 200
     assert search_calls
-    assert search_calls[0]["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
-        f"Expected doc_id filter, got: {search_calls[0]['filter']}"
+    call = search_calls[0]
+    assert call["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
+        f"Expected doc_id filter, got: {call['filter']}"
+    )
+    assert call["min_score"] == pytest.approx(0.45), (
+        f"Expected min_score=0.45 for doc-scoped search, got: {call['min_score']}"
     )
 
 
