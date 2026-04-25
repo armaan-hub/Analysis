@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     fast_top_k: int = 15         # fast mode: higher retrieval budget
     fast_max_tokens: int = 8192  # fast mode: larger response window
     temperature: float = 0.7
+    rag_min_score: float = 0.45   # drop chunks below this cosine-similarity threshold
 
     model_config = SettingsConfigDict(case_sensitive=False)
 
