@@ -55,3 +55,62 @@ def test_get_context_window_substring_case_insensitive():
     # Registry lookup is case-insensitive
     p = make_provider("MISTRAL-LARGE-3-test")
     assert p.get_context_window() == 131_072
+
+
+# ── compute_safe_max_tokens ───────────────────────────────────────────
+
+_MISTRAL_LARGE_WINDOW = 131_072   # from registry
+
+
+def test_compute_safe_max_tokens_short_input_honours_requested():
+    """Short input: available is huge → clamp to requested_max."""
+    p = make_provider("mistralai/mistral-large-3-675b-instruct-2512")
+    msgs = [{"role": "user", "content": "Hello"}]  # ~2 tokens
+    result = p.compute_safe_max_tokens(msgs, requested_max=4096)
+    assert result == 4096
+
+
+def test_compute_safe_max_tokens_no_requested_max_returns_available():
+    """No ceiling → returns available tokens (context_window - input - buffer)."""
+    p = make_provider("mistralai/mistral-large-3-675b-instruct-2512")
+    msgs = [{"role": "user", "content": "Hello"}]
+    result = p.compute_safe_max_tokens(msgs, requested_max=None)
+    # available = 131072 - (5//4) - 500 = 130571
+    assert result == _MISTRAL_LARGE_WINDOW - (5 // 4) - 500
+
+
+def test_compute_safe_max_tokens_long_input_reduces_budget():
+    """Long input near the limit → available < requested_max, so available wins."""
+    p = make_provider("mistralai/mistral-large-3-675b-instruct-2512")
+    # 520000 chars ÷ 4 = 130000 tokens input → available = 131072-130000-500 = 572
+    content = "x" * 520_000
+    msgs = [{"role": "user", "content": content}]
+    result = p.compute_safe_max_tokens(msgs, requested_max=4096)
+    assert result == 572
+
+
+def test_compute_safe_max_tokens_overflow_returns_minimum():
+    """Input exceeds context window → return minimum viable (256)."""
+    p = make_provider("mistralai/mistral-large-3-675b-instruct-2512")
+    # 531000 chars ÷ 4 = 132750 tokens > 131072 window → available < 0 → 256
+    content = "x" * 531_000
+    msgs = [{"role": "user", "content": content}]
+    result = p.compute_safe_max_tokens(msgs, requested_max=4096)
+    assert result == 256
+
+
+def test_compute_safe_max_tokens_none_content_treated_as_empty():
+    """Message with None content should not raise; treated as 0 chars."""
+    p = make_provider("mistralai/mistral-large-3-675b-instruct-2512")
+    msgs = [{"role": "system", "content": None}, {"role": "user", "content": "Hi"}]
+    result = p.compute_safe_max_tokens(msgs, requested_max=1000)
+    assert result == 1000
+
+
+def test_compute_safe_max_tokens_fallback_model():
+    """Unknown model uses 8192 window fallback."""
+    p = make_provider("some-unknown-model-xyz")
+    msgs = [{"role": "user", "content": "Hello"}]
+    result = p.compute_safe_max_tokens(msgs, requested_max=2048)
+    # available = 8192 - (5//4) - 500 = 7691 > 2048 → returns 2048
+    assert result == 2048
