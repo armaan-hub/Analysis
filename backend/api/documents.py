@@ -104,6 +104,36 @@ async def upload_document(
     )
     existing_doc = existing_result.scalars().first()
     if existing_doc:
+        # If the upload specifies a different studio/category than what's stored,
+        # re-tag the existing chunks in ChromaDB so the category filter works correctly.
+        existing_meta = existing_doc.metadata_json or {}
+        stored_category = existing_meta.get("category", "general")
+        if studio and category != stored_category:
+            existing_file_path = Path(settings.upload_dir) / existing_doc.filename
+            try:
+                if existing_file_path.exists():
+                    rechunks = await document_processor.process(
+                        str(existing_file_path), doc_id=existing_doc.id
+                    )
+                    if rechunks:
+                        await rag_engine.ingest_chunks(
+                            rechunks,
+                            doc_id=existing_doc.id,
+                            original_name=existing_doc.original_name,
+                            category=category,
+                        )
+                        existing_doc.metadata_json = {
+                            **existing_meta, "studio": studio, "category": category
+                        }
+                        await db.commit()
+                        logger.info(
+                            f"Re-tagged '{existing_doc.original_name}' "
+                            f"category: {stored_category!r} → {category!r}"
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Could not re-tag existing doc '{existing_doc.original_name}': {e}"
+                )
         return UploadResponse(document=DocumentResponse(
             id=existing_doc.id,
             filename=existing_doc.filename,

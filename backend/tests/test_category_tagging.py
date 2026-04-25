@@ -164,3 +164,64 @@ async def test_category_filter_isolation(client):
     finance_doc_ids = {meta["doc_id"] for meta in finance_results["metadatas"]}
     assert finance_doc_id in finance_doc_ids
     assert legal_doc_id not in finance_doc_ids
+
+
+@pytest.mark.asyncio
+async def test_upload_finance_studio_sets_finance_category(client):
+    """Upload with studio="finance" → chunks should have category="finance"."""
+    content = b"Finance studio document " + str(uuid.uuid4()).encode() + b" balance sheet data."
+
+    resp = await client.post(
+        "/api/documents/upload",
+        files={"file": ("balance.txt", io.BytesIO(content), "text/plain")},
+        data={"studio": "finance"},
+    )
+    assert resp.status_code == 200
+    doc = resp.json()["document"]
+    assert doc["status"] == "indexed"
+    doc_id = doc["id"]
+
+    results = rag_engine.collection.get(
+        where={"doc_id": doc_id},
+        include=["metadatas"],
+    )
+
+    assert len(results["ids"]) > 0
+    for meta in results["metadatas"]:
+        assert "category" in meta
+        assert meta["category"] == "finance", f"Expected category='finance', got {meta['category']}"
+
+
+@pytest.mark.asyncio
+async def test_dedup_retags_chunks_when_studio_changes(client):
+    """If the same file is re-uploaded with a different studio, chunks are re-tagged."""
+    unique_content = b"Dedup re-tag test " + str(uuid.uuid4()).encode() + b" document content here."
+
+    # First upload: no studio → category="general"
+    resp1 = await client.post(
+        "/api/documents/upload",
+        files={"file": ("contract.txt", io.BytesIO(unique_content), "text/plain")},
+    )
+    assert resp1.status_code == 200
+    doc_id = resp1.json()["document"]["id"]
+
+    # Verify initial category is "general"
+    result = rag_engine.collection.get(where={"doc_id": doc_id}, include=["metadatas"])
+    for meta in result["metadatas"]:
+        assert meta["category"] == "general"
+
+    # Second upload: same file with studio="legal" → should re-tag to category="law"
+    resp2 = await client.post(
+        "/api/documents/upload",
+        files={"file": ("contract.txt", io.BytesIO(unique_content), "text/plain")},
+        data={"studio": "legal"},
+    )
+    assert resp2.status_code == 200
+    # Dedup returns same doc id
+    assert resp2.json()["document"]["id"] == doc_id
+
+    # Verify category is now "law"
+    result2 = rag_engine.collection.get(where={"doc_id": doc_id}, include=["metadatas"])
+    assert len(result2["ids"]) > 0
+    for meta in result2["metadatas"]:
+        assert meta["category"] == "law", f"Expected re-tagged category='law', got {meta['category']}"
