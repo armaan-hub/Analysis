@@ -1,5 +1,4 @@
 """Tests for adaptive token budgeting in BaseLLMProvider."""
-import pytest
 from core.llm_manager import BaseLLMProvider, _CONTEXT_WINDOWS
 
 
@@ -19,8 +18,22 @@ def make_provider(model: str) -> _ConcreteProvider:
 
 # ── Registry ─────────────────────────────────────────────────────────
 
-def test_context_windows_registry_is_not_empty():
-    assert len(_CONTEXT_WINDOWS) > 0
+def test_registry_has_minimum_required_families():
+    """Guards against accidental deletion of key model families."""
+    required = {"mistral-large", "gpt-4o", "claude", "llama-3.1", "gemma-3"}
+    assert required.issubset(_CONTEXT_WINDOWS.keys())
+
+
+def test_gpt4o_not_shadowed_by_gpt4():
+    """gpt-4o must match the 128K entry, not the 8K gpt-4 entry."""
+    p = make_provider("openai/gpt-4o-2024-11-20")
+    assert p.get_context_window() == 128_000
+
+
+def test_llama31_not_shadowed_by_llama3():
+    """Versioned llama-3.1 must match 128K, not base llama-3 at 8K."""
+    p = make_provider("meta/llama-3.1-70b-instruct")
+    assert p.get_context_window() == 131_072
 
 
 def test_get_context_window_known_mistral_large():

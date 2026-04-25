@@ -22,8 +22,10 @@ _CONTEXT_WINDOWS: dict[str, int] = {
     "mistral-medium":       131_072,
     "mistral-small":         32_768,
     "mixtral":               32_768,
-    "gemma-4":              131_072,
-    "gemma-3":               32_768,
+    "gemma-4-27b":        1_048_576,   # 27B has 1M context
+    "gemma-4":              131_072,   # 9B; conservative NIM default
+    "gemma-3-1b":            32_768,   # only the 1B variant is 32K
+    "gemma-3":              131_072,   # 4B / 12B / 27B are 128K
     "llama-3.3":            131_072,
     "llama-3.2":            131_072,
     "llama-3.1":            131_072,
