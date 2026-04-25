@@ -1,7 +1,7 @@
 """Tests for relevance-first RAG: score threshold + default category filter."""
 import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from core.rag_engine import RAGEngine
 from config import settings
 
@@ -101,3 +101,77 @@ def test_bulk_retag_script_exists_and_has_correct_structure():
     assert "metadata_json" in source, (
         "bulk_retag.py must read category from Document.metadata_json"
     )
+
+
+@pytest.mark.asyncio
+async def test_chat_default_filter_is_law_finance(client):
+    """Without selected_doc_ids, RAG must use category IN ['law','finance'] — not unfiltered."""
+    search_calls = []
+
+    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
+        search_calls.append({"filter": filter, "min_score": min_score})
+        return []
+
+    with (
+        patch("api.chat.rag_engine.search", side_effect=_fake_search),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": "What is UAE VAT on hotel apartments?", "use_rag": True, "stream": False},
+        )
+
+    assert resp.status_code == 200
+    assert search_calls, "rag_engine.search must have been called"
+    call = search_calls[0]
+    assert call["filter"] == {"category": {"$in": ["law", "finance"]}}, (
+        f"Expected law+finance default filter, got: {call['filter']}"
+    )
+    assert call["min_score"] == pytest.approx(0.45), (
+        f"Expected min_score=0.45, got: {call['min_score']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_selected_docs_override_default_filter(client):
+    """With selected_doc_ids, RAG must use doc_id filter, not the default category filter."""
+    search_calls = []
+
+    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
+        search_calls.append({"filter": filter})
+        return []
+
+    with (
+        patch("api.chat.rag_engine.search", side_effect=_fake_search),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={
+                "message": "Summarise my trail balance",
+                "use_rag": True,
+                "stream": False,
+                "selected_doc_ids": ["doc-tb-001"],
+            },
+        )
+
+    assert resp.status_code == 200
+    assert search_calls
+    assert search_calls[0]["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
+        f"Expected doc_id filter, got: {search_calls[0]['filter']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_empty_search_results_means_no_sources(client):
+    """When all RAG results are below threshold (empty list), response must have empty sources."""
+    with (
+        patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": "Random question", "use_rag": True, "stream": False},
+        )
+
+    assert resp.status_code == 200
+    sources = resp.json()["message"].get("sources")
+    # Accept either None or [] for empty sources (both indicate no sources available)
+    assert sources in (None, []), f"Expected empty sources (None or []), got: {sources}"
