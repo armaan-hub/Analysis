@@ -184,6 +184,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       }]);
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('studio', 'legal');
       try {
         const res = await API.post('/api/documents/upload', fd);
         const doc = res.data.document ?? res.data;
@@ -525,6 +526,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       for (const file of attachedFiles) {
         const fd = new FormData();
         fd.append('file', file);
+        fd.append('studio', 'legal');
         try {
           const res = await API.post('/api/documents/upload', fd);
           const doc = res.data.document ?? res.data;
