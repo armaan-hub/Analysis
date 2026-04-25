@@ -298,6 +298,7 @@ Context from indexed documents:
         top_k: int = 5,
         doc_id: Optional[str] = None,
         filter: Optional[dict] = None,
+        min_score: Optional[float] = None,
     ) -> list[dict]:
         """
         Search the vector store for relevant chunks.
@@ -307,9 +308,10 @@ Context from indexed documents:
             top_k: Number of results to return.
             doc_id: Optional filter to search within a specific document.
             filter: Optional metadata filter dict (e.g. {"category": "finance"}).
+            min_score: Optional minimum cosine similarity score (0.0-1.0). Chunks below threshold are filtered out.
 
         Returns:
-            List of results with text, metadata, and similarity score.
+            List of results with text, metadata, and similarity score, sorted by score descending, capped at 8 results.
         """
         if self.collection.count() == 0:
             return []
@@ -336,7 +338,13 @@ Context from indexed documents:
         if results and results["documents"]:
             for i, doc_text in enumerate(results["documents"][0]):
                 meta = results["metadatas"][0][i] if results["metadatas"] else {}
-                score = 1 - results["distances"][0][i] if results["distances"] else 0
+                distance = results["distances"][0][i] if results["distances"] else 1.0
+                score = 1 - distance  # Convert cosine distance to similarity score
+                
+                # Apply score threshold if specified
+                if min_score is not None and score < min_score:
+                    continue
+                
                 search_results.append({
                     "text": doc_text,
                     "metadata": meta,
@@ -346,8 +354,12 @@ Context from indexed documents:
                     "page": meta.get("page", meta.get("page_number", 1)),
                     "excerpt": doc_text[:200],
                 })
-
-        return search_results
+        
+        # Sort by score descending
+        search_results.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Cap at 8 results maximum
+        return search_results[:8]
 
     def build_augmented_prompt(
         self,
