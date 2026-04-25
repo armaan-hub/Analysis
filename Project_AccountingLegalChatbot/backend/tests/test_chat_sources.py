@@ -45,6 +45,7 @@ async def test_sources_use_original_name_not_uuid(client):
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier())),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=RAG_RESULT)),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",

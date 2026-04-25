@@ -51,6 +51,7 @@ async def test_fast_mode_calls_rag_multiple_times(client):
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", search_mock),
         patch("api.chat._get_query_variations", new=AsyncMock(return_value=["q1", "q2", "q3"])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",

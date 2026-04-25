@@ -49,6 +49,7 @@ async def test_streaming_yields_meta_before_chunks(client):
         )),
         patch("api.chat._get_query_variations", new=AsyncMock(return_value=["What is VAT?"])),
         patch("api.chat.search_web", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -75,6 +76,7 @@ async def test_streaming_meta_contains_correct_domain(client):
         )),
         patch("api.chat._get_query_variations", new=AsyncMock(return_value=["What is VAT?"])),
         patch("api.chat.search_web", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -106,6 +108,7 @@ async def test_streaming_meta_arrives_before_heavy_ops(client):
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
         patch("api.chat._get_query_variations", new=AsyncMock(return_value=["Q?"])),
         patch("api.chat.search_web", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
