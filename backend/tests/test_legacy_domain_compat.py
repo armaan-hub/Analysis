@@ -39,6 +39,7 @@ async def test_legacy_domain_does_not_crash(client, legacy_domain):
         ),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -58,6 +59,7 @@ async def test_legacy_domain_triggers_classifier(client, legacy_domain):
         patch("api.chat.classify_domain", new=mock_cls),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",

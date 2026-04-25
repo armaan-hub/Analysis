@@ -36,6 +36,7 @@ async def test_summary_written_after_many_messages(client, db_session):
         patch("api.chat.classify_domain", new=AsyncMock(return_value=stub_classifier)),
         patch("api.chat.get_llm_provider", return_value=_mock_llm("Older turns covered VAT basics.")),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         r = await client.post("/api/chat/send", json={"message": "msg0", "mode": "fast", "stream": False})
         assert r.status_code == 200

@@ -32,6 +32,7 @@ async def test_send_uses_classifier(client):
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier(DomainLabel.VAT))),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -47,6 +48,7 @@ async def test_send_honors_domain_override(client):
         patch("api.chat.classify_domain", new=AsyncMock()) as mock_cls,
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -67,6 +69,7 @@ async def test_send_accepts_mode_field(client):
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier(DomainLabel.GENERAL_LAW))),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -82,6 +85,7 @@ async def test_send_with_analyst_mode_persists_mode(client):
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier(DomainLabel.GENERAL_LAW))),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -102,6 +106,7 @@ async def test_legacy_domain_field_acts_as_override(client):
         patch("api.chat.classify_domain", new=AsyncMock()) as mock_cls,
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",

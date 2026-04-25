@@ -37,6 +37,7 @@ async def test_selected_doc_ids_scopes_rag_filter(client):
         patch("api.chat.classify_intent", new=AsyncMock(
             return_value=type("I", (), {"output_type": "answer", "topic": "vat"})()
         )),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -75,6 +76,7 @@ async def test_no_selected_doc_ids_uses_domain_filter(client):
         patch("api.chat.classify_intent", new=AsyncMock(
             return_value=type("I", (), {"output_type": "answer", "topic": "vat"})()
         )),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
             "/api/chat/send",
