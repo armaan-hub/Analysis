@@ -121,11 +121,11 @@ async def main() -> None:
                         totals["error"] += 1
                         continue
                     count = await rag_engine.ingest_chunks(
-    chunks,
-    doc_id,
-    original_name=name,
-    category=category,
-)
+                        chunks,
+                        doc_id,
+                        original_name=name,
+                        category=category,
+                    )
                     if count == 0:
                         doc.status = "error"
                         doc.error_message = "Embedding/indexing produced zero chunks"
