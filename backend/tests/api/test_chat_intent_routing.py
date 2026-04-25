@@ -33,6 +33,7 @@ async def test_intent_directive_is_appended(client):
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier())),
         patch("api.chat.get_llm_provider", return_value=mock_llm),
         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
     ):
         r = await client.post("/api/chat/send", json={
             "message": "Give me a list of VAT exempt items",
