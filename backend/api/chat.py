@@ -624,6 +624,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             "score": 1.0,
                             "excerpt": r.get("body", "")[:200],
                             "is_web": True,
+                            "title": r.get("title", ""),
                         }
                         for r in web_results
                     ]
@@ -633,23 +634,48 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             # ── 9. Stream LLM response ────────────────────────────────────────
             full_response = ""
             try:
+                _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
                 async for chunk in _llm.chat_stream(
                     _msgs,
                     temperature=settings.temperature,
-                    max_tokens=settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens,
+                    max_tokens=_llm.compute_safe_max_tokens(_msgs, _requested_max),
                 ):
                     full_response += chunk
                     yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
             except Exception as stream_exc:
-                err = repr(stream_exc) if str(stream_exc) == "" else f"{type(stream_exc).__name__}: {stream_exc}"
-                logger.error("LLM streaming error: %s", err)
-                yield f"data: {json.dumps({'type': 'error', 'message': err})}\n\n"
+                raw = str(stream_exc)
+                logger.error("LLM streaming error: %s", raw)
+                # Translate HTTP errors into user-friendly messages
+                import httpx as _httpx
+                if isinstance(stream_exc, _httpx.HTTPStatusError):
+                    status = stream_exc.response.status_code
+                    if status == 400:
+                        user_msg = "The AI could not process this request (request too large or invalid). Please try a shorter message."
+                    elif status == 401:
+                        user_msg = "AI API authentication failed. Please check your API key in Settings."
+                    elif status == 429:
+                        user_msg = "AI API rate limit reached. Please wait a moment and try again."
+                    elif status >= 500:
+                        user_msg = "The AI service is temporarily unavailable. Please try again shortly."
+                    else:
+                        user_msg = f"AI API error (HTTP {status}). Please try again."
+                elif isinstance(stream_exc, (_httpx.TimeoutException, _httpx.ConnectError)):
+                    user_msg = "Connection to AI service timed out. Please check your network and try again."
+                else:
+                    user_msg = "An unexpected error occurred. Please try again."
+                yield f"data: {json.dumps({'type': 'error', 'message': user_msg})}\n\n"
+                return
+
+            if not full_response:
+                logger.warning("LLM returned empty response for conversation %s", conversation.id)
+                yield f"data: {json.dumps({'type': 'error', 'message': 'The AI returned an empty response. Please try again.'})}\n\n"
                 return
 
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:
                 yield f"data: {json.dumps({'type': 'sources', 'sources': _sources})}\n\n"
                 from core.document_processor import ingest_text
+                _web_category = "finance" if _cls.domain.value == "finance" else "law"
                 for s in _sources:
                     if s.get("is_web") and s.get("source") and s.get("excerpt"):
                         asyncio.create_task(
@@ -657,6 +683,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                                 f"{s.get('source')}\n\n{s.get('excerpt')}",
                                 source=s.get("source"),
                                 source_type="research",
+                                category=_web_category,
                             )
                         )
 
@@ -841,10 +868,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     # Call LLM
     try:
         # Non-streaming response
+        _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
         response = await llm.chat(
             messages,
             temperature=settings.temperature,
-            max_tokens=settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens,
+            max_tokens=llm.compute_safe_max_tokens(messages, _requested_max),
         )
     except Exception as e:
         import httpx as _httpx
