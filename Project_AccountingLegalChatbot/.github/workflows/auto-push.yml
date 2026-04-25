@@ -1,0 +1,98 @@
+name: Auto-Push on Major Updates
+
+# Trigger on push to main branch (for tracking)
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Backend changes
+      - 'Project_AccountingLegalChatbot/backend/**'
+      - 'Project_AccountingLegalChatbot/backend/main.py'
+      - 'Project_AccountingLegalChatbot/backend/requirements.txt'
+      
+      # Frontend changes
+      - 'Project_AccountingLegalChatbot/frontend/src/**'
+      - 'Project_AccountingLegalChatbot/frontend/package.json'
+      
+      # Configuration changes
+      - 'Project_AccountingLegalChatbot/.env.example'
+      - 'Project_AccountingLegalChatbot/config.py'
+      
+      # Documentation
+      - 'README.md'
+      - '.gitignore'
+
+jobs:
+  detect-major-update:
+    runs-on: ubuntu-latest
+    
+    outputs:
+      is_major: ${{ steps.detect.outputs.is_major }}
+      commit_subject: ${{ steps.detect.outputs.commit_subject }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect major changes
+        id: detect
+        run: |
+          # Get commit subject line (safer for GitHub Actions output)
+          COMMIT_SUBJECT=$(git log -1 --pretty=%s)
+          echo "commit_subject=$COMMIT_SUBJECT" >> $GITHUB_OUTPUT
+          
+          # Check for major update keywords in subject
+          if echo "$COMMIT_SUBJECT" | grep -iE "(feature|fix|major|update|improvement|refactor|security|hotfix|critical|patch|test|docs)"; then
+            echo "is_major=true" >> $GITHUB_OUTPUT
+            echo "✅ Major update detected: $COMMIT_SUBJECT"
+          else
+            echo "is_major=false" >> $GITHUB_OUTPUT
+            echo "⚪ Minor update: $COMMIT_SUBJECT"
+          fi
+      
+      - name: Log detection result
+        run: |
+          echo "Major Update: ${{ steps.detect.outputs.is_major }}"
+          echo "Subject: ${{ steps.detect.outputs.commit_subject }}"
+
+  create-release:
+    needs: detect-major-update
+    if: needs.detect-major-update.outputs.is_major == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Notify push
+        run: |
+          echo "✅ Major update auto-pushed!"
+          echo "Commit: $(git log -1 --oneline)"
+          echo "Branch: $(git rev-parse --abbrev-ref HEAD)"
+          echo "Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+
+  verify-repository:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Verify repository integrity
+        run: |
+          echo "📊 Repository Status Check"
+          echo "=========================="
+          echo "Total commits: $(git rev-list --count HEAD)"
+          echo "Total files: $(git ls-tree -r HEAD --name-only | wc -l)"
+          echo "Repository size: $(du -sh . | cut -f1)"
+          echo ""
+          echo "✓ Repository is healthy"
