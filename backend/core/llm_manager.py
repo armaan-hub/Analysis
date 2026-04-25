@@ -88,6 +88,36 @@ class BaseLLMProvider:
                 return window
         return _CONTEXT_WINDOW_FALLBACK
 
+    _MIN_RESPONSE_TOKENS: int = 256
+    _TOKEN_SAFETY_BUFFER: int = 500
+
+    def compute_safe_max_tokens(
+        self,
+        messages: list[dict],
+        requested_max: Optional[int] = None,
+    ) -> int:
+        """Compute a safe output token ceiling that avoids context-window overflow.
+
+        Algorithm:
+            input_chars  = sum of all message content character lengths
+            input_tokens = input_chars // 4   (≈ 4 chars per token, conservative)
+            available    = context_window - input_tokens - safety_buffer
+
+        If ``available`` ≤ 0 (input alone fills the window) returns
+        ``_MIN_RESPONSE_TOKENS`` so the model can still reply.
+
+        If ``requested_max`` is ``None`` (no ceiling requested), returns
+        ``available``.  Otherwise returns ``min(requested_max, available)``.
+        """
+        input_chars = sum(len(msg.get("content") or "") for msg in messages)
+        input_tokens = input_chars // 4
+        available = self.get_context_window() - input_tokens - self._TOKEN_SAFETY_BUFFER
+        if available <= 0:
+            return self._MIN_RESPONSE_TOKENS
+        if requested_max is None:
+            return available
+        return min(requested_max, available)
+
     async def chat(
         self,
         messages: list[dict],
