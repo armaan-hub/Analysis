@@ -226,13 +226,15 @@ Context from indexed documents:
             f"Documents in store: {doc_count}"
         )
 
-    async def ingest_chunks(self, chunks: list[DocumentChunk], doc_id: str, original_name: str | None = None) -> int:
+    async def ingest_chunks(self, chunks: list[DocumentChunk], doc_id: str, original_name: str | None = None, category: str = "general") -> int:
         """
         Ingest document chunks into the vector store.
 
         Args:
             chunks: List of DocumentChunk from the document processor.
             doc_id: Document ID for metadata filtering.
+            original_name: Original document filename.
+            category: Document category for filtering (e.g., "law", "finance", "general").
 
         Returns:
             Number of chunks ingested.
@@ -248,6 +250,7 @@ Context from indexed documents:
             meta["doc_id"] = doc_id
             if original_name:
                 meta["original_name"] = original_name
+            meta["category"] = category
             metas.append(meta)
         metadatas = metas
 

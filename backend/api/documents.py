@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select, desc
@@ -64,9 +64,18 @@ class ExportSourceRequest(BaseModel):
 @router.post("/upload", response_model=UploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
+    studio: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a document, parse it, and index it for RAG search."""
+
+    # Map studio to category
+    _STUDIO_CATEGORY: dict[str, str] = {
+        "legal": "law",
+        "analyst": "finance",
+        "finance": "finance",
+    }
+    category = _STUDIO_CATEGORY.get((studio or "").lower(), "general")
 
     # Validate file type
     original_name = file.filename or "unknown"
@@ -127,6 +136,7 @@ async def upload_document(
         file_size=file_size,
         status="processing",
         content_hash=content_hash,
+        metadata_json={"studio": studio, "category": category} if studio else {"category": category},
     )
     db.add(doc)
     await db.flush()
@@ -139,7 +149,7 @@ async def upload_document(
             doc.error_message = "No text could be extracted from this file"
             logger.warning(f"Document '{original_name}' produced zero chunks — marked as error")
         else:
-            chunk_count = await rag_engine.ingest_chunks(chunks, doc_id=doc_id, original_name=original_name)
+            chunk_count = await rag_engine.ingest_chunks(chunks, doc_id=doc_id, original_name=original_name, category=category)
             doc.chunk_count = chunk_count
             if chunk_count == 0:
                 doc.status = "error"
