@@ -1,6 +1,6 @@
 """Tests for relevance-first RAG: score threshold + default category filter."""
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from core.rag_engine import RAGEngine
 from config import settings
 

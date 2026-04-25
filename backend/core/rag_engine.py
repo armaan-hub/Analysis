@@ -305,13 +305,18 @@ Context from indexed documents:
 
         Args:
             query: The search query.
-            top_k: Number of results to return.
+            top_k: Number of candidates to retrieve from ChromaDB before threshold filtering.
+                   Actual output is always capped at 8 after filtering — pass a higher value
+                   here to give the threshold more candidates to choose from.
             doc_id: Optional filter to search within a specific document.
-            filter: Optional metadata filter dict (e.g. {"category": "finance"}).
-            min_score: Optional minimum cosine similarity score (0.0-1.0). Chunks below threshold are filtered out.
+            filter: Optional metadata filter dict (e.g. {"category": {"$in": ["law","finance"]}}).
+                    Ignored when doc_id is provided.
+            min_score: Optional minimum cosine similarity (0.0–1.0). Chunks below this score
+                       are dropped. Results are sorted by score descending and capped at 8.
 
         Returns:
-            List of results with text, metadata, and similarity score, sorted by score descending, capped at 8 results.
+            List of up to 8 results with text, metadata, score, source, page, excerpt keys,
+            sorted by cosine-similarity score descending.
         """
         if self.collection.count() == 0:
             return []
@@ -355,7 +360,7 @@ Context from indexed documents:
                     "excerpt": doc_text[:200],
                 })
         
-        # Sort by score descending
+        # Re-sort defensively: filtering may disrupt ChromaDB's natural distance order
         search_results.sort(key=lambda x: x["score"], reverse=True)
         
         # Cap at 8 results maximum
