@@ -497,8 +497,18 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             if req.use_rag:
                 if req.selected_doc_ids:
-                    _rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
-                    _doc_scoped = True
+                    if req.mode == "analyst":
+                        # Analyst mode: search within selected docs only (client workbooks are valid here)
+                        _rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+                        _doc_scoped = True
+                    else:
+                        # Fast/Deep: scope to selected docs but only professional knowledge base
+                        _rag_filter = {
+                            "$and": [
+                                {"doc_id": {"$in": req.selected_doc_ids}},
+                                {"category": {"$in": ["law", "finance"]}},
+                            ]
+                        }
                 else:
                     _rag_filter = {"category": {"$in": ["law", "finance"]}}
 
@@ -737,8 +747,17 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     if req.use_rag:
         rag_filter = None
         if req.selected_doc_ids:
-            # User explicitly selected documents — search within those only
-            rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+            if req.mode == "analyst":
+                # Analyst mode: search within selected docs only (client workbooks are valid here)
+                rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+            else:
+                # Fast/Deep: scope to selected docs but only professional knowledge base
+                rag_filter = {
+                    "$and": [
+                        {"doc_id": {"$in": req.selected_doc_ids}},
+                        {"category": {"$in": ["law", "finance"]}},
+                    ]
+                }
         else:
             # Default: search professional knowledge base (law + finance documents)
             rag_filter = {"category": {"$in": ["law", "finance"]}}
@@ -1137,7 +1156,13 @@ async def deep_research_stream(req: DeepResearchRequest):
             doc_sources: list[dict] = []
             if req.selected_doc_ids:
                 yield f"data: {json.dumps({'type': 'step', 'text': f'Searching {len(req.selected_doc_ids)} selected document(s)…'})}\n\n"
-                doc_filter = {"doc_id": {"$in": req.selected_doc_ids}}
+                # Deep research is always professional context — combine with law+finance to prevent contamination
+                doc_filter = {
+                    "$and": [
+                        {"doc_id": {"$in": req.selected_doc_ids}},
+                        {"category": {"$in": ["law", "finance"]}},
+                    ]
+                }
                 raw = await rag_engine.search(
                     req.query, top_k=10, filter=doc_filter,
                     min_score=settings.rag_min_score,

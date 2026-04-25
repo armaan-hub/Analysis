@@ -170,13 +170,13 @@ async def test_category_filter_no_fallback_deep_mode(client):
 @pytest.mark.asyncio
 async def test_doc_scoped_filter_still_works(client):
     """
-    When selected_doc_ids is provided, the doc_id filter IS used, and no fallback happens.
-    This ensures we didn't break the doc-scoped filtering path.
-    
-    Doc-scoped queries should:
-    1. Use {"doc_id": {"$in": [...]}} filter
-    2. NOT trigger category/domain filter
-    3. NOT trigger any fallback (even if results are empty, which is valid when user picked wrong docs)
+    When selected_doc_ids is provided in non-analyst mode, the $and filter IS used to scope
+    to selected docs while still restricting to the professional knowledge base (law+finance).
+    This prevents client workbooks from contaminating Legal Studio (fast/deep) responses.
+
+    Doc-scoped non-analyst queries should:
+    1. Use $and([doc_id filter, law+finance category filter]) — not raw doc_id only
+    2. NOT trigger any unfiltered fallback
     """
     mock_search = AsyncMock(return_value=[
         {"text": "Relevant doc content", "score": 0.92, "metadata": {"source": "selected-doc.pdf", "doc_id": "doc-123"}}
@@ -194,6 +194,7 @@ async def test_doc_scoped_filter_still_works(client):
             json={
                 "message": "What is the VAT rate?",
                 "stream": False,
+                "mode": "fast",
                 "selected_doc_ids": ["doc-123", "doc-456"],
                 "domain": "vat",
             },
@@ -201,25 +202,21 @@ async def test_doc_scoped_filter_still_works(client):
 
     assert resp.status_code == 200
     assert mock_search.called, "rag_engine.search was never called"
-    
-    # Verify doc_id filter was used
+
+    expected_filter = {
+        "$and": [
+            {"doc_id": {"$in": ["doc-123", "doc-456"]}},
+            {"category": {"$in": ["law", "finance"]}},
+        ]
+    }
     doc_id_filter_calls = [
         c for c in mock_search.call_args_list
-        if c.kwargs.get("filter") == {"doc_id": {"$in": ["doc-123", "doc-456"]}}
+        if c.kwargs.get("filter") == expected_filter
     ]
     assert len(doc_id_filter_calls) > 0, (
-        f"Expected doc_id filter to be used. Calls: {mock_search.call_args_list}"
+        f"Expected $and doc_id+category filter for non-analyst mode. Calls: {mock_search.call_args_list}"
     )
-    
-    # Verify NO calls were made with category filter (doc-scoped bypasses category)
-    category_filter_calls = [
-        c for c in mock_search.call_args_list
-        if isinstance(c.kwargs.get("filter"), dict) and "category" in c.kwargs.get("filter", {})
-    ]
-    assert len(category_filter_calls) == 0, (
-        "Doc-scoped query should not use category filter"
-    )
-    
+
     # Verify NO unfiltered calls (no fallback)
     unfiltered_calls = [
         c for c in mock_search.call_args_list

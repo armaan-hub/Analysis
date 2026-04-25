@@ -24,8 +24,8 @@ def _mock_llm():
 
 @pytest.mark.asyncio
 async def test_selected_doc_ids_scopes_rag_filter(client):
-    """When selected_doc_ids is provided, rag_engine.search must be called
-    with filter={'doc_id': {'$in': selected_doc_ids}}."""
+    """When selected_doc_ids is provided in non-analyst mode, rag_engine.search must be called
+    with $and filter combining doc_id scope and law+finance category to prevent workbook contamination."""
     mock_search = AsyncMock(return_value=[
         {"text": "stub chunk", "score": 0.9, "metadata": {"source": "test.pdf"}}
     ])
@@ -44,20 +44,27 @@ async def test_selected_doc_ids_scopes_rag_filter(client):
             json={
                 "message": "What is VAT rate?",
                 "stream": False,
+                "mode": "fast",
                 "selected_doc_ids": ["doc-aaa", "doc-bbb"],
             },
         )
 
+    expected_filter = {
+        "$and": [
+            {"doc_id": {"$in": ["doc-aaa", "doc-bbb"]}},
+            {"category": {"$in": ["law", "finance"]}},
+        ]
+    }
     assert resp.status_code == 200
     assert mock_search.called, "rag_engine.search was never called"
     filter_args = [c.kwargs.get("filter") for c in mock_search.call_args_list]
     assert any(
-        f == {"doc_id": {"$in": ["doc-aaa", "doc-bbb"]}} for f in filter_args
-    ), f"No call with correct doc_id filter. Calls: {mock_search.call_args_list}"
+        f == expected_filter for f in filter_args
+    ), f"No call with correct $and filter. Calls: {mock_search.call_args_list}"
     # No call should be made without the doc_id filter (fallback must not fire)
     unfiltered_calls = [
         c for c in mock_search.call_args_list
-        if c.kwargs.get("filter") != {"doc_id": {"$in": ["doc-aaa", "doc-bbb"]}}
+        if c.kwargs.get("filter") != expected_filter
     ]
     assert not unfiltered_calls, (
         f"Unfiltered (fallback) RAG calls occurred: {unfiltered_calls}"
