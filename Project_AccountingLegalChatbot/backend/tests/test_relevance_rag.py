@@ -87,3 +87,17 @@ def test_bulk_ingest_passes_category_to_ingest_chunks():
     assert "original_name=name" in source or "original_name=file_path.name" in source, (
         "bulk_ingest.py must pass original_name= to ingest_chunks() for readable source names."
     )
+
+
+def test_bulk_retag_script_exists_and_is_importable():
+    """bulk_retag.py must exist and define a main() coroutine."""
+    retag_path = Path(__file__).parent.parent / "bulk_retag.py"
+    assert retag_path.exists(), "backend/bulk_retag.py must exist"
+    source = retag_path.read_text(encoding="utf-8")
+    assert "async def main" in source, "bulk_retag.py must define async def main()"
+    assert "collection.update" in source, (
+        "bulk_retag.py must call collection.update() to retag existing chunks"
+    )
+    assert "metadata_json" in source, (
+        "bulk_retag.py must read category from Document.metadata_json"
+    )
