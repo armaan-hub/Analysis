@@ -14,6 +14,34 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+# ── Context window registry ──────────────────────────────────────────
+# Maps a model-name *substring* (lower-case) to total context window
+# tokens.  The first matching key wins (longer/more-specific keys first).
+_CONTEXT_WINDOWS: dict[str, int] = {
+    "mistral-large":        131_072,
+    "mistral-medium":       131_072,
+    "mistral-small":         32_768,
+    "mixtral":               32_768,
+    "gemma-4":              131_072,
+    "gemma-3":               32_768,
+    "llama-3.3":            131_072,
+    "llama-3.2":            131_072,
+    "llama-3.1":            131_072,
+    "llama3.3":             131_072,
+    "llama3.2":             131_072,
+    "llama3.1":             131_072,
+    "llama-3":                8_192,
+    "llama3":                 8_192,
+    "gpt-4o":               128_000,
+    "gpt-4-turbo":          128_000,
+    "gpt-4":                  8_192,
+    "gpt-3.5-turbo-16k":    16_385,
+    "gpt-3.5":              16_385,
+    "claude":               200_000,
+    "nemotron":             128_000,
+}
+_CONTEXT_WINDOW_FALLBACK: int = 8_192
+
 
 class LLMResponse:
     """Standardized response from any LLM provider."""
@@ -45,6 +73,19 @@ class BaseLLMProvider:
         self.base_url = base_url
         self.provider_name = "base"
 
+    def get_context_window(self) -> int:
+        """Return the context window (total tokens) for the active model.
+
+        Matches by scanning ``_CONTEXT_WINDOWS`` keys as substrings of
+        ``self.model`` (case-insensitive).  Returns the fallback (8 192) when
+        no pattern matches.
+        """
+        model_lower = self.model.lower()
+        for pattern, window in _CONTEXT_WINDOWS.items():
+            if pattern in model_lower:
+                return window
+        return _CONTEXT_WINDOW_FALLBACK
+
     async def chat(
         self,
         messages: list[dict],
@@ -75,6 +116,7 @@ class NvidiaProvider(BaseLLMProvider):
         super().__init__(api_key, model, base_url)
         self.provider_name = "nvidia"
         self._is_gemma = "gemma" in model.lower()
+        self._is_mistral_large = "mistral-large" in model.lower()
 
     @staticmethod
     def _strip_thinking(text: str) -> str:
@@ -98,7 +140,9 @@ class NvidiaProvider(BaseLLMProvider):
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "top_p": 0.95,
+            "top_p": 1.00,
+            "frequency_penalty": 0.00,
+            "presence_penalty": 0.00,
             "stream": stream,
         }
         if max_tokens is not None:
@@ -182,7 +226,14 @@ class NvidiaProvider(BaseLLMProvider):
                 headers=headers,
                 json=payload,
             ) as resp:
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    err_text = body.decode("utf-8", errors="replace")[:400]
+                    raise httpx.HTTPStatusError(
+                        f"HTTP {resp.status_code}: {err_text}",
+                        request=resp.request,
+                        response=resp,
+                    )
                 async for line in resp.aiter_lines():
                     if not line or not line.startswith("data: "):
                         continue
