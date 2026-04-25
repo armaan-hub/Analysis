@@ -133,7 +133,7 @@ async def test_chat_default_filter_is_law_finance(client):
 
 @pytest.mark.asyncio
 async def test_chat_selected_docs_override_default_filter(client):
-    """With selected_doc_ids, RAG must use doc_id filter, not the default category filter."""
+    """Analyst mode with selected_doc_ids uses doc_id filter only (client workbooks are valid)."""
     search_calls = []
 
     async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
@@ -149,6 +149,7 @@ async def test_chat_selected_docs_override_default_filter(client):
                 "message": "Summarise my trail balance",
                 "use_rag": True,
                 "stream": False,
+                "mode": "analyst",
                 "selected_doc_ids": ["doc-tb-001"],
             },
         )
@@ -157,7 +158,7 @@ async def test_chat_selected_docs_override_default_filter(client):
     assert search_calls
     call = search_calls[0]
     assert call["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
-        f"Expected doc_id filter, got: {call['filter']}"
+        f"Expected doc_id-only filter for analyst mode, got: {call['filter']}"
     )
     assert call["min_score"] == pytest.approx(0.45), (
         f"Expected min_score=0.45 for doc-scoped search, got: {call['min_score']}"
@@ -179,3 +180,122 @@ async def test_chat_empty_search_results_means_no_sources(client):
     sources = resp.json()["message"].get("sources")
     # Accept either None or [] for empty sources (both indicate no sources available)
     assert sources in (None, []), f"Expected empty sources (None or []), got: {sources}"
+
+
+_AND_FILTER = {
+    "$and": [
+        {"doc_id": {"$in": ["doc-tb-001"]}},
+        {"category": {"$in": ["law", "finance"]}},
+    ]
+}
+
+
+@pytest.mark.asyncio
+async def test_chat_filter_analyst_mode_uses_doc_id_only(client):
+    """mode=analyst + selected_doc_ids → filter is doc_id only (client workbooks allowed)."""
+    search_calls = []
+
+    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
+        search_calls.append({"filter": filter})
+        return []
+
+    with patch("api.chat.rag_engine.search", side_effect=_fake_search):
+        resp = await client.post(
+            "/api/chat/send",
+            json={
+                "message": "Analyse my trail balance",
+                "use_rag": True,
+                "stream": False,
+                "mode": "analyst",
+                "selected_doc_ids": ["doc-tb-001"],
+            },
+        )
+
+    assert resp.status_code == 200
+    assert search_calls
+    assert search_calls[0]["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
+        f"Analyst mode must use doc_id-only filter, got: {search_calls[0]['filter']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_filter_fast_mode_selected_docs_combines_and(client):
+    """mode=fast + selected_doc_ids → $and filter combining doc_id with law+finance category."""
+    search_calls = []
+
+    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
+        search_calls.append({"filter": filter})
+        return []
+
+    with patch("api.chat.rag_engine.search", side_effect=_fake_search):
+        resp = await client.post(
+            "/api/chat/send",
+            json={
+                "message": "What is VAT on hotel apartments?",
+                "use_rag": True,
+                "stream": False,
+                "mode": "fast",
+                "selected_doc_ids": ["doc-tb-001"],
+            },
+        )
+
+    assert resp.status_code == 200
+    assert search_calls
+    assert search_calls[0]["filter"] == _AND_FILTER, (
+        f"Fast mode must use $and filter to prevent workbook contamination, got: {search_calls[0]['filter']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_filter_deep_mode_selected_docs_combines_and(client):
+    """mode=deep_research + selected_doc_ids → $and filter combining doc_id with law+finance category."""
+    search_calls = []
+
+    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
+        search_calls.append({"filter": filter})
+        return []
+
+    with patch("api.chat.rag_engine.search", side_effect=_fake_search):
+        resp = await client.post(
+            "/api/chat/send",
+            json={
+                "message": "Explain corporate tax compliance",
+                "use_rag": True,
+                "stream": False,
+                "mode": "deep_research",
+                "selected_doc_ids": ["doc-tb-001"],
+            },
+        )
+
+    assert resp.status_code == 200
+    assert search_calls
+    assert search_calls[0]["filter"] == _AND_FILTER, (
+        f"Deep mode must use $and filter to prevent workbook contamination, got: {search_calls[0]['filter']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_filter_analyst_no_docs_uses_law_finance(client):
+    """Analyst mode with NO selected_doc_ids falls back to law+finance default filter."""
+    search_calls = []
+
+    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
+        search_calls.append({"filter": filter})
+        return []
+
+    with patch("api.chat.rag_engine.search", side_effect=_fake_search):
+        resp = await client.post(
+            "/api/chat/send",
+            json={
+                "message": "What are the UAE VAT rules?",
+                "use_rag": True,
+                "stream": False,
+                "mode": "analyst",
+            },
+        )
+
+    assert resp.status_code == 200
+    assert search_calls
+    assert search_calls[0]["filter"] == {"category": {"$in": ["law", "finance"]}}, (
+        f"Analyst mode without selected_doc_ids must use law+finance default, got: {search_calls[0]['filter']}"
+    )
