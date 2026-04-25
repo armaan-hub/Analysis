@@ -513,21 +513,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             return_exceptions=True,
                         )
                         _search_results = _dedup_merge(_all, settings.fast_top_k)
-                        if _rag_filter and not _search_results and not _doc_scoped:
-                            _fb = await asyncio.gather(
-                                *[rag_engine.search(q, top_k=settings.fast_top_k)
-                                  for q in _query_vars],
-                                return_exceptions=True,
-                            )
-                            _search_results = _dedup_merge(_fb, settings.fast_top_k)
                     else:
                         _search_results = await rag_engine.search(
                             req.message, top_k=settings.top_k_results, filter=_rag_filter
                         )
-                        if _rag_filter and not _search_results and not _doc_scoped:
-                            _search_results = await rag_engine.search(
-                                req.message, top_k=settings.top_k_results
-                            )
                 except Exception as _rag_exc:
                     logger.warning("RAG search failed, falling back to no-context mode: %s", _rag_exc)
                     _search_results = []
@@ -767,23 +756,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     return_exceptions=True,
                 )
                 search_results = _dedup_merge(all_results, settings.fast_top_k)
-                # Fall back to unfiltered if domain filter yields nothing
-                if rag_filter and not search_results and not _doc_scoped:
-                    fallback = await asyncio.gather(
-                        *[rag_engine.search(q, top_k=settings.fast_top_k) for q in query_variations],
-                        return_exceptions=True,
-                    )
-                    search_results = _dedup_merge(fallback, settings.fast_top_k)
             else:
                 search_results = await rag_engine.search(
                     req.message, top_k=settings.top_k_results, filter=rag_filter
                 )
-                # If strict domain filter yields no matches, fall back to unfiltered
-                # retrieval so chat still uses available indexed context.
-                if rag_filter and not search_results and not _doc_scoped:
-                    search_results = await rag_engine.search(
-                        req.message, top_k=settings.top_k_results
-                    )
         except Exception as rag_exc:
             logger.warning(f"RAG search failed, falling back to no-context mode: {rag_exc}")
             search_results = []
