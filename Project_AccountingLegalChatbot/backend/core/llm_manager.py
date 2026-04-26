@@ -155,6 +155,7 @@ class BaseLLMProvider:
         messages: list[dict],
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        reasoning_effort: Optional[str] = None,
     ) -> LLMResponse:
         """Non-streaming chat. Use chat_stream() for streaming responses."""
         raise NotImplementedError
@@ -164,6 +165,7 @@ class BaseLLMProvider:
         messages: list[dict],
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        reasoning_effort: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         raise NotImplementedError
         yield  # make it a generator
@@ -224,12 +226,12 @@ class NvidiaProvider(BaseLLMProvider):
             payload["chat_template_kwargs"] = {"enable_thinking": True}
         return payload
 
-    async def chat(self, messages, temperature=0.7, max_tokens=None):
+    async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        payload = self._build_payload(messages, max_tokens, temperature, stream=False)
+        payload = self._build_payload(messages, max_tokens, temperature, stream=False, reasoning_effort=reasoning_effort)
 
         has_images = self._messages_contain_images(messages)
         last_exc: Exception = RuntimeError(f"NVIDIA provider unreachable — check API key and network")
@@ -274,13 +276,13 @@ class NvidiaProvider(BaseLLMProvider):
                 logger.warning(f"NVIDIA API network error (attempt {attempt+1}/2): {exc}")
         raise RuntimeError(f"NVIDIA provider unreachable after 2 attempts — check API key and network") from last_exc
 
-    async def chat_stream(self, messages, temperature=0.7, max_tokens=None):
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
         }
-        payload = self._build_payload(messages, max_tokens, temperature, stream=True)
+        payload = self._build_payload(messages, max_tokens, temperature, stream=True, reasoning_effort=reasoning_effort)
 
         # For Gemma thinking mode: buffer until </thinking> before yielding
         in_thinking = False
