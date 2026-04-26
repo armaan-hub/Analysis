@@ -5,7 +5,7 @@ import json
 @pytest.mark.asyncio
 async def test_council_endpoint_streams_events(client, monkeypatch):
     class _StubLLM:
-        async def stream(self, prompt, **kw):
+        async def chat_stream(self, messages, **kw):
             yield "ok"
 
     monkeypatch.setattr("api.council.get_llm_provider", lambda *a, **kw: _StubLLM())
@@ -43,7 +43,7 @@ async def test_invalid_provider_returns_400(client):
 @pytest.mark.asyncio
 async def test_llm_error_emits_error_events(client, monkeypatch):
     class _BrokenLLM:
-        async def stream(self, prompt, **kw):
+        async def chat_stream(self, messages, **kw):
             if False:
                 yield
             raise RuntimeError("LLM offline")

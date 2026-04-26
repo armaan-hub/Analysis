@@ -4,8 +4,8 @@ from core.council.council_service import run_council
 
 class _ScriptedLLM:
     def __init__(self, scripts): self.scripts = list(scripts); self.calls = []
-    async def stream(self, prompt, **kw):
-        self.calls.append(prompt)
+    async def chat_stream(self, messages, **kw):
+        self.calls.append(messages[0]["content"])
         for piece in self.scripts.pop(0):
             yield piece
 
@@ -41,7 +41,7 @@ async def test_council_runs_four_experts_then_synthesis():
 @pytest.mark.asyncio
 async def test_council_emits_done_on_llm_error():
     class _BrokenLLM:
-        async def stream(self, prompt, **kw):
+        async def chat_stream(self, messages, **kw):
             if False:
                 yield  # makes this an async generator
             raise RuntimeError("LLM unavailable")
@@ -78,7 +78,7 @@ async def test_council_emits_done_when_synthesis_fails():
 async def test_done_event_has_error_on_llm_failure():
     """done event must carry error field when LLM is broken."""
     class _BrokenLLM:
-        async def stream(self, prompt, **kw):
+        async def chat_stream(self, messages, **kw):
             if False:
                 yield  # makes this an async generator
             raise RuntimeError("LLM unavailable")

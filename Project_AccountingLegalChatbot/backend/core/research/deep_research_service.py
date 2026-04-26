@@ -72,7 +72,9 @@ async def run_deep_research(
         prompt = _build_synthesis_prompt(query, web, doc_chunks)
 
         answer_parts: list[str] = []
-        async for piece in llm.stream(prompt, max_tokens=1200, temperature=0.2):
+        async for piece in llm.chat_stream(
+            [{"role": "user", "content": prompt}], max_tokens=1200, temperature=0.2
+        ):
             answer_parts.append(piece)
         answer = "".join(answer_parts)
 
