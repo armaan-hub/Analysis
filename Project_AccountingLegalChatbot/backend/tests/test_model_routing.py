@@ -1,7 +1,5 @@
 """Tests for two-model mode routing: reasoning_effort payload and provider selection."""
-from unittest.mock import patch
-
-import pytest
+from unittest.mock import patch  # used in Task 3+ tests (provider selection)
 
 from config import settings
 from core.llm_manager import NvidiaProvider, get_llm_provider
