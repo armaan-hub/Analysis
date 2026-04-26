@@ -359,7 +359,8 @@ class OpenAIProvider(BaseLLMProvider):
         super().__init__(api_key, model, base_url)
         self.provider_name = "openai"
 
-    async def chat(self, messages, temperature=0.7, max_tokens=None):
+    async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -391,7 +392,8 @@ class OpenAIProvider(BaseLLMProvider):
             finish_reason=choice.get("finish_reason", "stop"),
         )
 
-    async def chat_stream(self, messages, temperature=0.7, max_tokens=None):
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -440,7 +442,8 @@ class ClaudeProvider(BaseLLMProvider):
         super().__init__(api_key, model, base_url)
         self.provider_name = "claude"
 
-    async def chat(self, messages, temperature=0.7, max_tokens=None):
+    async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         # Convert OpenAI-style messages to Anthropic format
         system_msg = ""
         anthropic_messages = []
@@ -487,7 +490,8 @@ class ClaudeProvider(BaseLLMProvider):
             finish_reason=data.get("stop_reason", "stop"),
         )
 
-    async def chat_stream(self, messages, temperature=0.7, max_tokens=None):
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         system_msg = ""
         anthropic_messages = []
         for msg in messages:
@@ -549,7 +553,8 @@ class MistralProvider(BaseLLMProvider):
         super().__init__(api_key, model, base_url)
         self.provider_name = "mistral"
 
-    async def chat(self, messages, temperature=0.7, max_tokens=None):
+    async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -581,7 +586,8 @@ class MistralProvider(BaseLLMProvider):
             finish_reason=choice.get("finish_reason", "stop"),
         )
 
-    async def chat_stream(self, messages, temperature=0.7, max_tokens=None):
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -630,7 +636,8 @@ class OllamaProvider(BaseLLMProvider):
         super().__init__(api_key, model, base_url)
         self.provider_name = "ollama"
 
-    async def chat(self, messages, temperature=0.7, max_tokens=16384):
+    async def chat(self, messages, temperature=0.7, max_tokens=16384, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         payload = {
             "model": self.model,
             "messages": messages,
@@ -657,7 +664,8 @@ class OllamaProvider(BaseLLMProvider):
             finish_reason="stop",
         )
 
-    async def chat_stream(self, messages, temperature=0.7, max_tokens=16384):
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=16384, reasoning_effort=None):
+        # reasoning_effort is NVIDIA-specific; silently ignored for this provider
         payload = {
             "model": self.model,
             "messages": messages,
