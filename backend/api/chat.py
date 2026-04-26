@@ -463,7 +463,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 _sys += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
 
             # ── 4. Intent + query variations in parallel ──────────────────────
-            _llm = get_llm_provider(req.provider)
+            _llm = get_llm_provider(req.provider, mode=req.mode)
+            _reasoning_effort = (
+                settings.nvidia_fast_reasoning_effort if req.mode == "fast" else None
+            )
             _intent_task = asyncio.create_task(classify_intent(req.message, _llm))
             if req.mode == "fast":
                 _vars_task = asyncio.create_task(
@@ -640,6 +643,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     _msgs,
                     temperature=settings.temperature,
                     max_tokens=_safe_max,
+                    reasoning_effort=_reasoning_effort,
                 ):
                     full_response += chunk
                     yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
@@ -759,7 +763,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         system_prompt += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
 
     # Two-pass intent classification: inject output-type directive into system prompt
-    llm = get_llm_provider(req.provider)  # single instantiation, used for both classifier and main LLM
+    llm = get_llm_provider(req.provider, mode=req.mode)  # single instantiation, used for both classifier and main LLM
+    _reasoning_effort = (
+        settings.nvidia_fast_reasoning_effort if req.mode == "fast" else None
+    )
     try:
         intent = await classify_intent(req.message, llm)
         intent_directive = (
@@ -875,6 +882,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             messages,
             temperature=settings.temperature,
             max_tokens=_safe_max,
+            reasoning_effort=_reasoning_effort,
         )
     except Exception as e:
         import httpx as _httpx
