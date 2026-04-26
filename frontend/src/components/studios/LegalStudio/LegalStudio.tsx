@@ -595,7 +595,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     sendMessageAbortRef.current?.abort();
     const controller = new AbortController();
     sendMessageAbortRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 90_000);
+    const timeoutId = setTimeout(() => controller.abort(), 180_000);
 
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
@@ -619,6 +619,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       let aiText = '';
       let sources: Source[] = [];
       const decoder = new TextDecoder();
+      // Buffer for incomplete SSE events — TCP chunks don't align with SSE boundaries,
+      // so we accumulate data and only process on the \n\n event delimiter.
+      let sseBuffer = '';
 
       const aiMsg: Message = { role: 'ai', text: '', time: fmtTime(), id: aiMsgId };
       setMessages(prev => [...prev, aiMsg]);
@@ -626,12 +629,17 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        // Process all complete SSE events (each terminated by \n\n)
+        let eol: number;
+        while ((eol = sseBuffer.indexOf('\n\n')) !== -1) {
+          const block = sseBuffer.slice(0, eol).trim();
+          sseBuffer = sseBuffer.slice(eol + 2);
+          const dataLine = block.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
           try {
-            const evt = JSON.parse(line.slice(6));
+            const evt = JSON.parse(dataLine.slice(6));
             if (evt.event === 'chunk' || evt.type === 'chunk') {
               aiText += evt.content ?? evt.data ?? '';
               setMessages(prev => {
@@ -676,9 +684,35 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                   return copy;
                 });
               }
+            } else if (evt.type === 'error') {
+              const errMsg = evt.message ?? 'The AI encountered an error. Please try again.';
+              setMessages(prev => {
+                const copy = prev.filter(m => m.id !== aiMsgId);
+                return [...copy, {
+                  role: 'ai' as const,
+                  text: `⚠️ ${errMsg}`,
+                  time: fmtTime(),
+                  id: crypto.randomUUID(),
+                }];
+              });
             }
-          } catch { /* skip unparseable lines */ }
+          } catch { /* skip malformed event */ }
         }
+      }
+      // If stream ended with no content (backend error or empty LLM response),
+      // replace the blank message with a visible prompt to retry.
+      if (!aiText) {
+        setMessages(prev => {
+          const hasFilled = prev.find(m => m.id === aiMsgId && m.text);
+          if (hasFilled) return prev; // already updated by error handler
+          const copy = prev.filter(m => m.id !== aiMsgId);
+          return [...copy, {
+            role: 'ai' as const,
+            text: '⚠️ No response received. Please try again.',
+            time: fmtTime(),
+            id: crypto.randomUUID(),
+          }];
+        });
       }
       setLastAnswer(aiText);
     } catch (err) {
@@ -689,7 +723,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         return [...withoutPartial, {
           role: 'ai',
           text: isAbort
-            ? '⚠️ Request timed out (30s). Please try again.'
+            ? '⚠️ Request timed out (3 min). The AI is taking too long — please try again.'
             : '⚠️ Request failed. Please check your connection and try again.',
           time: fmtTime(),
           id: crypto.randomUUID(),
