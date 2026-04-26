@@ -56,7 +56,11 @@ QUERY_VARIATION_PROMPT = (
 
 
 async def _get_query_variations(query: str, provider: str | None = None) -> list[str]:
-    """Return [original, variation1, variation2]. Falls back to [original] on any error."""
+    """Return [original, variation1, variation2]. Falls back to [original] on any error.
+
+    Intentionally uses the main model (no mode arg) — query variations need
+    accurate paraphrasing regardless of the request's speed mode.
+    """
     if len(query.split()) <= 3:
         return [query]
     try:
@@ -763,7 +767,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         system_prompt += f"\n\nCONTEXT SUMMARY OF EARLIER CONVERSATION:\n{conversation.summary}"
 
     # Two-pass intent classification: inject output-type directive into system prompt
-    llm = get_llm_provider(req.provider, mode=req.mode)  # single instantiation, used for both classifier and main LLM
+    llm = get_llm_provider(req.provider, mode=req.mode)  # shared by intent classifier and main LLM; mode selects fast vs. main model
     _reasoning_effort = (
         settings.nvidia_fast_reasoning_effort if req.mode == "fast" else None
     )
