@@ -78,3 +78,30 @@ def test_chat_stream_accepts_reasoning_effort_kwarg():
     gen = provider.chat_stream(_MSGS, temperature=0.1, max_tokens=100, reasoning_effort="medium")
     # It's an async generator; just confirm it was created without TypeError
     assert gen is not None
+
+
+# ── get_llm_provider: mode-based routing ─────────────────────────────
+
+def test_fast_mode_returns_fast_model_for_nvidia():
+    """mode='fast' with nvidia provider must use nvidia_fast_model."""
+    with (
+        patch.object(settings, "llm_provider", "nvidia"),
+        patch.object(settings, "nvidia_fast_model", "mistralai/mistral-small-4-119b-2603"),
+        patch.object(settings, "nvidia_model", "mistralai/mistral-large-3-675b-instruct-2512"),
+        patch.object(settings, "nvidia_api_key", "test-key"),
+        patch.object(settings, "nvidia_base_url", "https://integrate.api.nvidia.com/v1"),
+    ):
+        provider = get_llm_provider(mode="fast")
+        assert provider.model == "mistralai/mistral-small-4-119b-2603"
+
+
+def test_analyst_mode_returns_main_model_for_nvidia():
+    """mode='analyst' with nvidia provider must use nvidia_model (large model)."""
+    with (
+        patch.object(settings, "llm_provider", "nvidia"),
+        patch.object(settings, "nvidia_model", "mistralai/mistral-large-3-675b-instruct-2512"),
+        patch.object(settings, "nvidia_api_key", "test-key"),
+        patch.object(settings, "nvidia_base_url", "https://integrate.api.nvidia.com/v1"),
+    ):
+        provider = get_llm_provider(mode="analyst")
+        assert provider.model == "mistralai/mistral-large-3-675b-instruct-2512"

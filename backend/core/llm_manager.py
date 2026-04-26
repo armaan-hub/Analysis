@@ -727,18 +727,39 @@ _PROVIDER_MAP = {
 }
 
 
-def get_llm_provider(provider_name: Optional[str] = None) -> BaseLLMProvider:
+def get_llm_provider(
+    provider_name: Optional[str] = None,
+    mode: Optional[str] = None,
+) -> BaseLLMProvider:
     """
     Factory function – returns an LLM provider instance.
 
     Args:
         provider_name: Override the default provider from settings.
                        If None, uses settings.llm_provider.
+        mode: Chat mode ('fast', 'analyst', 'deep_research'). When 'fast'
+              and the active provider is NVIDIA, returns a provider built
+              with ``settings.nvidia_fast_model`` instead of the main model.
 
     Returns:
         An instance of BaseLLMProvider ready to call .chat() or .chat_stream().
     """
     name = (provider_name or settings.llm_provider).lower()
+
+    # Fast mode on NVIDIA: use the smaller, faster model
+    if name == "nvidia" and mode == "fast":
+        provider = NvidiaProvider(
+            api_key=settings.nvidia_api_key,
+            model=settings.nvidia_fast_model,
+            base_url=settings.nvidia_base_url,
+        )
+        logger.info(
+            "LLM provider initialized: %s / %s [fast mode]",
+            provider.provider_name,
+            provider.model,
+        )
+        return provider
+
     factory = _PROVIDER_MAP.get(name)
     if not factory:
         raise ValueError(
@@ -746,7 +767,11 @@ def get_llm_provider(provider_name: Optional[str] = None) -> BaseLLMProvider:
             f"Available: {list(_PROVIDER_MAP.keys())}"
         )
     provider = factory()
-    logger.info(f"LLM provider initialized: {provider.provider_name} / {provider.model}")
+    logger.info(
+        "LLM provider initialized: %s / %s",
+        provider.provider_name,
+        provider.model,
+    )
     return provider
 
 
