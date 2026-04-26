@@ -5,7 +5,7 @@ Reads settings from .env file and exposes them as typed attributes.
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
     nvidia_fast_model: str = "mistralai/mistral-small-4-119b-2603"
-    nvidia_fast_reasoning_effort: str = "medium"
+    nvidia_fast_reasoning_effort: Literal["none", "low", "medium", "high"] = "medium"
 
     # ── OpenAI ───────────────────────────────────────────────────────
     openai_api_key: str = ""
