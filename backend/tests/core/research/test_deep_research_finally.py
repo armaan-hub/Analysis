@@ -3,7 +3,7 @@ from core.research.deep_research_service import run_deep_research
 
 
 class _FailingLLM:
-    async def stream(self, prompt, **kw):
+    async def chat_stream(self, messages, **kw):
         raise RuntimeError("LLM exploded")
         yield  # pragma: no cover
 

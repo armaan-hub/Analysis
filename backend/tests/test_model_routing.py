@@ -21,12 +21,12 @@ _MSGS = [{"role": "user", "content": "What is VAT?"}]
 # ── _build_payload: reasoning_effort ─────────────────────────────────
 
 def test_reasoning_effort_injected_when_set():
-    """reasoning_effort='medium' must appear in the payload dict."""
+    """reasoning_effort='high' must appear in the payload dict."""
     provider = _nvidia_provider("mistralai/mistral-small-4-119b-2603")
     payload = provider._build_payload(
-        _MSGS, max_tokens=100, temperature=0.1, stream=False, reasoning_effort="medium"
+        _MSGS, max_tokens=100, temperature=0.1, stream=False, reasoning_effort="high"
     )
-    assert payload["reasoning_effort"] == "medium"
+    assert payload["reasoning_effort"] == "high"
 
 
 def test_reasoning_effort_absent_when_none():
@@ -65,7 +65,7 @@ async def test_chat_accepts_reasoning_effort_kwarg():
             _MSGS,
             temperature=0.1,
             max_tokens=100,
-            reasoning_effort="medium",
+            reasoning_effort="high",
         )
         assert result.content == "Answer"
 
@@ -75,7 +75,7 @@ def test_chat_stream_accepts_reasoning_effort_kwarg():
     provider = _nvidia_provider("mistralai/mistral-small-4-119b-2603")
 
     # Verify the signature accepts the kwarg — generator construction alone is enough
-    gen = provider.chat_stream(_MSGS, temperature=0.1, max_tokens=100, reasoning_effort="medium")
+    gen = provider.chat_stream(_MSGS, temperature=0.1, max_tokens=100, reasoning_effort="high")
     # It's an async generator; just confirm it was created without TypeError
     assert gen is not None
 

@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 _CONTEXT_WINDOWS: dict[str, int] = {
     "mistral-large":        131_072,
     "mistral-medium":       131_072,
+    "mistral-small-4":      131_072,   # mistral-small-4-119b-2603 has 128K context
     "mistral-small":         32_768,
     "mixtral":               32_768,
     "gemma-4-27b":        1_048_576,   # 27B has 1M context

@@ -42,7 +42,9 @@ async def run_council(*, question: str, base_answer: str, llm) -> AsyncGenerator
             prompt = _build_expert_prompt(expert, question, base_answer, prior_critiques)
             buf: list[str] = []
             try:
-                async for piece in llm.stream(prompt, max_tokens=600, temperature=0.3):
+                async for piece in llm.chat_stream(
+                    [{"role": "user", "content": prompt}], max_tokens=600, temperature=0.3
+                ):
                     buf.append(piece)
                     yield {"type": "council_expert", "expert": expert.name, "delta": piece}
             except Exception as exc:
@@ -68,7 +70,9 @@ async def run_council(*, question: str, base_answer: str, llm) -> AsyncGenerator
             yield {"type": "council_synthesis", "status": "thinking"}
             synth_buf: list[str] = []
             try:
-                async for piece in llm.stream(synth_prompt, max_tokens=800, temperature=0.2):
+                async for piece in llm.chat_stream(
+                    [{"role": "user", "content": synth_prompt}], max_tokens=800, temperature=0.2
+                ):
                     synth_buf.append(piece)
                     yield {"type": "council_synthesis", "delta": piece}
                 yield {"type": "council_synthesis", "content": "".join(synth_buf), "final": True}

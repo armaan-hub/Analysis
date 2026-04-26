@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
     nvidia_fast_model: str = "mistralai/mistral-small-4-119b-2603"
-    nvidia_fast_reasoning_effort: Literal["none", "low", "medium", "high"] = "medium"
+    # NVIDIA NIM Mistral models only support "high" and "none" for reasoning_effort
+    nvidia_fast_reasoning_effort: Literal["none", "high"] = "high"
 
     # ── OpenAI ───────────────────────────────────────────────────────
     openai_api_key: str = ""

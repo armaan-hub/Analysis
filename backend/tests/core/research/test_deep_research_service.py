@@ -19,10 +19,10 @@ async def test_run_deep_research_emits_expected_events(monkeypatch):
     ])
 
     fake_llm = AsyncMock()
-    async def stream_answer(prompt, **_):
+    async def stream_answer(messages, **_):
         for piece in ["Hello ", "world."]:
             yield piece
-    fake_llm.stream = stream_answer
+    fake_llm.chat_stream = stream_answer
 
     fake_ingest = AsyncMock()
 
