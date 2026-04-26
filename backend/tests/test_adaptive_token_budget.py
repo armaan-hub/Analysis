@@ -128,7 +128,8 @@ def test_compute_safe_max_tokens_missing_content_key():
     p = make_provider("mistralai/mistral-large-3-675b-instruct-2512")
     msgs = [{"role": "system"}, {"role": "user", "content": "Hi"}]
     result = p.compute_safe_max_tokens(msgs, requested_max=500)
-    assert result == 500
+    # requested_max=500 < _MIN_RESPONSE_TOKENS=512, so floor wins
+    assert result == BaseLLMProvider._MIN_RESPONSE_TOKENS
 
 
 def test_compute_safe_max_tokens_vision_list_content():
@@ -166,3 +167,22 @@ def test_count_content_chars_none():
     """_count_content_chars returns 0 for None."""
     p = make_provider("test")
     assert p._count_content_chars(None) == 0
+
+
+def test_compute_safe_max_tokens_enforces_floor_in_dead_zone():
+    """When 0 < available < _MIN_RESPONSE_TOKENS the floor is still returned.
+
+    Uses the 8K fallback model with ~7600 input tokens so that:
+      available = 8192 - 7600 - 500 = 92  (> 0 but < 512)
+    Without the floor fix, min(4096, 92) = 92 would be returned.
+    With the fix, max(min(4096, 92), 512) = 512.
+    """
+    p = make_provider("some-unknown-model-xyz")  # uses 8192 fallback
+    # 7600 input tokens → 7600 * 3 = 22800 chars (since //3 → 22800//3 = 7600)
+    content = "x" * 22800
+    msgs = [{"role": "user", "content": content}]
+    result = p.compute_safe_max_tokens(msgs, requested_max=4096)
+    # available = 8192 - 7600 - 500 = 92; floor = 512; expected = 512
+    assert result == BaseLLMProvider._MIN_RESPONSE_TOKENS, (
+        f"Expected floor {BaseLLMProvider._MIN_RESPONSE_TOKENS} in dead zone, got {result}"
+    )
