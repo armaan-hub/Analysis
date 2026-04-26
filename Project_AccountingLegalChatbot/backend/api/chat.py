@@ -58,13 +58,12 @@ QUERY_VARIATION_PROMPT = (
 async def _get_query_variations(query: str, provider: str | None = None) -> list[str]:
     """Return [original, variation1, variation2]. Falls back to [original] on any error.
 
-    Intentionally uses the main model (no mode arg) — query variations need
-    accurate paraphrasing regardless of the request's speed mode.
+    Uses fast model — query variation is a simple paraphrasing task.
     """
     if len(query.split()) <= 3:
         return [query]
     try:
-        llm = get_llm_provider(provider)
+        llm = get_llm_provider(provider, mode="fast")
         resp = await llm.chat(
             messages=[{"role": "user", "content": QUERY_VARIATION_PROMPT.format(query=query)}],
             max_tokens=150,
@@ -121,7 +120,7 @@ async def _get_or_refresh_summary(conversation_id: str, history_count: int, prov
             context = "\n".join(
                 f"{m.role.upper()}: {m.content[:400]}" for m in old_messages
             )
-            llm = get_llm_provider(provider)
+            llm = get_llm_provider(provider, mode="fast")  # summary is a routine text task
             resp = await llm.chat(
                 messages=[{
                     "role": "user",
@@ -181,7 +180,7 @@ async def extract_and_save_memory(
             for m in messages[-20:]
         )
 
-        llm = get_llm_provider()
+        llm = get_llm_provider(mode="fast")  # memory extraction is a lightweight structured task
         resp = await llm.chat(
             [
                 {
@@ -255,7 +254,7 @@ async def _generate_title(conversation_id: str, message: str, provider: str | No
     """Generate a short AI title for a new conversation and persist it. Non-fatal."""
     await asyncio.sleep(_TITLE_GENERATION_DELAY_S)  # defensive: let send_message's DB commit propagate
     try:
-        llm = get_llm_provider(provider)
+        llm = get_llm_provider(provider, mode="fast")  # title generation is lightweight
         resp = await llm.chat(
             messages=[{"role": "user", "content": _TITLE_PROMPT.format(message=message[:400])}],
             max_tokens=30,
@@ -541,6 +540,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 except Exception as _rag_exc:
                     logger.warning("RAG search failed, falling back to no-context mode: %s", _rag_exc)
                     _search_results = []
+
+                logger.info("RAG returned %d results for conversation %s", len(_search_results), conversation.id)
 
             # ── 6. Build messages list ────────────────────────────────────────
             _msgs: list[dict] = []

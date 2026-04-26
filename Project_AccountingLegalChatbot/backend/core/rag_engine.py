@@ -362,7 +362,14 @@ Context from indexed documents:
         
         # Re-sort defensively: filtering may disrupt ChromaDB's natural distance order
         search_results.sort(key=lambda x: x["score"], reverse=True)
-        
+
+        if not search_results and results and results["documents"] and results["documents"][0]:
+            _raw_scores = [round(1 - d, 3) for d in results["distances"][0]]
+            logger.info(
+                "RAG search '%s': top raw scores=%s (all dropped by min_score=%.2f)",
+                query[:60], _raw_scores, min_score or 0,
+            )
+
         # Cap at 8 results maximum
         return search_results[:8]
 
