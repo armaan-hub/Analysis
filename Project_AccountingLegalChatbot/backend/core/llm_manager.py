@@ -198,7 +198,14 @@ class NvidiaProvider(BaseLLMProvider):
                         return True
         return False
 
-    def _build_payload(self, messages, max_tokens, temperature, stream: bool) -> dict:
+    def _build_payload(
+        self,
+        messages,
+        max_tokens,
+        temperature,
+        stream: bool,
+        reasoning_effort: Optional[str] = None,
+    ) -> dict:
         payload: dict = {
             "model": self.model,
             "messages": messages,
@@ -210,6 +217,8 @@ class NvidiaProvider(BaseLLMProvider):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
+        if reasoning_effort is not None:
+            payload["reasoning_effort"] = reasoning_effort
         # enable_thinking is incompatible with vision/multimodal inputs — skip for image requests
         if self._is_gemma and not self._messages_contain_images(messages):
             payload["chat_template_kwargs"] = {"enable_thinking": True}
