@@ -31,7 +31,7 @@ class ClassifierResult(BaseModel):
 async def _llm_complete(user_query: str) -> str:
     """Call LLM with the classifier prompt. Return raw text."""
     system_prompt = _PROMPT_PATH.read_text(encoding="utf-8")
-    llm = get_llm_provider()
+    llm = get_llm_provider(mode="fast")  # simple classification — fast model is sufficient
     resp = await llm.chat(
         [
             {"role": "system", "content": system_prompt},

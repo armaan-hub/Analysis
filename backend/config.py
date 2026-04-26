@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     fast_max_tokens: Optional[int] = 20000   # fast mode: cap at 20k tokens
     temperature: float = 0.10                # low temperature for precise legal/accounting answers
     rag_min_score: float = Field(
-        default=0.45,
+        default=0.30,
         gt=0.0,
         lt=1.0,
         description="Drop RAG chunks below this cosine-similarity threshold.",

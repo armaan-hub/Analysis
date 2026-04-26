@@ -252,12 +252,15 @@ class NvidiaProvider(BaseLLMProvider):
                         headers=headers,
                         json=payload,
                     )
-                    if resp.status_code in (429, 500, 502, 503, 504) and attempt < 1:
-                        last_exc = httpx.HTTPStatusError(
-                            f"HTTP {resp.status_code}", request=resp.request, response=resp
-                        )
-                        logger.warning(f"NVIDIA API {resp.status_code}, retrying (attempt {attempt+1}/2)…")
-                        continue
+                    if resp.status_code >= 400:
+                        err_body = resp.text[:500]
+                        logger.error(f"NVIDIA API {resp.status_code}: {err_body}")
+                        if resp.status_code in (429, 500, 502, 503, 504) and attempt < 1:
+                            last_exc = httpx.HTTPStatusError(
+                                f"HTTP {resp.status_code}: {err_body}", request=resp.request, response=resp
+                            )
+                            logger.warning(f"NVIDIA API {resp.status_code}, retrying (attempt {attempt+1}/2)…")
+                            continue
                     resp.raise_for_status()
                     data = resp.json()
                 choice = data["choices"][0]

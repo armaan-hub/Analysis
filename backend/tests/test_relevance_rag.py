@@ -7,10 +7,10 @@ from config import settings
 
 
 def test_rag_min_score_default():
-    """rag_min_score must exist and default to 0.45."""
+    """rag_min_score must exist and default to 0.30."""
     assert hasattr(settings, "rag_min_score")
     assert 0.0 < settings.rag_min_score < 1.0
-    assert settings.rag_min_score == pytest.approx(0.45)
+    assert settings.rag_min_score == pytest.approx(0.30)
 
 
 def _make_engine_with_results(raw_results: list[dict]) -> RAGEngine:
@@ -126,8 +126,8 @@ async def test_chat_default_filter_is_law_finance(client):
     assert call["filter"] == {"category": {"$in": ["law", "finance"]}}, (
         f"Expected law+finance default filter, got: {call['filter']}"
     )
-    assert call["min_score"] == pytest.approx(0.45), (
-        f"Expected min_score=0.45, got: {call['min_score']}"
+    assert call["min_score"] == pytest.approx(0.30), (
+        f"Expected min_score=0.30, got: {call['min_score']}"
     )
 
 
@@ -160,8 +160,8 @@ async def test_chat_selected_docs_override_default_filter(client):
     assert call["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
         f"Expected doc_id-only filter for analyst mode, got: {call['filter']}"
     )
-    assert call["min_score"] == pytest.approx(0.45), (
-        f"Expected min_score=0.45 for doc-scoped search, got: {call['min_score']}"
+    assert call["min_score"] == pytest.approx(0.30), (
+        f"Expected min_score=0.30 for doc-scoped search, got: {call['min_score']}"
     )
 
 
