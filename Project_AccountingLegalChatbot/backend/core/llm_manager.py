@@ -138,9 +138,12 @@ class BaseLLMProvider:
                 self._MIN_RESPONSE_TOKENS,
             )
             return self._MIN_RESPONSE_TOKENS
+        # Always enforce the professional-response floor (0 < available < _MIN_RESPONSE_TOKENS
+        # would otherwise return a token budget too small for meaningful output).
+        floor = self._MIN_RESPONSE_TOKENS
         if requested_max is None:
-            return available
-        return min(requested_max, available)
+            return max(available, floor)
+        return max(min(requested_max, available), floor)
 
     async def chat(
         self,
@@ -172,7 +175,6 @@ class NvidiaProvider(BaseLLMProvider):
         super().__init__(api_key, model, base_url)
         self.provider_name = "nvidia"
         self._is_gemma = "gemma" in model.lower()
-        self._is_mistral_large = "mistral-large" in model.lower()
 
     @staticmethod
     def _strip_thinking(text: str) -> str:

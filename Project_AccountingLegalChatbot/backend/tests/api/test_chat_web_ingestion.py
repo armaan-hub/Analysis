@@ -87,3 +87,6 @@ async def test_chat_uses_compute_safe_max_tokens(client):
         "messages argument must be a list"
     assert len(call_args_captured.get("messages", [])) > 0, \
         "messages argument must not be empty"
+    from config import settings
+    assert call_args_captured.get("requested_max") == settings.fast_max_tokens, \
+        f"fast mode must pass fast_max_tokens ({settings.fast_max_tokens}), got {call_args_captured.get('requested_max')}"
