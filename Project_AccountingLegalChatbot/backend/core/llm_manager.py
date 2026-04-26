@@ -72,6 +72,11 @@ class BaseLLMProvider:
     _MIN_RESPONSE_TOKENS: int = 512  # minimum for professional legal/accounting responses
     _TOKEN_SAFETY_BUFFER: int = 500
 
+    # Streaming: no read-timeout (TTFB for large models can be 60-90 s); connection still fails fast.
+    _STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=10.0, pool=5.0)
+    # Non-streaming: generous read timeout for large-model completions.
+    _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+
     def __init__(self, api_key: str, model: str, base_url: str = ""):
         self.api_key = api_key
         self.model = model
@@ -222,8 +227,8 @@ class NvidiaProvider(BaseLLMProvider):
         # Vision requests can be large (multiple base64-encoded pages) — use a generous write timeout
         _timeout = (
             httpx.Timeout(None)
-            if (max_tokens is None or has_images)
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
+            if has_images
+            else self._DEFAULT_TIMEOUT
         )
         for attempt in range(2):
             if attempt > 0:
@@ -272,11 +277,8 @@ class NvidiaProvider(BaseLLMProvider):
         in_thinking = False
         thinking_buf = ""
 
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
+        has_images = self._messages_contain_images(messages)
+        _timeout = httpx.Timeout(None) if has_images else self._STREAM_TIMEOUT
         async with httpx.AsyncClient(timeout=_timeout) as client:
             async with client.stream(
                 "POST",
@@ -359,12 +361,7 @@ class OpenAIProvider(BaseLLMProvider):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
-        async with httpx.AsyncClient(timeout=_timeout) as client:
+        async with httpx.AsyncClient(timeout=self._DEFAULT_TIMEOUT) as client:
             resp = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
@@ -397,12 +394,7 @@ class OpenAIProvider(BaseLLMProvider):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
-        async with httpx.AsyncClient(timeout=_timeout) as client:
+        async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
             async with client.stream(
                 "POST",
                 f"{self.base_url}/chat/completions",
@@ -464,12 +456,7 @@ class ClaudeProvider(BaseLLMProvider):
         if system_msg:
             payload["system"] = system_msg
 
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
-        async with httpx.AsyncClient(timeout=_timeout) as client:
+        async with httpx.AsyncClient(timeout=self._DEFAULT_TIMEOUT) as client:
             resp = await client.post(
                 f"{self.base_url}/v1/messages",
                 headers=headers,
@@ -517,12 +504,7 @@ class ClaudeProvider(BaseLLMProvider):
         if system_msg:
             payload["system"] = system_msg
 
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
-        async with httpx.AsyncClient(timeout=_timeout) as client:
+        async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
             async with client.stream(
                 "POST",
                 f"{self.base_url}/v1/messages",
@@ -569,12 +551,7 @@ class MistralProvider(BaseLLMProvider):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
-        async with httpx.AsyncClient(timeout=_timeout) as client:
+        async with httpx.AsyncClient(timeout=self._DEFAULT_TIMEOUT) as client:
             resp = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
@@ -607,12 +584,7 @@ class MistralProvider(BaseLLMProvider):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        _timeout = (
-            httpx.Timeout(None)
-            if max_tokens is None
-            else httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-        )
-        async with httpx.AsyncClient(timeout=_timeout) as client:
+        async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
             async with client.stream(
                 "POST",
                 f"{self.base_url}/chat/completions",
