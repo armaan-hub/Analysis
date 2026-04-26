@@ -36,3 +36,45 @@ def test_reasoning_effort_absent_when_none():
         _MSGS, max_tokens=100, temperature=0.1, stream=False, reasoning_effort=None
     )
     assert "reasoning_effort" not in payload
+
+
+# ── chat / chat_stream signatures accept reasoning_effort ─────────────
+
+async def test_chat_accepts_reasoning_effort_kwarg():
+    """NvidiaProvider.chat must accept reasoning_effort without raising TypeError."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    provider = _nvidia_provider("mistralai/mistral-small-4-119b-2603")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "Answer"}, "finish_reason": "stop"}],
+        "model": "mistralai/mistral-small-4-119b-2603",
+        "usage": {"total_tokens": 10},
+    }
+
+    with patch("httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client_cls.return_value = mock_client
+        # Should not raise TypeError
+        result = await provider.chat(
+            _MSGS,
+            temperature=0.1,
+            max_tokens=100,
+            reasoning_effort="medium",
+        )
+        assert result.content == "Answer"
+
+
+def test_chat_stream_accepts_reasoning_effort_kwarg():
+    """NvidiaProvider.chat_stream must accept reasoning_effort without raising TypeError."""
+    provider = _nvidia_provider("mistralai/mistral-small-4-119b-2603")
+
+    # Verify the signature accepts the kwarg — generator construction alone is enough
+    gen = provider.chat_stream(_MSGS, temperature=0.1, max_tokens=100, reasoning_effort="medium")
+    # It's an async generator; just confirm it was created without TypeError
+    assert gen is not None
