@@ -23,9 +23,11 @@ class Settings(BaseSettings):
 
     # ── NVIDIA NIM ───────────────────────────────────────────────────
     nvidia_api_key: str = ""
-    nvidia_model: str = "google/gemma-4-31b-it"  # general-purpose chat model
+    nvidia_model: str = "mistralai/mistral-large-3-675b-instruct-2512"  # general-purpose chat model
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
+    nvidia_fast_model: str = "mistralai/mistral-small-4-119b-2603"
+    nvidia_fast_reasoning_effort: str = "medium"
 
     # ── OpenAI ───────────────────────────────────────────────────────
     openai_api_key: str = ""
@@ -75,11 +77,11 @@ class Settings(BaseSettings):
     # ── RAG Settings ─────────────────────────────────────────────────
     chunk_size: int = 1000
     chunk_overlap: int = 200
-    top_k_results: int = 8       # default for analyst / deep_research modes
-    max_tokens: int = 4096       # default for analyst / deep_research modes
-    fast_top_k: int = 15         # fast mode: higher retrieval budget
-    fast_max_tokens: int = 8192  # fast mode: larger response window
-    temperature: float = 0.7
+    top_k_results: int = 8               # default for analyst / deep_research modes
+    max_tokens: Optional[int] = None     # no hard limit — let the model use its full capacity
+    fast_top_k: int = 15                 # fast mode: higher retrieval budget
+    fast_max_tokens: Optional[int] = 20000   # fast mode: cap at 20k tokens
+    temperature: float = 0.10                # low temperature for precise legal/accounting answers
     rag_min_score: float = Field(
         default=0.45,
         gt=0.0,
