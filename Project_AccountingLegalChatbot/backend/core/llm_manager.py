@@ -748,9 +748,15 @@ def get_llm_provider(
 
     # Fast mode on NVIDIA: use the smaller, faster model
     if name == "nvidia" and mode == "fast":
+        fast_model = settings.nvidia_fast_model
+        if not fast_model:
+            raise ValueError(
+                "NVIDIA fast mode requested but 'nvidia_fast_model' is not configured. "
+                "Set NVIDIA_FAST_MODEL in your .env file."
+            )
         provider = NvidiaProvider(
             api_key=settings.nvidia_api_key,
-            model=settings.nvidia_fast_model,
+            model=fast_model,
             base_url=settings.nvidia_base_url,
         )
         logger.info(
@@ -760,6 +766,11 @@ def get_llm_provider(
         )
         return provider
 
+    if mode == "fast" and name != "nvidia":
+        logger.warning(
+            "Fast mode requested but provider '%s' has no fast-model override; "
+            "using main model.", name
+        )
     factory = _PROVIDER_MAP.get(name)
     if not factory:
         raise ValueError(

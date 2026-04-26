@@ -105,3 +105,39 @@ def test_analyst_mode_returns_main_model_for_nvidia():
     ):
         provider = get_llm_provider(mode="analyst")
         assert provider.model == "mistralai/mistral-large-3-675b-instruct-2512"
+
+
+def test_default_mode_returns_main_model_for_nvidia():
+    """mode=None (the real default) must use nvidia_model, not nvidia_fast_model."""
+    with (
+        patch.object(settings, "llm_provider", "nvidia"),
+        patch.object(settings, "nvidia_model", "mistralai/mistral-large-3-675b-instruct-2512"),
+        patch.object(settings, "nvidia_fast_model", "mistralai/mistral-small-4-119b-2603"),
+        patch.object(settings, "nvidia_api_key", "test-key"),
+        patch.object(settings, "nvidia_base_url", "https://integrate.api.nvidia.com/v1"),
+    ):
+        provider = get_llm_provider()          # no mode argument at all
+        assert provider.model == "mistralai/mistral-large-3-675b-instruct-2512"
+
+
+def test_fast_mode_non_nvidia_falls_through_to_main_model():
+    """mode='fast' with a non-NVIDIA provider must fall through to the main model."""
+    # Only run this test if openai provider is available in the provider map.
+    # We patch the factory to avoid needing real OpenAI credentials.
+    from unittest.mock import MagicMock
+    mock_openai_provider = MagicMock()
+    mock_openai_provider.model = "gpt-4o"
+    mock_openai_factory = MagicMock(return_value=mock_openai_provider)
+
+    from core.llm_manager import _PROVIDER_MAP
+    original = _PROVIDER_MAP.get("openai")
+    try:
+        _PROVIDER_MAP["openai"] = mock_openai_factory
+        with patch.object(settings, "llm_provider", "openai"):
+            provider = get_llm_provider(mode="fast")
+            assert provider.model == "gpt-4o"
+    finally:
+        if original is not None:
+            _PROVIDER_MAP["openai"] = original
+        elif "openai" in _PROVIDER_MAP:
+            del _PROVIDER_MAP["openai"]
