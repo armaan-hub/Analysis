@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, update
 
@@ -156,5 +157,18 @@ def start_scheduler():
         id="monitoring_job",
         replace_existing=True,
     )
+
+    # FTA scraper: auto-download new UAE law PDFs at midnight daily
+    from core.pipeline.fta_scraper import scrape_and_ingest
+    scheduler.add_job(
+        scrape_and_ingest,
+        trigger=CronTrigger(hour=0, minute=0),
+        id="fta_scraper",
+        name="FTA PDF Scraper",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    logger.info("Scheduled FTA scraper: daily at midnight")
+
     scheduler.start()
     logger.info(f"Monitoring scheduler started (interval: {interval} hours)")
