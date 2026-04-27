@@ -598,6 +598,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     sources=None,
                 )
                 db.add(no_ctx_msg)
+                await db.flush()
                 await db.commit()
                 yield f"data: {json.dumps({'type': 'chunk', 'content': _no_ctx_content})}\n\n"
                 yield f"data: {json.dumps({'type': 'done', 'message_id': no_ctx_msg.id})}\n\n"
@@ -983,10 +984,6 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             max_tokens=_safe_max,
             reasoning_effort=_reasoning_effort,
         )
-        
-        # Citation validation: append 🚨 warning if 2+ fabrications detected
-        from core.accuracy.citation_validator import validate_citations
-        answer_content = validate_citations(response.content, search_results)
     except Exception as e:
         import httpx as _httpx
         elapsed = round(time.time() - start_time, 1)
@@ -1011,6 +1008,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             status_code=500,
             detail=f"[{error_code}] {err_msg} (elapsed: {elapsed}s, provider: {req.provider or settings.llm_provider})",
         )
+
+    # Citation validation: outside LLM try, owns its own failure surface
+    from core.accuracy.citation_validator import validate_citations
+    answer_content = validate_citations(response.content, search_results)
 
     # Save assistant message
     assistant_msg = Message(
@@ -1374,3 +1375,4 @@ async def deep_research_stream(req: DeepResearchRequest):
         media_type="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
