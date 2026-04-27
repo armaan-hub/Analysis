@@ -5,12 +5,14 @@ Accounting & Legal AI Chatbot – FastAPI Application Entry Point.
 Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 
+import asyncio
 import logging
 import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from core.pipeline.auto_sync import start_auto_sync, stop_auto_sync
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -69,6 +71,11 @@ async def lifespan(app: FastAPI):
     from monitoring.scheduler import start_scheduler, scheduler
     start_scheduler()
     logger.info(f"[OK] Scheduler started ({time.perf_counter()-_t:.2f}s)")
+
+    # Start auto-sync watchdog (monitors data_source_law/ and data_source_finance/)
+    loop = asyncio.get_event_loop()
+    start_auto_sync(loop)
+    logger.info(f"[OK] Auto-sync watchdog started")
     
     logger.info(f"[OK] Total startup time: {time.perf_counter()-_startup_t0:.2f}s")
     logger.info("=" * 60)
@@ -77,6 +84,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Chatbot server shutting down...")
     scheduler.shutdown()
+    stop_auto_sync()
 
 
 # ── FastAPI App ───────────────────────────────────────────────────
