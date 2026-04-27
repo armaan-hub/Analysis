@@ -9,18 +9,24 @@ import re
 
 _NO_VALIDATE_PREFIXES = ("i don't have", "i do not have", "no information")
 _FABRICATION_THRESHOLD = 2
-_NO_CONTEXT_MESSAGE = "I don't have this in my documents."
 
-# Patterns that indicate an unsourced claim about the law
+# Capture only substantial claim text (≥30 chars) to avoid matching
+# short, benign phrases like "The act states: see above."
 _CLAIM_PATTERNS = [
     r'the (?:law|regulation|act|decree|rule) (?:states?|says?|provides?|requires?|mandates?)[:\s]+([^.]{30,})',
     r'according to (?:article|section|clause|paragraph)\s+[\w\d]+[:\s]+([^.]{30,})',
 ]
 
 
-def _words_in_text(words: list[str], text: str) -> bool:
-    """Return True if any substantive word (len > 3) from words appears in text."""
-    return any(w in text for w in words if len(w) > 3)
+def _is_grounded(words: list[str], text: str, min_hits: int = 2) -> bool:
+    """Return True only if at least min_hits substantive words (len>3) appear
+    as whole words in text. Requires min_hits=2 to reduce false passes on
+    shared legal vocabulary like 'rate', 'rule', 'code'."""
+    hits = sum(
+        1 for w in words
+        if len(w) > 3 and re.search(r'\b' + re.escape(w) + r'\b', text)
+    )
+    return hits >= min_hits
 
 
 def validate_citations(answer: str, chunks: list[dict]) -> str:
@@ -39,26 +45,26 @@ def validate_citations(answer: str, chunks: list[dict]) -> str:
     unverified_quotes = 0
     unverified_claims = 0
 
-    # Check quoted text (straight and curly quotes) and track their spans
-    quoted_spans = []
-    for match in re.finditer(r'["\u201c\u201d]([^"\u201c\u201d]{10,})["\u201c\u201d]', answer):
-        quote = match.group(1)
-        words = quote.lower().split()[:5]
-        if not _words_in_text(words, combined):
-            unverified_quotes += 1
-            quoted_spans.append((match.start(), match.end()))
+    # Track ALL quoted spans to prevent claim patterns from double-firing
+    all_quoted_spans: list[tuple[int, int]] = []
 
-    # Check claim patterns (skip if inside unverified quotes to avoid double-counting)
+    # Check quoted text (straight and curly quotes)
+    for match in re.finditer(r'["\u201c\u201d]([^"\u201c\u201d]{10,})["\u201c\u201d]', answer):
+        all_quoted_spans.append((match.start(), match.end()))
+        quote = match.group(1)
+        words = quote.lower().split()[:8]
+        if not _is_grounded(words, combined):
+            unverified_quotes += 1
+
+    # Check claim patterns — skip if the match falls inside a quoted span
     for pattern in _CLAIM_PATTERNS:
-        for match in re.finditer(pattern, answer, re.IGNORECASE):
-            # Skip if this claim is inside an unverified quote
-            match_start, match_end = match.start(), match.end()
-            is_in_quote = any(q_start <= match_start < q_end for q_start, q_end in quoted_spans)
+        for m in re.finditer(pattern, answer, re.IGNORECASE):
+            match_start = m.start()
+            is_in_quote = any(q_start <= match_start < q_end for q_start, q_end in all_quoted_spans)
             if is_in_quote:
                 continue
-            
-            claim_words = match.group(1).lower().split()[:6]
-            if not _words_in_text(claim_words, combined):
+            claim_words = m.group(1).lower().split()[:8]
+            if not _is_grounded(claim_words, combined):
                 unverified_claims += 1
 
     total = unverified_quotes + unverified_claims
