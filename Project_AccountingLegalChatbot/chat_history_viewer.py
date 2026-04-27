@@ -80,7 +80,7 @@ def get_all_conversations(conn, limit=None, mode=None):
 def get_conversation_messages(conn, conv_id):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT role, content, created_at, tokens_used
+        SELECT role, content, created_at, tokens_used, sources
         FROM messages
         WHERE conversation_id = ?
         ORDER BY created_at
@@ -228,6 +228,21 @@ def print_full_conversation(conn, conv_id):
         print_separator("-")
         print(msg["content"])
 
+        # Display sources if present
+        raw_sources = msg["sources"]
+        if raw_sources:
+            sources = raw_sources if isinstance(raw_sources, list) else json.loads(raw_sources)
+            if sources:
+                print()
+                print(c("yellow", f"  📚 Sources ({len(sources)}):"))
+                for j, src in enumerate(sources, 1):
+                    name = src.get("original_name") or src.get("filename") or src.get("doc_id", "Unknown")
+                    score = src.get("score")
+                    domain = src.get("domain", "")
+                    score_str = f"  score={score:.3f}" if score is not None else ""
+                    domain_str = f"  [{domain}]" if domain else ""
+                    print(c("gray", f"    {j}. {name}{domain_str}{score_str}"))
+
     print()
     print_separator("=")
 
@@ -287,6 +302,10 @@ def export_to_json(conn, output_path=None):
                     "content": m["content"],
                     "timestamp": m["created_at"],
                     "tokens_used": m["tokens_used"],
+                    "sources": (
+                        m["sources"] if isinstance(m["sources"], list)
+                        else json.loads(m["sources"]) if m["sources"] else []
+                    ),
                 }
                 for m in messages
             ],
