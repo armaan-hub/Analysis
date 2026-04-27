@@ -59,6 +59,8 @@ starlette==0.41.3
 
 # Utilities
 python-dateutil==2.9.0
+rapidfuzz==3.9.7
+watchdog==4.0.1
 
 # Requests dependency pins (W2 fix: silence RequestsDependencyWarning)
 urllib3>=1.26.0,<3
