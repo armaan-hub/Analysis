@@ -8,10 +8,10 @@ interface Notebook {
   source_count?: number;
   thumbnail_icon?: string;
   domain?: string;
-  mode?: string;
+  mode?: 'fast' | 'deep_research' | 'analyst';
 }
 
-const MODE_COLOURS: Record<string, string> = {
+const MODE_COLOURS: Record<'fast' | 'deep_research' | 'analyst', string> = {
   fast: '#f59e0b',
   deep_research: '#6366f1',
   analyst: '#10b981',
@@ -121,6 +121,7 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
   {notebook.mode && MODE_COLOURS[notebook.mode] && (
     <span
       data-testid="mode-dot"
+      aria-hidden="true"
       style={{
         position: 'absolute',
         top: '8px',
