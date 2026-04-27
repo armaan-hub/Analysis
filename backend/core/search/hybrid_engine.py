@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 try:
     from rapidfuzz import fuzz as _fuzz
     _RAPIDFUZZ_AVAILABLE = True
@@ -10,6 +12,11 @@ except ImportError:
 
 _VECTOR_WEIGHT = 0.7
 _KEYWORD_WEIGHT = 0.3
+
+
+def _word_in_text(word: str, text: str) -> bool:
+    """Return True only if *word* appears as a whole word (word-boundary) in *text*."""
+    return bool(re.search(r'\b' + re.escape(word) + r'\b', text))
 
 
 def _keyword_score(query: str, text: str) -> float:
@@ -26,13 +33,17 @@ def _keyword_score(query: str, text: str) -> float:
     q_lower = query.lower()
     t_lower = text.lower()
 
-    # Signal 1: exact phrase
-    if q_lower in t_lower:
+    # Only consider words longer than 2 chars as meaningful keywords.
+    # Both Signal 1 and Signal 2 are gated on this so that all-stopword
+    # queries (e.g. "is a") don't produce false-positive 1.0/0.8 scores.
+    q_words = [w for w in q_lower.split() if len(w) > 2]
+
+    # Signal 1: exact phrase (only when query has at least one meaningful word)
+    if q_words and _word_in_text(q_lower, t_lower):
         return 1.0
 
     # Signal 2: all keywords present
-    q_words = [w for w in q_lower.split() if len(w) > 2]
-    if q_words and all(w in t_lower for w in q_words):
+    if q_words and all(_word_in_text(w, t_lower) for w in q_words):
         return 0.8
 
     # Signal 3: fuzzy (rapidfuzz)
@@ -60,12 +71,14 @@ def blend_results(
     Original score is preserved unchanged.
     """
     if not results:
-        return results
-
+        return []
+    scored = []
     for r in results:
-        vec_score = float(r.get("score", 0.0))
-        kw_score = _keyword_score(query, r.get("text", ""))
-        r["hybrid_score"] = vector_weight * vec_score + keyword_weight * kw_score
-
-    results.sort(key=lambda r: r["hybrid_score"], reverse=True)
-    return results
+        out = dict(r)  # shallow copy — do not mutate caller's dict
+        out["hybrid_score"] = (
+            vector_weight * float(r.get("score", 0.0))
+            + keyword_weight * _keyword_score(query, r.get("text", ""))
+        )
+        scored.append(out)
+    scored.sort(key=lambda x: x["hybrid_score"], reverse=True)
+    return scored

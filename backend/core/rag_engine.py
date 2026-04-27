@@ -300,9 +300,14 @@ class RAGEngine:
         """Perform similarity search and return relevant document chunks."""
         query_embedding = await self.embedding_provider.embed_query(query)
 
+        collection_count = self.collection.count()
+        if collection_count == 0:
+            return []
+        safe_n = min(top_k * 2, collection_count)
+
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k * 2,  # Over-fetch for better filtering
+            n_results=safe_n,  # Over-fetch for better filtering
             where=filter,
             include=["documents", "metadatas", "distances"],
         )
@@ -328,7 +333,8 @@ class RAGEngine:
                 "source": results["metadatas"][0][i].get("source", "Unknown"),
             })
 
-        # Sort by score, then hybrid re-rank
+        # Pre-sort by vector score so hybrid-score ties are broken by vector score
+        # (Python's stable sort in blend_results preserves this ordering).
         search_results.sort(key=lambda x: x["score"], reverse=True)
         # Hybrid re-ranking: blend vector score with keyword signal
         from core.search.hybrid_engine import blend_results
