@@ -10,6 +10,12 @@ interface HomePageProps {
 
 type ModeFilter = 'all' | 'fast' | 'deep_research' | 'analyst';
 
+const MODE_META: Record<string, { label: string; icon: string; colour: string }> = {
+  fast:          { label: 'Fast',          icon: '⚡', colour: '#f59e0b' },
+  deep_research: { label: 'Deep Research', icon: '🔬', colour: '#6366f1' },
+  analyst:       { label: 'Analyst',       icon: '📊', colour: '#10b981' },
+};
+
 export default function HomePage({ onNewChat }: HomePageProps) {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [search, setSearch] = useState('');
@@ -78,14 +84,14 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const handleDeleteConfirm = async () => {
     if (deleteTarget === '__bulk__') {
       try {
-        await Promise.all([...selectedIds].map(id => API.delete(`/api/legal-studio/notebook/${id}`)));
+        await Promise.all([...selectedIds].map(id => API.delete(`/api/chat/conversations/${id}`)));
         setNotebooks(prev => prev.filter(n => !selectedIds.has(n.id)));
         exitSelectionMode();
       } catch { /* ignore */ }
       setDeleteTarget(null);
     } else if (deleteTarget) {
       try {
-        await API.delete(`/api/legal-studio/notebook/${deleteTarget}`);
+        await API.delete(`/api/chat/conversations/${deleteTarget}`);
         setNotebooks(prev => prev.filter(n => n.id !== deleteTarget));
       } catch { /* ignore */ }
       setDeleteTarget(null);
@@ -94,7 +100,10 @@ export default function HomePage({ onNewChat }: HomePageProps) {
 
   const filtered = notebooks
     .filter(n => n.title.toLowerCase().includes(search.toLowerCase()))
-    .filter(n => activeModes.has('all') || activeModes.has((n.mode ?? 'fast') as ModeFilter));
+    .filter(n =>
+      activeModes.has('all') ||
+      (n.mode != null && activeModes.has(n.mode as ModeFilter))
+    );
 
   const deleteNotebook = deleteTarget === '__bulk__'
     ? null
@@ -109,12 +118,6 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const filterLabelStyle: React.CSSProperties = {
     fontSize: '11px', fontWeight: 600, color: 'var(--s-text-2)',
     textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '4px',
-  };
-
-  const MODE_META: Record<string, { label: string; icon: string; colour: string }> = {
-    fast:          { label: 'Fast',          icon: '⚡', colour: '#f59e0b' },
-    deep_research: { label: 'Deep Research', icon: '🔬', colour: '#6366f1' },
-    analyst:       { label: 'Analyst',       icon: '📊', colour: '#10b981' },
   };
 
   const filterTagStyle = (mode: ModeFilter): React.CSSProperties => {
@@ -214,6 +217,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
         <button
           type="button"
           aria-label="All Modes"
+          aria-pressed={activeModes.has('all')}
           style={filterTagStyle('all')}
           onClick={() => toggleMode('all')}
         >
@@ -227,6 +231,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
               key={mode}
               type="button"
               aria-label={meta.label}
+              aria-pressed={activeModes.has(mode)}
               style={filterTagStyle(mode)}
               onClick={() => toggleMode(mode)}
             >

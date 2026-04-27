@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { API } from '../../lib/api';
@@ -75,7 +75,7 @@ describe('HomePage — mode filter bar', () => {
   it('filters to fast notebooks only when Fast tag is clicked', async () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     const fastBtn = await screen.findByRole('button', { name: /^fast$/i });
-    fastBtn.click();
+    fireEvent.click(fastBtn);
     expect(await screen.findByText('VAT Review')).toBeInTheDocument();
     expect(screen.queryByText('Corp Tax Deep')).not.toBeInTheDocument();
     expect(screen.queryByText('IFRS Analyst')).not.toBeInTheDocument();
@@ -84,7 +84,7 @@ describe('HomePage — mode filter bar', () => {
   it('filters to analyst notebooks only when Analyst tag is clicked', async () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     const analystBtn = await screen.findByRole('button', { name: /^analyst$/i });
-    analystBtn.click();
+    fireEvent.click(analystBtn);
     expect(await screen.findByText('IFRS Analyst')).toBeInTheDocument();
     expect(screen.queryByText('VAT Review')).not.toBeInTheDocument();
     expect(screen.queryByText('Corp Tax Deep')).not.toBeInTheDocument();
@@ -93,9 +93,9 @@ describe('HomePage — mode filter bar', () => {
   it('clicking All Modes resets filter to show all', async () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     const fastBtn = await screen.findByRole('button', { name: /^fast$/i });
-    fastBtn.click();
+    fireEvent.click(fastBtn);
     const allBtn = screen.getByRole('button', { name: /all modes/i });
-    allBtn.click();
+    fireEvent.click(allBtn);
     expect(await screen.findByText('VAT Review')).toBeInTheDocument();
     expect(screen.getByText('Corp Tax Deep')).toBeInTheDocument();
     expect(screen.getByText('IFRS Analyst')).toBeInTheDocument();
@@ -104,9 +104,18 @@ describe('HomePage — mode filter bar', () => {
   it('auto-resets to All when last active mode is deselected', async () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     const fastBtn = await screen.findByRole('button', { name: /^fast$/i });
-    fastBtn.click(); // activate Fast
-    fastBtn.click(); // deactivate Fast → should reset to All
+    fireEvent.click(fastBtn); // activate Fast
+    fireEvent.click(fastBtn); // deactivate Fast → should reset to All
     expect(await screen.findByText('Corp Tax Deep')).toBeInTheDocument();
     expect(screen.getByText('IFRS Analyst')).toBeInTheDocument();
+  });
+
+  it('filters to deep_research notebooks only when Deep Research tag is clicked', async () => {
+    render(<MemoryRouter><HomePage /></MemoryRouter>);
+    const deepBtn = await screen.findByRole('button', { name: /deep research/i });
+    fireEvent.click(deepBtn);
+    expect(await screen.findByText('Corp Tax Deep')).toBeInTheDocument();
+    expect(screen.queryByText('VAT Review')).not.toBeInTheDocument();
+    expect(screen.queryByText('IFRS Analyst')).not.toBeInTheDocument();
   });
 });
