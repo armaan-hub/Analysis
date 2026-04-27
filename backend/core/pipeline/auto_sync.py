@@ -10,7 +10,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from watchdog.events import FileCreatedEvent, FileMovedEvent, FileSystemEventHandler
+from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileMovedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ _WATCH_DIRS: list[tuple[Path, str]] = [
 _DEBOUNCE_SECONDS = 10.0
 
 _observer: Observer | None = None
+_handlers: list[_PDFHandler] = []
 
 
 class _PDFHandler(FileSystemEventHandler):
@@ -35,15 +36,20 @@ class _PDFHandler(FileSystemEventHandler):
         self._pending: dict[str, asyncio.TimerHandle] = {}
 
     def _schedule(self, path: str) -> None:
-        """Schedule ingestion after debounce window; cancels prior pending call."""
-        if path in self._pending:
-            self._pending[path].cancel()
-        handle = self._loop.call_later(
-            _DEBOUNCE_SECONDS,
-            lambda: self._loop.create_task(_ingest_file(path, self._category)),
-        )
-        self._pending[path] = handle
-        logger.debug("Scheduled ingest for %s in %.0fs", path, _DEBOUNCE_SECONDS)
+        """Thread-safe: marshal scheduling into the event loop thread."""
+        def _do_in_loop() -> None:
+            # All of this runs inside the event loop thread — safe to use call_later/create_task
+            if path in self._pending:
+                self._pending[path].cancel()
+                del self._pending[path]
+            handle = self._loop.call_later(
+                _DEBOUNCE_SECONDS,
+                lambda: self._loop.create_task(_ingest_file(path, self._category)),
+            )
+            self._pending[path] = handle
+            logger.debug("Scheduled ingest for %s in %.0fs", path, _DEBOUNCE_SECONDS)
+
+        self._loop.call_soon_threadsafe(_do_in_loop)
 
     def on_created(self, event: FileCreatedEvent) -> None:  # type: ignore[override]
         if not event.is_directory and event.src_path.lower().endswith(".pdf"):
@@ -52,6 +58,10 @@ class _PDFHandler(FileSystemEventHandler):
     def on_moved(self, event: FileMovedEvent) -> None:  # type: ignore[override]
         if not event.is_directory and event.dest_path.lower().endswith(".pdf"):
             self._schedule(event.dest_path)
+
+    def on_modified(self, event: FileModifiedEvent) -> None:  # type: ignore[override]
+        if not event.is_directory and event.src_path.lower().endswith(".pdf"):
+            self._schedule(event.src_path)
 
 
 async def _ingest_file(path: str, category: str) -> None:
@@ -83,14 +93,15 @@ async def _ingest_file(path: str, category: str) -> None:
 
 def start_auto_sync(loop: asyncio.AbstractEventLoop) -> None:
     """Start the watchdog observer. Call from app lifespan after scheduler start."""
-    global _observer
+    global _observer, _handlers
     if _observer is not None:
         return  # already running
-
+    _handlers = []
     _observer = Observer()
     for watch_dir, category in _WATCH_DIRS:
         watch_dir.mkdir(parents=True, exist_ok=True)
         handler = _PDFHandler(category=category, loop=loop)
+        _handlers.append(handler)
         _observer.schedule(handler, str(watch_dir), recursive=False)
         logger.info("Watching %s for new PDFs (category=%s)", watch_dir, category)
 
@@ -100,9 +111,15 @@ def start_auto_sync(loop: asyncio.AbstractEventLoop) -> None:
 
 def stop_auto_sync() -> None:
     """Stop the watchdog observer. Call from app lifespan shutdown."""
-    global _observer
+    global _observer, _handlers
     if _observer is None:
         return
+    # Cancel any pending debounce timers
+    for handler in _handlers:
+        for handle in handler._pending.values():
+            handle.cancel()
+        handler._pending.clear()
+    _handlers = []
     _observer.stop()
     _observer.join()
     _observer = None
