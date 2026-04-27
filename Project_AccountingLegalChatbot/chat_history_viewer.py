@@ -236,7 +236,15 @@ def print_full_conversation(conn, conv_id):
                 print()
                 print(c("yellow", f"  📚 Sources ({len(sources)}):"))
                 for j, src in enumerate(sources, 1):
-                    name = src.get("original_name") or src.get("filename") or src.get("doc_id", "Unknown")
+                    # Support multiple ingestion metadata keys (original_name, original_filename, filename, source, doc_id)
+                    name = (
+                        src.get("original_name")
+                        or src.get("original_filename")
+                        or src.get("filename")
+                        or src.get("source")
+                        or src.get("doc_id")
+                        or "Unknown"
+                    )
                     score = src.get("score")
                     domain = src.get("domain", "")
                     score_str = f"  score={score:.3f}" if score is not None else ""
