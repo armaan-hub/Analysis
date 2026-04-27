@@ -328,10 +328,12 @@ class RAGEngine:
                 "source": results["metadatas"][0][i].get("source", "Unknown"),
             })
 
-        # Sort by score and cap
+        # Sort by score, then hybrid re-rank
         search_results.sort(key=lambda x: x["score"], reverse=True)
-        # Cap at 8 results maximum
-        return search_results[:8]
+        # Hybrid re-ranking: blend vector score with keyword signal
+        from core.search.hybrid_engine import blend_results
+        search_results = blend_results(query, search_results)
+        return search_results[:top_k]
 
     def build_augmented_prompt(
         self,
