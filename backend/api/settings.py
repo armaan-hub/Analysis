@@ -14,7 +14,7 @@ import httpx
 
 from db.database import get_db
 from db.models import UserSettings
-from core.llm_manager import get_llm_provider, list_available_providers, NvidiaProvider, OpenAIProvider, MistralProvider, OllamaProvider
+from core.llm_manager import get_llm_provider, list_available_providers
 from config import settings
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
@@ -40,6 +40,8 @@ class ProviderUpdateRequest(BaseModel):
     api_key: Optional[str] = None
     model: Optional[str] = None
     base_url: Optional[str] = None
+    fast_api_key: Optional[str] = None
+    fast_model: Optional[str] = None
     activate: bool = False
 
 class SettingUpdate(BaseModel):
@@ -109,17 +111,19 @@ async def update_provider(req: ProviderUpdateRequest):
     Pass activate=true to also switch the active provider.
     """
     provider = req.provider.lower()
+    # Tuple: (key_attr, key_env, model_attr, model_env, url_attr, url_env, fast_key_attr, fast_key_env, fast_model_attr, fast_model_env)
     _KEY_MAP = {
-        "nvidia":  ("nvidia_api_key",  "NVIDIA_API_KEY",  "nvidia_model",  "NVIDIA_MODEL",  "nvidia_base_url",  "NVIDIA_BASE_URL"),
-        "openai":  ("openai_api_key",  "OPENAI_API_KEY",  "openai_model",  "OPENAI_MODEL",  None, None),
-        "claude":  ("anthropic_api_key","ANTHROPIC_API_KEY","anthropic_model","ANTHROPIC_MODEL",None, None),
-        "mistral": ("mistral_api_key", "MISTRAL_API_KEY", "mistral_model", "MISTRAL_MODEL", None, None),
-        "ollama":  (None, None,         "ollama_model",  "OLLAMA_MODEL",  "ollama_base_url","OLLAMA_BASE_URL"),
+        "nvidia":  ("nvidia_api_key",   "NVIDIA_API_KEY",   "nvidia_model",   "NVIDIA_MODEL",   "nvidia_base_url", "NVIDIA_BASE_URL", "nvidia_fast_api_key", "NVIDIA_FAST_API_KEY", "nvidia_fast_model",   "NVIDIA_FAST_MODEL"),
+        "openai":  ("openai_api_key",   "OPENAI_API_KEY",   "openai_model",   "OPENAI_MODEL",   None, None, None, None, None, None),
+        "claude":  ("anthropic_api_key","ANTHROPIC_API_KEY","anthropic_model","ANTHROPIC_MODEL", None, None, None, None, None, None),
+        "mistral": ("mistral_api_key",  "MISTRAL_API_KEY",  "mistral_model",  "MISTRAL_MODEL",  None, None, None, None, None, None),
+        "groq":    ("groq_api_key",     "GROQ_API_KEY",     "groq_model",     "GROQ_MODEL",     None, None, None, None, "groq_fast_model", "GROQ_FAST_MODEL"),
+        "ollama":  (None, None,          "ollama_model",    "OLLAMA_MODEL",   "ollama_base_url","OLLAMA_BASE_URL", None, None, None, None),
     }
     if provider not in _KEY_MAP:
         raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
 
-    key_attr, key_env, model_attr, model_env, url_attr, url_env = _KEY_MAP[provider]
+    key_attr, key_env, model_attr, model_env, url_attr, url_env, fast_key_attr, fast_key_env, fast_model_attr, fast_model_env = _KEY_MAP[provider]
 
     async with _settings_lock:
         if req.api_key is not None and key_attr:
@@ -131,6 +135,12 @@ async def update_provider(req: ProviderUpdateRequest):
         if req.base_url is not None and url_attr:
             _update_env_key(url_env, req.base_url)
             setattr(settings, url_attr, req.base_url)
+        if req.fast_api_key is not None and fast_key_attr:
+            _update_env_key(fast_key_env, req.fast_api_key)
+            setattr(settings, fast_key_attr, req.fast_api_key)
+        if req.fast_model is not None and fast_model_attr:
+            _update_env_key(fast_model_env, req.fast_model)
+            setattr(settings, fast_model_attr, req.fast_model)
         if req.activate:
             _update_env_key("LLM_PROVIDER", provider)
             settings.llm_provider = provider
@@ -239,6 +249,20 @@ async def fetch_provider_models(provider: str):
             except httpx.ConnectError:
                 raise HTTPException(status_code=503, detail="Ollama is not running at the configured Base URL")
 
+        # ── Groq ──────────────────────────────────────────────────────
+        elif provider == "groq":
+            if not settings.groq_api_key:
+                raise HTTPException(status_code=400, detail="Groq API key not configured")
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{settings.groq_base_url}/models",
+                    headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+                )
+                resp.raise_for_status()
+                data = _parse_json_response(resp, "Groq")
+            models = sorted(m["id"] for m in data.get("data", []))
+            return [ModelInfo(id=m, name=m) for m in models]
+
         else:
             raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
 
@@ -294,11 +318,18 @@ async def get_current_settings():
         "chunk_size": settings.chunk_size,
         "chunk_overlap": settings.chunk_overlap,
         "providers": {
-            "nvidia":  {"api_key": _mask(settings.nvidia_api_key),  "model": settings.nvidia_model,  "base_url": settings.nvidia_base_url},
-            "openai":  {"api_key": _mask(settings.openai_api_key),  "model": settings.openai_model,  "base_url": "https://api.openai.com/v1"},
-            "claude":  {"api_key": _mask(settings.anthropic_api_key), "model": settings.anthropic_model, "base_url": "https://api.anthropic.com"},
-            "mistral": {"api_key": _mask(settings.mistral_api_key), "model": settings.mistral_model, "base_url": "https://api.mistral.ai/v1"},
-            "ollama":  {"api_key": "",                               "model": settings.ollama_model,  "base_url": settings.ollama_base_url},
+            "nvidia":  {
+                "api_key":      _mask(settings.nvidia_api_key),
+                "model":        settings.nvidia_model,
+                "base_url":     settings.nvidia_base_url,
+                "fast_api_key": _mask(getattr(settings, "nvidia_fast_api_key", "")),
+                "fast_model":   settings.nvidia_fast_model,
+            },
+            "openai":  {"api_key": _mask(settings.openai_api_key),   "model": settings.openai_model,   "base_url": "https://api.openai.com/v1",    "fast_api_key": "", "fast_model": ""},
+            "claude":  {"api_key": _mask(settings.anthropic_api_key),"model": settings.anthropic_model, "base_url": "https://api.anthropic.com",   "fast_api_key": "", "fast_model": ""},
+            "mistral": {"api_key": _mask(settings.mistral_api_key),  "model": settings.mistral_model,  "base_url": "https://api.mistral.ai/v1",    "fast_api_key": "", "fast_model": ""},
+            "groq":    {"api_key": _mask(settings.groq_api_key),     "model": settings.groq_model,     "base_url": settings.groq_base_url,         "fast_api_key": "", "fast_model": settings.groq_fast_model},
+            "ollama":  {"api_key": "",                                "model": settings.ollama_model,   "base_url": settings.ollama_base_url,       "fast_api_key": "", "fast_model": ""},
         },
     }
 

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
     nvidia_fast_model: str = "mistralai/mistral-small-4-119b-2603"
+    # Separate API key for fast mode (optional — falls back to nvidia_api_key if blank)
+    nvidia_fast_api_key: str = ""
     # NVIDIA NIM Mistral models only support "high" and "none" for reasoning_effort
     nvidia_fast_reasoning_effort: Literal["none", "high"] = "high"
 
@@ -41,6 +43,12 @@ class Settings(BaseSettings):
     # ── Mistral ──────────────────────────────────────────────────────
     mistral_api_key: str = ""
     mistral_model: str = "mistral-large-latest"
+
+    # ── Groq (free tier, OpenAI-compatible) ──────────────────────────
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_fast_model: str = "llama-3.1-8b-instant"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # ── Ollama (local) ───────────────────────────────────────────────
     ollama_base_url: str = "http://localhost:11434"
@@ -79,10 +87,12 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
     top_k_results: int = 8               # default for analyst / deep_research modes
-    max_tokens: Optional[int] = None     # no hard limit — let the model use its full capacity
+    max_tokens: Optional[int] = 15649    # deep/analyst: deepseek-v3.2 spec
     fast_top_k: int = 15                 # fast mode: higher retrieval budget
-    fast_max_tokens: Optional[int] = 20000   # fast mode: cap at 20k tokens
+    fast_max_tokens: Optional[int] = 12385   # fast mode: deepseek-v3.1-terminus spec
     temperature: float = 0.10                # low temperature for precise legal/accounting answers
+    fast_temperature: float = 0.20           # fast mode temperature (DeepSeek terminus: 0.2)
+    deep_temperature: float = 1.00           # deep research / analyst temperature (DeepSeek v3.2: 1.0)
     rag_min_score: float = Field(
         default=0.30,
         gt=0.0,
@@ -125,6 +135,7 @@ class Settings(BaseSettings):
             "openai": self.openai_api_key,
             "claude": self.anthropic_api_key,
             "mistral": self.mistral_api_key,
+            "groq": self.groq_api_key,
             "ollama": "",  # Ollama is local, no key needed
         }
         return key_map.get(self.llm_provider, "")
@@ -137,6 +148,7 @@ class Settings(BaseSettings):
             "openai": self.openai_model,
             "claude": self.anthropic_model,
             "mistral": self.mistral_model,
+            "groq": self.groq_model,
             "ollama": self.ollama_model,
         }
         return model_map.get(self.llm_provider, "")

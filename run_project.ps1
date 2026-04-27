@@ -36,9 +36,9 @@ if (-not (Test-Path (Join-Path $FRONTEND "package.json"))) {
     exit 1
 }
 
-Write-Log "  Backend  : http://localhost:8000" White
+Write-Log "  Backend  : http://localhost:8001" White
 Write-Log "  Frontend : http://localhost:5173" White
-Write-Log "  API Docs : http://localhost:8000/docs" White
+Write-Log "  API Docs : http://localhost:8001/docs" White
 Write-Log "  Logs     : backend_server.log | frontend_server.log" White
 Write-Log "  Press Ctrl+C to stop both services." Yellow
 Write-Log ""
@@ -54,7 +54,7 @@ function New-BackendJob {
         # --reload-dir "." limits watching to the backend directory.
         # --reload-exclude "venv" prevents venv .py files (synced by OneDrive)
         # from triggering spurious reloads; likewise for data/db/cache dirs.
-        & $py -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload `
+        & $py -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload `
             --reload-dir "." `
             --reload-exclude "venv" `
             --reload-exclude "data" `
@@ -106,7 +106,7 @@ while ((Get-Date) -lt $backendDeadline) {
         break
     }
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "http://localhost:8001/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
             Write-Log "Backend is ready!" Green
             break

@@ -141,3 +141,61 @@ def test_fast_mode_non_nvidia_falls_through_to_main_model():
             _PROVIDER_MAP["openai"] = original
         elif "openai" in _PROVIDER_MAP:
             del _PROVIDER_MAP["openai"]
+
+
+# ── T1: Fast API key routing ──────────────────────────────────────────
+
+def test_fast_mode_uses_fast_api_key_when_set():
+    """mode='fast' with nvidia_fast_api_key set must use that key, not the main key."""
+    with (
+        patch.object(settings, "llm_provider", "nvidia"),
+        patch.object(settings, "nvidia_fast_model", "deepseek-ai/deepseek-v3.1-terminus"),
+        patch.object(settings, "nvidia_model", "deepseek-ai/deepseek-v3.2"),
+        patch.object(settings, "nvidia_api_key", "main-key"),
+        patch.object(settings, "nvidia_fast_api_key", "fast-key"),
+        patch.object(settings, "nvidia_base_url", "https://integrate.api.nvidia.com/v1"),
+    ):
+        provider = get_llm_provider(mode="fast")
+        assert provider.model == "deepseek-ai/deepseek-v3.1-terminus"
+        assert provider.api_key == "fast-key"
+
+
+def test_fast_mode_falls_back_to_main_key_when_fast_key_empty():
+    """mode='fast' with no nvidia_fast_api_key must fall back to main nvidia_api_key."""
+    with (
+        patch.object(settings, "llm_provider", "nvidia"),
+        patch.object(settings, "nvidia_fast_model", "deepseek-ai/deepseek-v3.1-terminus"),
+        patch.object(settings, "nvidia_model", "deepseek-ai/deepseek-v3.2"),
+        patch.object(settings, "nvidia_api_key", "main-key"),
+        patch.object(settings, "nvidia_fast_api_key", ""),
+        patch.object(settings, "nvidia_base_url", "https://integrate.api.nvidia.com/v1"),
+    ):
+        provider = get_llm_provider(mode="fast")
+        assert provider.api_key == "main-key"
+
+
+# ── T2: DeepSeek payload ──────────────────────────────────────────────
+
+def test_deepseek_payload_has_thinking_and_no_reasoning_effort():
+    """DeepSeek models must include chat_template_kwargs thinking=True and no reasoning_effort."""
+    provider = _nvidia_provider("deepseek-ai/deepseek-v3.2")
+    payload = provider._build_payload(
+        _MSGS, max_tokens=100, temperature=1.0, stream=False, reasoning_effort="high"
+    )
+    # reasoning_effort must be excluded for DeepSeek
+    assert "reasoning_effort" not in payload
+    # chat_template_kwargs with thinking=True must be present
+    assert payload.get("chat_template_kwargs") == {"thinking": True}
+
+
+def test_non_deepseek_payload_has_reasoning_effort_and_no_thinking():
+    """Non-DeepSeek models must include reasoning_effort and no chat_template_kwargs thinking block."""
+    provider = _nvidia_provider("mistralai/mistral-large-3-675b-instruct-2512")
+    payload = provider._build_payload(
+        _MSGS, max_tokens=100, temperature=0.1, stream=False, reasoning_effort="high"
+    )
+    assert payload["reasoning_effort"] == "high"
+    # chat_template_kwargs thinking must NOT be set for non-DeepSeek
+    ctkw = payload.get("chat_template_kwargs", {})
+    assert ctkw.get("thinking") is not True
+

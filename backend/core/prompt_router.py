@@ -37,11 +37,11 @@ FORMATTING_REMINDER = (
     "Do not nest more than 2 levels deep. Short answers (1-2 sentences) need no structure."
 )
 
-ABBREVIATION_SUFFIX = (    "\n\nAbbreviation and topic rules — always follow:\n"
-    "- Before answering any question containing an abbreviation or acronym, begin your response with: "
-    "'You are asking about [full expanded term] — [one sentence definition].' "
-    "If the abbreviation could refer to more than one concept in a legal or tax context, "
-    "list all possibilities and ask the user to confirm which one they mean before answering.\n"
+ABBREVIATION_SUFFIX = (
+    "\n\nAbbreviation and topic rules — always follow:\n"
+    "- If an abbreviation or acronym could refer to more than one concept in a legal or tax context, "
+    "briefly clarify which meaning you are using before answering. "
+    "Do not start every answer with 'You are asking about...' — only clarify when there is genuine ambiguity.\n"
     "- Answer only what is asked. Do not introduce related methods, comparable frameworks, "
     "or alternative concepts unless the user explicitly requests a comparison. "
     "Stay on the exact topic of the question."

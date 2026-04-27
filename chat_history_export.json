@@ -1,0 +1,4059 @@
+{
+  "export_date": "2026-04-27T08:20:47.868650",
+  "total_conversations": 302,
+  "total_messages": 162,
+  "conversations_by_mode": {
+    "fast": 236,
+    "deep_research": 1,
+    "analyst": 65
+  },
+  "conversations": [
+    {
+      "id": "40528233-3f5d-4dfa-9f78-802d5cfc8ead",
+      "title": "Electronic Invoicing Explained",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "created_at": "2026-04-27 03:56:12.899499",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-27 03:56:12.908226",
+          "tokens": 0,
+          "preview": "explain me e-invoicing"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-27 03:56:40.953657",
+          "tokens": 0,
+          "preview": "## Introduction to E-Invoicing\nE-invoicing is a digital process that enables businesses to generate, send, and receive invoices electronically. In the UAE, e-invoicing is mandated by the Federal Tax A"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-27 03:57:34.960123",
+          "tokens": 0,
+          "preview": "Peppol ID Registration how can we do that"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-27 03:57:58.951634",
+          "tokens": 0,
+          "preview": "## Peppol ID Registration\n\nTo register for a Peppol ID, follow these steps:\n\n1. **Ensure you have a valid Tax Registration Number (TRN)**: You must have a valid TRN to register for a Peppol ID.\n2. **C"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-27 04:00:55.138093",
+          "tokens": 0,
+          "preview": "can you explain me depth"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-27 04:01:18.209035",
+          "tokens": 0,
+          "preview": "## Introduction to Depth Explanation\nDepth explanation refers to the process of providing a detailed and comprehensive understanding of a particular concept, idea, or topic. It involves analyzing and "
+        }
+      ]
+    },
+    {
+      "id": "7d615ff6-5d2c-470e-b0dc-06e9361d063f",
+      "title": "Vat Payment For Hotel Apartment Sale",
+      "mode": "deep_research",
+      "provider": "nvidia",
+      "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "created_at": "2026-04-26 19:51:18.896018",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 19:51:43.659121",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 19:52:17.931248",
+          "tokens": 3553,
+          "preview": "## One-Pager: VAT Payment for Hotel Apartment Sale (Non-Registered Person)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under Cabinet Decision No. 52 of 2017, Schedul"
+        }
+      ]
+    },
+    {
+      "id": "b6cc69ad-5c29-4a6f-b394-ef6c7fc60bf3",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "created_at": "2026-04-26 19:51:18.892323",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 19:51:18.896764",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 19:51:43.381914",
+          "tokens": 6017,
+          "preview": "**One-Pager for VAT Payment on Hotel Apartment Sale**\n\n### **Scenario Overview**\n\n* **Asset Sold:** Hotel Apartment (classified as Commercial Property)\n* **VAT Rate:** 5% (per Federal Decree-Law No. 8"
+        }
+      ]
+    },
+    {
+      "id": "f38e83e1-0194-460a-bc84-cd548624673d",
+      "title": "Vat Payment For Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "created_at": "2026-04-26 19:49:48.687599",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 19:49:48.695484",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 19:49:57.765616",
+          "tokens": 3096,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n### Background\nA **Hotel Apartment** is classified as **commercial property** under Cabinet Decision No. 52 of 2017, Schedule 3. T"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 19:49:59.962555",
+          "tokens": 0,
+          "preview": "Please format this as a proper one-pager with clear sections"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 19:50:13.353030",
+          "tokens": 3494,
+          "preview": "## Introduction to VAT on Commercial Property Sale\nThe sale of a **Hotel Apartment** is considered a **commercial property** transaction under UAE VAT regulations, specifically Cabinet Decision No. 52"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 19:50:15.397426",
+          "tokens": 0,
+          "preview": "Give me the exact step-by-step process to pay on the FTA EmaraTax portal with the specific documents checklist"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 19:50:43.930258",
+          "tokens": 4021,
+          "preview": "## Step-by-Step Process to Pay VAT on FTA EmaraTax Portal\n\nTo pay VAT on the sale of a commercial property as a non-registered person, follow these steps:\n\n\n1. Go to the **FTA e-Services portal** at t"
+        }
+      ]
+    },
+    {
+      "id": "aebb7278-7eed-4ef8-b7ca-b513ab40789c",
+      "title": "VAT Deep Research Test",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 17:45:27.463467",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 17:45:27.723677",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 17:45:55.134528",
+          "tokens": 3692,
+          "preview": "## One-Pager: VAT Payment for Hotel Apartment Sale (Non-Registered Person)\n\n### **Background**\nA **Hotel Apartment** is classified as **commercial property** under **Cabinet Decision No. 52 of 2017, S"
+        }
+      ]
+    },
+    {
+      "id": "e16f31a1-1f9e-4338-a733-88b64b8d1e77",
+      "title": "VAT Hotel Apt Test 2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 17:45:03.306624",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 17:45:03.547682",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 17:45:17.692300",
+          "tokens": 3460,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under Cabinet Decision No. 52 of 2017, Schedule 3. "
+        }
+      ]
+    },
+    {
+      "id": "c3d45dd3-4869-4882-9d51-24bf4fadd4b4",
+      "title": "VAT Hotel Apt Test",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 17:44:34.933889",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 17:44:35.214553",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 17:44:55.843311",
+          "tokens": 3460,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under Cabinet Decision No. 52 of 2017, Schedule 3. "
+        }
+      ]
+    },
+    {
+      "id": "acada463-67e5-4d6d-86c8-01932f3341fc",
+      "title": "VAT Hotel Test",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 15:55:35.554978",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "bc7eb0d6-aa7e-44d5-8761-a1ac9e536310",
+      "title": "explain me E-invoicing",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "deepseek-ai/deepseek-v3.2",
+      "created_at": "2026-04-26 15:42:02.911217",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 15:42:02.919200",
+          "tokens": 0,
+          "preview": "explain me E-invoicing"
+        }
+      ]
+    },
+    {
+      "id": "abeffe89-12c7-4dda-bfcb-93eadc78d1c2",
+      "title": "Client Received VAT Notice After Selling Hotel Apartment",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-3-675b-instruct-2512",
+      "created_at": "2026-04-26 14:48:23.311103",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 14:48:23.317354",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 14:48:35.005733",
+          "tokens": 4558,
+          "preview": "---\n\n## One-Pager: VAT on Hotel Apartment Sale (Non-Registered Person)\n\n### Background\n- A **Hotel Apartment** is classified as **commercial property** under **Cabinet Decision No. 52 of 2017, Schedul"
+        }
+      ]
+    },
+    {
+      "id": "7f6aa543-35d6-4879-b059-67486a004a15",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 14:36:07.789134",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 14:36:07.794333",
+          "tokens": 0,
+          "preview": "explain me about e-invoicing"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 14:36:08.324708",
+          "tokens": 0,
+          "preview": "This is a mock response from the LLM manager for: explain me about e-invoicing"
+        }
+      ]
+    },
+    {
+      "id": "9b5a2127-8e6f-486e-948a-588df8a45991",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 14:21:25.942652",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 14:21:25.946457",
+          "tokens": 0,
+          "preview": "explain me e-invoicing"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 14:21:26.398912",
+          "tokens": 0,
+          "preview": "This is a mock response from the LLM manager for: explain me e-invoicing"
+        }
+      ]
+    },
+    {
+      "id": "311cffc8-95a7-48ae-a593-8f57c7f998dd",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 14:10:15.988579",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 14:10:15.988579",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 14:10:16.052680",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (UAE)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate**"
+        }
+      ]
+    },
+    {
+      "id": "0ea59c38-b1e0-409e-aa2e-4c6744875c1d",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 14:10:04.390625",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 14:10:04.392624",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 14:10:04.464910",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (UAE)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate**"
+        }
+      ]
+    },
+    {
+      "id": "bac7f65e-c927-4990-91e0-35671b2c17cf",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 14:09:54.267172",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 14:09:54.273171",
+          "tokens": 0,
+          "preview": "explain me e-invoicing"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 14:09:54.378808",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: explain me e-invoicing"
+        }
+      ]
+    },
+    {
+      "id": "7a5b14dc-aa74-4f25-a74f-3a5735b4bd46",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:42:35.877769",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:42:35.883773",
+          "tokens": 0,
+          "preview": "explain me e-invocing"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:42:37.984646",
+          "tokens": 0,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (UAE) ### Background A **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate** "
+        }
+      ]
+    },
+    {
+      "id": "c8e44d5f-e8fc-4e3c-89cb-2cfa046d6385",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:40:46.321432",
+      "message_count": 4,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:40:46.328432",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:40:48.380659",
+          "tokens": 0,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (UAE) ### Background A **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate** "
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:42:07.873172",
+          "tokens": 0,
+          "preview": "can you give me proper format"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:42:10.556936",
+          "tokens": 0,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (UAE) ### Background A **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate** "
+        }
+      ]
+    },
+    {
+      "id": "b4979d4a-c88c-4455-b722-40f21550225b",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:39:08.895127",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:39:08.902123",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:39:08.988600",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (UAE)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate**"
+        }
+      ]
+    },
+    {
+      "id": "e206e8b3-eec6-4f4b-be90-eb255affb470",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:38:33.794000",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:38:33.799009",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:38:33.893070",
+          "tokens": 50,
+          "preview": "## Documents Required for FTA VAT Payment (Hotel Apartment Sale)\n\n1. **Sale/Purchase Agreement (SPA)** – signed copy of the property transfer\n2. **Title Deed** – original or certified copy from Dubai "
+        }
+      ]
+    },
+    {
+      "id": "1a5d2b65-3b37-4a4a-b1e7-400f6920f6b1",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:37:33.927996",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:37:33.931996",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:37:34.015760",
+          "tokens": 50,
+          "preview": "## Documents Required for FTA VAT Payment (Hotel Apartment Sale)\n\n1. **Sale/Purchase Agreement (SPA)** – signed copy of the property transfer\n2. **Title Deed** – original or certified copy from Dubai "
+        }
+      ]
+    },
+    {
+      "id": "28e0bba2-8ff5-47c1-b7cf-29500e38fc1a",
+      "title": "VAT Notice Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:37:24.246022",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:37:24.254022",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:37:24.344099",
+          "tokens": 50,
+          "preview": "## Documents Required for FTA VAT Payment (Hotel Apartment Sale)\n\n1. **Sale/Purchase Agreement (SPA)** – signed copy of the property transfer\n2. **Title Deed** – original or certified copy from Dubai "
+        }
+      ]
+    },
+    {
+      "id": "72f383dd-1ad5-4fb2-8a74-6386ef6c71b6",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-3-675b-instruct-2512",
+      "created_at": "2026-04-26 13:26:27.518553",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:26:27.522552",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        }
+      ]
+    },
+    {
+      "id": "3ab78b7c-17e5-4e84-9345-983709adb8c0",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-3-675b-instruct-2512",
+      "created_at": "2026-04-26 13:24:25.929522",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:24:25.934036",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        }
+      ]
+    },
+    {
+      "id": "b83043a9-404d-466e-b95f-714fe95ebf72",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "analyst",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:05:33.225371",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:05:33.229370",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:05:33.320916",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        }
+      ]
+    },
+    {
+      "id": "ab69917d-4519-4f26-8f75-eefa0e848f04",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 13:05:26.222105",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:05:26.229105",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:05:26.306629",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:05:26.345633",
+          "tokens": 0,
+          "preview": "What are the specific documents I need to upload to the FTA portal for this payment?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:05:26.415147",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: What are the specific documents I need to upload t"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 13:05:26.444147",
+          "tokens": 0,
+          "preview": "How do I calculate the late payment penalties if the notice was received 3 months after the sale?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 13:05:26.511665",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: How do I calculate the late payment penalties if t"
+        }
+      ]
+    },
+    {
+      "id": "b12278ee-4f70-4822-aa16-cf706fbdaf8b",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 12:55:26.438592",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:55:26.443591",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:55:26.540117",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:55:26.583117",
+          "tokens": 0,
+          "preview": "What are the specific documents I need to upload to the FTA portal for this payment?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:55:26.675628",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: What are the specific documents I need to upload t"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:55:26.715627",
+          "tokens": 0,
+          "preview": "How do I calculate the late payment penalties if the notice was received 3 months after the sale?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:55:26.802136",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: How do I calculate the late payment penalties if t"
+        }
+      ]
+    },
+    {
+      "id": "b341d675-0ac6-4213-9cf4-069092b33bf9",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 12:49:56.088930",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:49:56.100933",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:49:56.371519",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:49:56.410531",
+          "tokens": 0,
+          "preview": "What are the specific documents I need to upload to the FTA portal for this payment?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:49:56.677108",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: What are the specific documents I need to upload t"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:49:56.717113",
+          "tokens": 0,
+          "preview": "How do I calculate the late payment penalties if the notice was received 3 months after the sale?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:49:56.991687",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: How do I calculate the late payment penalties if t"
+        }
+      ]
+    },
+    {
+      "id": "90d86523-ed9b-4e58-b3b2-f801804e75e6",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "analyst",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 12:48:48.260569",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:48:48.264571",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:48:48.473422",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        }
+      ]
+    },
+    {
+      "id": "8f76d9ac-c930-41b2-b597-2c752ed6e079",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 12:48:46.031274",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:48:46.041277",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:48:46.700350",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:48:46.738869",
+          "tokens": 0,
+          "preview": "What are the specific documents I need to upload to the FTA portal for this payment?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:48:47.350570",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: What are the specific documents I need to upload t"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:48:47.389604",
+          "tokens": 0,
+          "preview": "How do I calculate the late payment penalties if the notice was received 3 months after the sale?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:48:47.999948",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: How do I calculate the late payment penalties if t"
+        }
+      ]
+    },
+    {
+      "id": "3b6848ac-7eb0-4240-8c1f-30c1f09c42db",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "analyst",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 12:45:17.900510",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:45:17.904511",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:45:18.148564",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        }
+      ]
+    },
+    {
+      "id": "26ec9deb-aadd-44c1-b3c9-1055752a3e94",
+      "title": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classi",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "",
+      "created_at": "2026-04-26 12:45:14.634717",
+      "message_count": 6,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:45:14.645227",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:45:16.148141",
+          "tokens": 50,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Mock)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under UAE law. The sale is subject to VAT at the **5% standard rate*"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:45:16.198171",
+          "tokens": 0,
+          "preview": "What are the specific documents I need to upload to the FTA portal for this payment?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:45:16.876526",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: What are the specific documents I need to upload t"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:45:16.915531",
+          "tokens": 0,
+          "preview": "How do I calculate the late payment penalties if the notice was received 3 months after the sale?"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:45:17.591232",
+          "tokens": 50,
+          "preview": "This is a mock response from the LLM manager for: How do I calculate the late payment penalties if t"
+        }
+      ]
+    },
+    {
+      "id": "d19b6723-b9df-4d40-9817-bd9621cc8800",
+      "title": "Client Received VAT Notice After Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-3-675b-instruct-2512",
+      "created_at": "2026-04-26 12:09:05.772199",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 12:09:05.787199",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 12:09:19.682196",
+          "tokens": 2409,
+          "preview": "---\n\n## One-Pager: VAT on Commercial Property Sale (Hotel Apartment) – Non-Registered Seller\n\n---\n\n### Background\n- A **Hotel Apartment** is classified as **commercial property** under **Cabinet Decis"
+        }
+      ]
+    },
+    {
+      "id": "fcc8e356-bdd4-4b0e-a10f-92187820bfc7",
+      "title": "RAG Test",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 11:13:37.644995",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 11:13:49.297611",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        }
+      ]
+    },
+    {
+      "id": "00454549-5a72-4be2-ba44-f2a769264c8c",
+      "title": "RAG Test",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 11:02:59.455887",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 11:03:08.646676",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        }
+      ]
+    },
+    {
+      "id": "cf8b6aa6-a09c-4c55-9310-cf67cfa711a2",
+      "title": "RAG Test",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:50:07.571555",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 10:50:07.904995",
+          "tokens": 0,
+          "preview": "Hotel Apartment sold FTA VAT notice UAE"
+        }
+      ]
+    },
+    {
+      "id": "a775eaa6-2824-471f-84fc-812f6126feae",
+      "title": "client sold Hotel Apartment FTA notice VAT payment documents",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-3-675b-instruct-2512",
+      "created_at": "2026-04-26 10:45:11.030684",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 10:45:11.035683",
+          "tokens": 0,
+          "preview": "client sold Hotel Apartment FTA notice VAT payment documents"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 10:48:43.060546",
+          "tokens": 2078,
+          "preview": "## One-Pager: VAT Payment Documents for Hotel Apartment Sale (FTA Notice)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under **Cabinet Decision No. 52 of 2017**, Sche"
+        }
+      ]
+    },
+    {
+      "id": "f8d06627-49ee-4c21-848a-f82e61dfba40",
+      "title": "New Conversation",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:38:39.112000",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 10:38:41.252755",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 10:40:46.678279",
+          "tokens": 0,
+          "preview": "---\n## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n\n---\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under **Cabinet Decision No. 52 of 2017**,"
+        }
+      ]
+    },
+    {
+      "id": "1b48d4bc-074e-4097-85e9-e9ca5548267c",
+      "title": "New Conversation",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:30:37.917170",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 10:30:40.127196",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a one pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-26 10:31:00.753403",
+          "tokens": 2457,
+          "preview": "---\n\n## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n\n---\n\n### **Background**\n- A **Hotel Apartment** is classified as **commercial property** under **Cabinet Decision No. 52 of "
+        }
+      ]
+    },
+    {
+      "id": "7c98db2e-a2f2-4cfe-b345-af02d47222b1",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:17:42.640418",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "45b93417-f0a1-4be5-b02d-0ad2aa3753c5",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:17:42.618532",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "8fdc91da-7dea-448b-9f40-f0373e3a013c",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:17:42.525803",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a9df0a42-9c73-49f7-b1c2-6334e08bb3ba",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 10:17:42.501441",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b0f42634-3a95-424f-91ea-885bb8288259",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 07:45:01.140350",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "33b02b02-df30-42d5-8fdd-71f0cbaac31c",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 07:45:01.105624",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4a983b6d-b42f-4a41-a10d-fff67a3c248e",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 07:45:01.000792",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "71d92591-7ce8-4ff1-ad02-635af334ac7d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 07:45:00.973816",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e25bd8d5-b25c-4e3a-9bd3-b6dd9e2491c9",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-3-675b-instruct-2512",
+      "created_at": "2026-04-26 06:09:20.249686",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-26 06:09:20.279124",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        }
+      ]
+    },
+    {
+      "id": "2303acec-e9ab-4e7c-97cf-d250edb07710",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 00:04:13.783344",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cf6faa8d-c5f1-4158-a5d8-9f780ffb5aad",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 00:04:13.773920",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "148e93e7-388c-4a2a-817e-82a7d67369b3",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 00:04:13.739978",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "35185f62-ff61-4988-b1a8-afc372e31b04",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-26 00:04:13.730333",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4a796df0-abac-4871-9f5a-d6e522653a54",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:44:38.133614",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cc2a3f1d-f489-4ae4-9c62-62cf5098ad1c",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:44:38.125274",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ea8972bc-0379-4068-aee7-4f68d1189b2a",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:44:38.095317",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b3421d2a-ec0a-4da7-ae71-1253aa4aac16",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:44:38.087806",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a0b24e78-a692-4467-8fdd-868a8ed987c9",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:39:45.292648",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1d75ae68-fc7b-4b9d-8e4c-2182824cc8ce",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:39:45.282501",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "04945662-dab2-489f-948e-69c9e3db623f",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:39:45.244693",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "72b3c126-0d7e-411e-8730-79fb46b87f3e",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:39:45.236396",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cf8d608d-c3be-4b62-b2ee-ce9a60cbbac9",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:26:15.205402",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "dc0547ba-23a3-4e43-9448-ddcc8c5e23cc",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:26:15.195090",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0dafa49a-f0e1-42e7-bf50-ecf256581de5",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:26:15.160662",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4b273e42-e132-4cf1-ad19-803db9c369f6",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:26:15.151620",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ae178c22-6d6b-46ee-bf68-b87af33198d7",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:18:24.986117",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1aba5dbd-b3fd-46bd-b940-9611716bb1bc",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:18:24.973370",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "fb1464d8-04a5-4a48-8bd1-98babb545b27",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:18:24.934512",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "40a112fc-e2d2-4490-8109-c2dcd861c15c",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:18:24.924557",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b9833fc5-e542-45f8-80ae-fb06d81a6812",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:07:46.455829",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "793c9c16-50ac-4239-b585-0dc72b93b116",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:07:46.443446",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "aa73dc20-a8a5-4bd2-b467-afb5119d8151",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:07:46.380371",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2baaa978-01df-419c-bfc1-2628d6f59424",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:07:46.370372",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "691ee5f2-d2b5-4592-808f-39291d36857d",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:03:10.633139",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "bc0f0c91-b3b6-440e-8eed-cc1136bbc8b3",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:03:10.623067",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1bb651de-5f48-4a24-ab6b-9ce82f4d811c",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:03:10.586784",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9260f5b0-94d5-48e8-b80f-928c1b6a7196",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 23:03:10.578226",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ae97b43b-470c-4789-8d3b-bc0b5fa0b8ea",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:55:01.228854",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1ccafbd2-dad7-49d5-984e-e8b905851cf4",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:55:01.219055",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "6b4e80ad-a02b-4697-888f-caeeeb1ba549",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:55:01.184966",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "24d254cd-1853-493e-84ce-604a9b282883",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:55:01.176170",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "39c360c8-adaf-42c8-a432-d3f687a92d7a",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:43:25.212265",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "96d17ea8-11cb-41d0-8021-3ccd1ecc0648",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:43:25.200266",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "34e8f165-8471-4172-8195-e28be0777198",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:43:25.164845",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cf2ad8f1-eae2-472d-a5ed-7f048a594bb6",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:43:25.156173",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a4f5cee5-ec0d-40db-abc1-f93c889c6fb9",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:10:28.711918",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3c487b65-f303-46f6-9c24-30b83794f818",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:10:28.701284",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "98ccc78b-7fc0-44ea-a274-af0910189bc3",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:10:28.661839",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "eab479d9-a969-4b87-b7c1-9ff27615ea55",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:10:28.652354",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0e1bc448-4d91-4430-8fca-aa78fd92524a",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:09:35.705945",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "152e5c86-b99d-40c6-a7f9-f1067384f491",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:09:35.695160",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "293f8810-4f17-4189-a794-b6c79cac9022",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:09:35.652675",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f9f2cdf7-3eb0-473f-9f10-4104c2b9a4ba",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:09:35.643404",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3a6858f2-80c1-49b5-aebd-97b181e49a36",
+      "title": "Client Received VAT Notice After Selling Hotel Apartment",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 22:05:15.945771",
+      "message_count": 3,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 22:05:15.951770",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 22:05:23.696726",
+          "tokens": 0,
+          "preview": "---\n## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under Cabinet Decision No. 52 of 2017, Schedule"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 22:05:58.557398",
+          "tokens": 0,
+          "preview": "the person is not register in FTA we check  as per that also and prepare the check list what required for proceed to pay"
+        }
+      ]
+    },
+    {
+      "id": "e208bfbd-c1c6-472b-b9a8-5d07d9da200f",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:02:00.838494",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f858aa20-d5e3-42ba-b73d-957b22eadafd",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:02:00.827760",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "fb8b9ade-c112-434b-8660-eb3ecdaf1f84",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:02:00.786746",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a74b842a-12fc-4167-8e12-19d1d1c5ab02",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 22:02:00.778292",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "5faeb0f8-1f09-4d32-af4c-aff9b4140491",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:59:49.583392",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "6f4385e5-fc1f-46b7-8f16-9f676dcc5a22",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:59:49.563254",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cc8b7c49-b70f-4cef-ae55-644bf2b91fbe",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:59:49.518482",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "dcd141c5-539c-478d-a26a-12158a27709e",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:59:49.494255",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "baef5af5-50be-4c5d-b144-e6cee5e11791",
+      "title": "Client Received VAT Notice After Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 21:48:07.679007",
+      "message_count": 3,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 21:48:07.689116",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 21:48:15.783664",
+          "tokens": 0,
+          "preview": "## One-Pager: VAT on Commercial Property Sale (Non-Registered Person)\n\n---\n\n### Background\nA **Hotel Apartment** is classified as **commercial property** under **Cabinet Decision No. 52 of 2017**, Sch"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 21:49:50.605299",
+          "tokens": 0,
+          "preview": "what thing required  for sign up becuase after that only we can pay right"
+        }
+      ]
+    },
+    {
+      "id": "007efc39-f145-4f88-9247-cc0e25e3ad1c",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:33:55.836387",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "97e3ee91-9866-4eeb-ac8d-e47070fab71a",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:33:55.825556",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e92e5066-4f1c-45be-b0f5-b92ed43ce8d7",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:33:55.792333",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "7aa88556-92e8-4740-9ec7-3ae0f8f2c834",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:33:55.783139",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "509d5a9d-6439-4ee3-adec-6b098e732b5d",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:32:50.874068",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e6ece4c4-eb0a-4099-bfe5-74ad9000adef",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:32:50.861316",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "7f7660c5-0e9e-4402-a20d-db0c5f759e48",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:32:50.821616",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0532e407-5dc1-41e2-bc97-75c28c45f4f1",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:32:50.812326",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f62ef137-dc78-4c8d-b528-0deae160d2bd",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:14:24.429653",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "78d00cef-9a71-4317-98c2-604c483ade31",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:14:24.419850",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "be2dcb26-a774-4d1d-8e4d-3db3548fae21",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:14:24.384443",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "5c2aa21b-1676-4e4e-9f8a-ffb3e35b7302",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 21:14:24.374846",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "7129c381-2b9a-49a4-b163-d9d798da1518",
+      "title": "Client Received VAT Notice After Selling Hotel Apartment",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 20:49:59.101964",
+      "message_count": 8,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 20:49:59.108724",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 20:50:07.588030",
+          "tokens": 0,
+          "preview": "You are asking about **Hotel Apartment** — a furnished residential unit operated as part of a hotel business, classified as **commercial property** under UAE VAT rules.\n\n---\n\n## One-Pager: VAT on Sale"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 20:52:13.233280",
+          "tokens": 0,
+          "preview": "what document required if the natual person is not regiested and tell me the process of this in other serives Payment of VAT on Commercial Property Sale"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 20:53:18.461958",
+          "tokens": 0,
+          "preview": "what document required if the natual person is not regiested and tell me the process of this in other serives Payment of VAT on Commercial Property Sale"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 20:53:24.728537",
+          "tokens": 0,
+          "preview": "You are asking about **VAT on Commercial Property Sale** — a one-time tax due when a non-registered natural person sells commercial property (including a hotel apartment) in the UAE.\n\n---\n\n## Document"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 20:54:26.931955",
+          "tokens": 0,
+          "preview": "can you write me one page for my client where all the details are mentioned"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 20:54:37.590765",
+          "tokens": 0,
+          "preview": "can you write me one page for my client where all the details are mentioned"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 20:54:46.536776",
+          "tokens": 0,
+          "preview": "You are asking about **VAT on Commercial Property Sale** — a one-time tax due when a non-registered natural person sells commercial property (including a hotel apartment) in the UAE. --- ## One-Pager:"
+        }
+      ]
+    },
+    {
+      "id": "aa549f69-5056-4bfc-a11d-72ffc0a8e9e9",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 20:43:21.311021",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 20:43:21.316860",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 20:43:30.908804",
+          "tokens": 0,
+          "preview": "## VAT Implications on Sale of a Hotel Apartment in the UAE\n\n### 1. **VAT Applicability and Rate**\n- **Sale of a hotel apartment** is treated as a **supply of hotel accommodation services** under UAE "
+        }
+      ]
+    },
+    {
+      "id": "55e93f67-a91a-4f66-9d81-59b32e14a334",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:53:45.009645",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "522202fd-9699-43c5-bd0f-bcfe3579831f",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:53:44.999716",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a1857c12-174c-4ab9-b1c0-a6c184f32747",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:53:44.960832",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9248e33e-dc07-4b50-b0d1-d418cf41335d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:53:44.950057",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "aa8da70c-9dd2-4490-8fcf-11dd2e6f7f43",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:52:43.712291",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f217ff2b-d855-477a-9e75-a719977d9901",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:52:43.702612",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f3637d98-ee34-4d2b-b643-f7ff3746f7a7",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:52:43.668745",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "92993be1-d3a8-4094-b838-fb3a9c8773e0",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:52:43.660011",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2a6e37ba-43fc-4e2a-8be2-20ce0b382a30",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:51:42.672717",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0355ecd9-7dee-4b44-841f-f2316a015e19",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:51:42.664547",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e6451e07-c1cb-4b68-84c8-44082d383b42",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:51:42.627790",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d8862f4e-4592-4a7a-a8be-8f2eac9fa22c",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:51:42.620789",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2d1d3f29-dc08-44db-a839-40154b31b06b",
+      "title": "hotel apartment sold FTA VAT notice payment",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 18:44:20.937906",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 18:44:20.937906",
+          "tokens": 0,
+          "preview": "hotel apartment sold FTA VAT notice payment"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 18:44:31.121017",
+          "tokens": 16961,
+          "preview": "You are asking about **hotel apartment** — a furnished residential unit available for short-term or transient accommodation, typically offered through a hotel operator, and subject to tourism-related "
+        }
+      ]
+    },
+    {
+      "id": "53aa7100-471e-47a5-9e82-599f1e825654",
+      "title": "hotel apartment sold FTA VAT notice payment",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 18:43:58.914743",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 18:43:58.917605",
+          "tokens": 0,
+          "preview": "hotel apartment sold FTA VAT notice payment"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 18:44:11.984495",
+          "tokens": 17976,
+          "preview": "You are asking about **VAT treatment for hotel apartment sales** — sales of hotel apartments are generally subject to VAT unless specifically exempted by UAE VAT law.\n\n## VAT treatment for sale of hot"
+        }
+      ]
+    },
+    {
+      "id": "1590dda8-c167-49ee-a9df-6970743e4992",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 18:36:13.035794",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 18:36:13.038314",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 18:36:49.483948",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax applied on the supply of goods and services in the UAE at each stage of the supply chain, including imports, at a standard rate of **"
+        }
+      ]
+    },
+    {
+      "id": "00d3e091-2858-45fc-9f42-50b5963c223f",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:17:10.739600",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "165a818d-73c8-4c98-8387-e36cbe1fed92",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:17:10.722367",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "413d5b7b-095b-4b2d-a36e-58c67cfa6626",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:17:10.672603",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d2eaaa03-7db9-4816-81f4-4ec3a5dada79",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:17:10.648693",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9d51bc80-a786-407a-a299-b56efc7af0de",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:06:51.582392",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "5789b0ba-2dfa-4de6-a515-01ce60296a77",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:06:51.573064",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "055b53e2-29f0-4c4b-b005-99ac1a745c1c",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:06:51.536110",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d87f4643-55e8-4790-b39d-19667556f517",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 18:06:51.526264",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "66745282-ee14-4b2f-b63c-f0ccb4ed401e",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:38:17.851958",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "932f51a2-1ca2-4fa1-9ffe-cbb3897d4d19",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:38:17.843059",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d775c30a-1d97-42af-8d46-31f3c91d9251",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:38:17.807598",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e5868aaf-b044-4cb0-bd0b-e0ec66158477",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:38:17.799950",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "fa551c20-3aa0-4409-8d01-96f4c17cfbb6",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:30:05.438469",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e0aee3c8-9e4c-4175-b7fb-89293861499b",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:30:05.429751",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "88197bfd-9961-414f-9e0a-e4f043305cde",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:30:05.399024",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "77f63ea1-af53-4006-a57f-060f00ce697d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:30:05.390949",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e79ccbe2-b305-4ae3-9e54-da5ffec1bd40",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:21:49.248855",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ea4e4ee1-703a-4d72-a646-f711fcc0f3a5",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:21:49.240294",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "547ff794-936d-4de1-8775-c6234c823030",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:21:49.207950",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "60124e00-9e5a-4f05-9625-b379075e9ed3",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:21:49.199906",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "6474a296-892a-44e2-a3fa-bdb60bba2613",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:12:17.900171",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b4f1b0af-237b-45d7-a64c-f974af472553",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:12:17.890682",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "45e9e1f8-3843-40cc-a485-88db91c1c907",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:12:17.859822",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "796775e0-70ba-463a-9503-10cecfad699d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:12:17.852509",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f6d98c8a-72e0-42d4-815c-840b984134a8",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:05:02.522976",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "68e0c879-9386-4f7c-9f2b-d94a0e1de81e",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:05:02.513581",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "bcdf34a6-6fa1-4ed2-873d-7a8b2a4e4b4a",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:05:02.480768",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "17b5219a-03c7-4c74-a2f9-000fa844169c",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 17:05:02.472895",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e8379ff5-0638-4287-9455-4052282633ac",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:41:10.548791",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4f185ba9-d69a-486b-a3b7-5dccd5004030",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:41:10.530919",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0fbec003-9ea3-4dc5-988a-8922eddd5a91",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:41:10.435467",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1de2eb65-23e3-459a-a2e2-2cf908ec412b",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:41:10.412423",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4cc0d07d-71ef-489f-80bc-e48f38aa8afb",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:31:53.349486",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f9f6fb9c-fb20-472b-b061-4b4f02b53c0b",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:31:53.331372",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "33b3644e-8d11-4c3f-917e-7cbc7238000b",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:31:53.241472",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "aca264fa-c963-4944-a51c-1dcccdcaad99",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:31:53.224687",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "60721e35-4634-449e-b75e-c11554b9240a",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:27:42.016772",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ec5c133f-15b1-43de-92b7-8eecc44c98f9",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:27:41.996201",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "440dfb99-3a63-45da-ac1d-dddb858629a5",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:27:41.918067",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0f1c3142-10c9-4fec-b5ad-65a355667057",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 13:27:41.899448",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0a340c4b-284e-4fa9-9a70-c1afeb4851b3",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 13:08:49.087588",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 13:08:49.097635",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 13:09:05.801012",
+          "tokens": 0,
+          "preview": "## VAT Implications on Sale of a Hotel Apartment in the UAE\n\n- **Nature of supply**: A **hotel apartment** is treated as a **commercial accommodation** under UAE VAT, not as residential real estate.\n-"
+        }
+      ]
+    },
+    {
+      "id": "6805cfed-f064-468b-b368-f97116cab380",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:10:56.199281",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "aa6fb29f-97ae-43f8-90af-968b61328469",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:10:56.189522",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "acc30061-7d12-4a24-bdae-8a59d1811f67",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:10:56.159987",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "7211efed-ba83-4aa1-a2ae-62813013879d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:10:56.152768",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ce2da285-295d-453a-b97a-4f7b10d56c11",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:07:22.234133",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a8512196-626d-4ad9-b749-1cff0d69b153",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:07:22.220656",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "c899a3a1-efeb-49ab-9ef3-5e8ae4664c66",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:07:22.178263",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "bf596dbe-e863-47c1-a28e-79fc58449d4a",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-25 07:07:22.169080",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e51cf039-d5e8-4783-a56a-fe852ca4f731",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-25 06:41:59.439795",
+      "message_count": 3,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 06:41:59.447884",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-25 06:42:16.489015",
+          "tokens": 0,
+          "preview": "## VAT Implications on Sale of a **Hotel Apartment** in the UAE\n\n### Applicable Legal Framework\n- **Federal Decree-Law No. 8 of 2017 on Value Added Tax (VAT)** (effective 1 Jan 2018)\n- **Cabinet Decis"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-25 06:59:39.649320",
+          "tokens": 0,
+          "preview": "we don't want to regester is there option to pay vat on portal without that"
+        }
+      ]
+    },
+    {
+      "id": "650c30f7-2ca5-4bb6-a986-b8660aec7e07",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:29:30.838042",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3bcade4b-1fde-417a-a8d2-aff921a50195",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:29:30.829334",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "62028f8f-82f0-42aa-8da5-7c262bfc5050",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:27:49.208080",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "eb1db2de-0827-4c25-a51b-92d283cf21cd",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:27:49.199849",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "46c90d34-1be7-43cd-acfa-24d4c7ddb29d",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:27:49.169983",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "fde0b61b-4b99-44a9-b704-b54bc448b01d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:27:49.162194",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "bb62cca7-f8a8-4fe8-b267-94825ef746bf",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:24:05.460836",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9ccae0df-62f6-4cd2-b027-778f15b687fd",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:24:05.451663",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "5673f0a6-584c-49c2-8658-0678c38fb3bf",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:24:05.409338",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "107bb072-97a1-41aa-bfec-4bbea8d83d73",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:24:05.399899",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "dbdd3fb2-5fbe-4de6-b464-d9a8471cbd70",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:19:13.332223",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "95355e99-d84b-475b-87fa-3fc82d95e7c6",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:19:13.322336",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b87022bb-342a-4a44-a2b3-bb4a0580549e",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:19:13.282855",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "477b14a7-b39a-4bbb-9b25-b60bd8de6d71",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:19:13.269898",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "316afa65-2b6d-4404-b0a8-b9319d8cbe81",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:18:16.521652",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3c9876a8-38b4-4e72-96ce-9a69787aaa27",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:18:16.512020",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "81fc3354-f3b8-458a-8396-fadb26568ca2",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:18:16.479504",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "23b727b0-71b6-4727-a880-98815da3680f",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:18:16.467666",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "281bb05c-5a78-4d80-a6f7-37554359b3e2",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:16:37.218130",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "10f1b5df-879c-4277-b60b-d009e1bfb97d",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:16:37.209790",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e35b1f16-ce13-4807-8e1c-152ac48f3d49",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:16:37.180491",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d65d4b48-7c8d-4295-9af1-eec5f04832b5",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:16:37.171634",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1f69933f-9ef7-4ac0-80db-03794fc75428",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:09:12.577264",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "c2b2d5f4-ce04-46f1-aefc-3d3dc86b5738",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:09:12.564879",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "eb81f256-44ea-45ce-a40e-7898829e273a",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:09:12.529599",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2be47e58-b6da-4006-b200-1e3e37920e62",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:09:12.521449",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4d3c08ff-9f2d-4a7a-ad6e-95a0ab131216",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:03:23.989424",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1b1df875-f6c7-4c33-b496-7e43276d6707",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:03:23.980372",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b747b61e-f8a8-4b1a-941f-2dbc19fd6dcb",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:03:23.948107",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "7db82747-a3d8-4d5a-970c-a3d377f8c898",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:03:23.938402",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9854bd81-7c2c-4058-a800-2b90e477e792",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:00:14.692808",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d1ea9058-c60a-489d-9622-d8c91d5b89c9",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:00:14.679119",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "8eb392b2-12fc-4037-a5c7-fbcc58cbb662",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:00:14.646328",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ea192943-d454-4143-884a-9a3bbb358837",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 19:00:14.638025",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cd4075de-b790-4a70-ad56-3ba27a7f4f84",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:20.381286",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b5b0572b-c343-43a1-ba56-b1d9324af4ca",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:20.364275",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "6e204b4a-82d5-4fb2-b71b-ae79ca87bfa1",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:20.307170",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e3ef55eb-3fb9-4113-930a-dd056cbee84f",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:20.293140",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "87e6e366-d088-4b35-a895-c273bbb17ef1",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:08.141665",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3607d512-1a7d-413b-85b5-936965be3cd7",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:08.130764",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a4423af5-fbb2-4299-997c-8368114dcabb",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:08.093746",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2b9c6229-837a-4192-9808-980a065df6ef",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:24:08.084677",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9f3ac867-8911-4ff2-9d02-da0d5c6e5979",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:22:38.408294",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4a2cc299-d602-4665-8ce8-d3f2dda138d0",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:22:38.389616",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "892c44f1-cdfb-43ef-a2ea-5f5d9a5bb149",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:22:38.330980",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "dde040dc-83c3-4b1a-acc5-6edc7117f560",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:22:38.315272",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d5835035-d038-4fba-b724-bfd3a3dc9741",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:16:48.797775",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "135c1d88-c192-496c-ade5-69e089877e94",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:16:48.784351",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "17a2927c-fa2f-4acf-893b-ac61618b4e3e",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:16:48.731961",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "25483212-b1f8-42b9-a052-4984bd58c082",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:16:48.717565",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "aef7ee43-c884-4014-a028-d451ca41e4db",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:15:59.105604",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4f1eaf05-f198-42e5-bf79-13f39fb724b7",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:15:59.090154",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0042c163-b229-4b05-9597-7f1df0edf8ff",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:15:59.033757",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "115f09ad-8a8e-44e3-a102-fd2e10fec5cb",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:15:59.019844",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3cd2742b-4984-4bb5-855c-467883c92758",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:13:34.910468",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4a095566-877c-4b2d-a4b6-02e4bfe71bee",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:13:34.896026",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "79b69510-ef06-4a45-83a7-90dd96cff3c7",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:13:34.849600",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1989a330-9248-43eb-8caa-2428cf1f2ee5",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:13:34.836959",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "c2b21bb1-3aad-4d85-869c-4847463fbce6",
+      "title": "Original title",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 18:11:38.343533",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9d879462-1c90-41d2-9742-bbd563799c7a",
+      "title": "UAE VAT Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 18:11:38.333686",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "c98b1343-c851-4d5f-aa54-e5e3e966ec1b",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:11:34.829892",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "7b10ee40-cdcc-47a2-9066-ad67431e06ea",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:11:34.814431",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ad28aa62-d482-445f-89d8-5d50c9f029cd",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:11:34.762190",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "3df4c0b7-686f-4dc2-a0b8-abd9f2148b16",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:11:34.748255",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "8c38b49c-454d-434d-a358-30172411e0c1",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:08:34.434346",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cef1b86b-8bbe-45cf-aacb-8e792aebf1a3",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:08:34.425287",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "cb6419d8-ffdb-4c76-8b1f-25dfa7eda657",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:08:34.393489",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "389658ba-e1c2-4d7a-985a-5e60b87f5a7f",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:08:34.385567",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b4686492-d59c-4839-97d0-a831a7f3ed28",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:06:14.950220",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b2db60fd-4848-4d1e-94ea-2d0205207db0",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:06:14.941697",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "c7e5014a-9cc9-4d17-b2a4-a2604b3033a6",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:06:14.905754",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "70953011-8c30-4136-92a4-e0e9ebfdd158",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:06:14.896851",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2a7fdb95-12a9-421d-85da-3be47df22544",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:03:50.938292",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "24c537f3-e71b-466b-8b5f-a75a1b222f10",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:03:50.928913",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f00e9b60-c8dc-433f-aaf6-252869e8fe04",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:03:50.883445",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "ca916d99-5b63-4268-a564-720214c81e6d",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 18:03:50.874715",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9141fa5c-6730-4818-8100-5e7829c434da",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:58:42.130890",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4f7133cf-8f42-4ef4-bad9-c3bef15c0feb",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:58:42.121309",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "fcbd0b15-90d9-44b6-b0a4-82765b5096bb",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:58:42.076142",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4d957a60-fda8-41e8-aecc-b7d8a3589423",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:58:42.067652",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f1daf9e5-da11-4882-9026-3c1f1ebdca62",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:56:40.268668",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0ef31dd5-9caf-4f4c-bea7-06c6aa61758a",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:56:40.258836",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "df206384-ad43-4650-8ce7-ef43bce4e965",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:56:40.231982",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0956a901-c9aa-4181-83a2-92c1db24dc95",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:56:40.223012",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "8aba3246-138d-4754-bc7f-d80c23c45acf",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:54:56.346911",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "26cf41cd-e9da-4c4d-b4d9-07fa708dbb9e",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:54:56.335533",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "1eb03afd-f328-441a-8496-206b424da282",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:54:56.300281",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "5361d830-a713-431e-94c3-9ca8b6e1b7d8",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:54:56.290167",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "871d43bc-ff4a-4979-8a47-f3d3f3f03c97",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:53:16.958050",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e19746ff-f76e-43ff-b8c5-b4ecb67f61b7",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:53:16.949419",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "dba124d3-7576-48c2-bc86-5d2d1c1371e7",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:53:16.926489",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b1df9f24-4f8a-47ec-8da7-ee0aa9899e85",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:53:16.918609",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "be0b40d9-2815-49fd-8547-3e8d92c1e7ff",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:50:57.592802",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4cbdb25b-0563-404d-b613-2b56331e9b63",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:50:57.583293",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2539986a-d9f8-4ad9-955a-3b8582cbb286",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:50:57.560798",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "4268273d-8848-4809-b673-5a15fb9c40db",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:50:57.552288",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "29bfdec3-b01b-4525-9245-65a6cbd3768a",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:48:55.804592",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f9f702f0-9f5a-4d3b-b88a-7fd2be08e963",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:48:55.791421",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "898fb1e4-308f-4f8e-a444-3e7fc4343d87",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:48:55.765468",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "d950db23-f586-4e80-8fbb-7626b7b316d4",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:48:55.756849",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "016e13ce-fcc9-4c01-87b3-09a984900e51",
+      "title": "Original title",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:42:21.768188",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a4442681-9981-4358-9fbc-528f5cb2baeb",
+      "title": "UAE VAT Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:42:21.743762",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "e8213de2-cc29-4fa8-92eb-d388d591f6a6",
+      "title": "Original title",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:42:03.190856",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "f26981ab-e378-41ee-920d-a163ce05399e",
+      "title": "UAE VAT Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:42:03.166544",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "b4419896-2b96-4923-851c-0140df6ad233",
+      "title": "Original title",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:41:50.144302",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a580ba4d-c875-46e5-95f8-7d00dc85f168",
+      "title": "UAE VAT Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:41:50.114739",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "79c677d8-f544-4067-bb97-ab8caeb0263b",
+      "title": "Original title",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:38:16.940635",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "a18152d1-894d-4dd2-ad4b-3db39a3e7d39",
+      "title": "UAE VAT Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:38:16.934963",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "09e3e44f-02c7-435a-8dc2-9accc5db1b41",
+      "title": "t4",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:38:14.101665",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "9db325e6-d4ac-48f7-9d6c-49fdef321150",
+      "title": "t3",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:38:14.092616",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "8a35f921-692a-4463-a600-24c115ed1a35",
+      "title": "t2",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:38:14.079193",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "0ff02cd9-f3d5-439c-ae3c-fff04dd2bfb6",
+      "title": "t",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-24 17:38:14.070415",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "62389d54-d14e-4dc2-8eff-367a3872c866",
+      "title": "Original title",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:37:31.282180",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "8797d97e-2466-4ee3-b472-29d4e82d86c6",
+      "title": "UAE VAT Hotel Apartment Sale",
+      "mode": "fast",
+      "provider": "mock",
+      "model": "mock-v1",
+      "created_at": "2026-04-24 17:37:31.270490",
+      "message_count": 0,
+      "messages": []
+    },
+    {
+      "id": "2e4bfeaa-04f1-4ae2-9fea-ceaf517c7dd9",
+      "title": "tell me revenue about 2025",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-24 11:45:34.993803",
+      "message_count": 4,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 11:45:35.002241",
+          "tokens": 0,
+          "preview": "tell me revenue about 2025"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-24 11:45:41.775645",
+          "tokens": 0,
+          "preview": "You are asking about **Revenue forecast** — the projected income from sales or services for the year 2025, typically based on historical performance, market trends, and business plans.\n\n---\n\nBased on "
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 11:46:45.027638",
+          "tokens": 0,
+          "preview": "can you check now I have add TB for 2025"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-24 11:46:51.823850",
+          "tokens": 0,
+          "preview": "You are asking about **TB addition for 2025** — i.e., whether a trial balance for the year 2025 has been added or is available in the current context.\n\nI don’t have access to any newly added Trial Bal"
+        }
+      ]
+    },
+    {
+      "id": "6b968054-fca3-495a-8756-9ff04ceb4863",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-24 11:38:15.165855",
+      "message_count": 11,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 11:38:15.195873",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-24 11:38:30.536653",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax applied on the supply of goods and services at each stage of production and distribution, including imports, with the ultimate burden"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 11:49:32.420841",
+          "tokens": 0,
+          "preview": "can you give me a write on this"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 15:52:37.467548",
+          "tokens": 0,
+          "preview": "can you give me a write up this"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-24 15:52:51.745803",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax applied on the supply of goods and services at each stage of production and distribution, including imports, with the ultimate burden"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 15:54:32.220995",
+          "tokens": 0,
+          "preview": "what this are required"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 15:54:46.400161",
+          "tokens": 0,
+          "preview": "what this are required"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-24 15:54:52.649517",
+          "tokens": 0,
+          "preview": "You are asking about **required** — meaning the items or conditions that must be met or provided for a specific purpose.\n\n- VAT Registration Number (TRN)\n- VAT Return (if previously filed)\n- Sale Agre"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 15:55:47.787491",
+          "tokens": 0,
+          "preview": "if company is not regiestered then what and they don't want to register also"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-24 15:56:15.519566",
+          "tokens": 0,
+          "preview": "if company is not regiestered then what and they don't want to register also"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-24 15:56:24.436522",
+          "tokens": 0,
+          "preview": "If a company is **not registered for VAT** and chooses **not to register**, the following applies:\n\n- **VAT is still due** on taxable supplies made (e.g., sale of hotel apartments), even if the compan"
+        }
+      ]
+    },
+    {
+      "id": "dd743c48-1973-4623-b742-9e1c773c35e1",
+      "title": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT,...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-22 16:26:22.718868",
+      "message_count": 12,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 16:26:22.737728",
+          "tokens": 0,
+          "preview": "I have a client who sold Hotel Apartment and now got notice from FTA to pay VAT, need a on pager on this as well documents required to make payment on portal"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 16:26:35.945974",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax levied on the supply of goods and services in the UAE, as per Federal Decree-Law No. 8 of 2017.\n\n---\n\n## ## One-Pager Summary: VAT Tr"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 16:27:21.883853",
+          "tokens": 0,
+          "preview": "give me the check list if ther person is individual"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 16:27:43.869237",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax levied on the supply of goods and services in the UAE, as per Federal Decree-Law No. 8 of 2017.\n\n---\n\n## ## VAT Checklist for an **In"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 16:28:30.776878",
+          "tokens": 0,
+          "preview": "give me only check of documents and details required to pay this type of VAT"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 16:28:35.926993",
+          "tokens": 0,
+          "preview": "## ## Documents & Details Required to Pay VAT on Sale of Hotel Apartment (Individual Seller)\n\n### ### **Personal & Registration Details**\n- **Full Name** (as per Emirates ID)\n- **Emirates ID Number**\n"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 16:30:35.833956",
+          "tokens": 0,
+          "preview": "and what about if the person don't need to register for TRN No. can he pay the VAT"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 16:30:38.737237",
+          "tokens": 0,
+          "preview": "No. If the individual seller is **not required to register for VAT** (i.e., their total taxable supplies, including the sale of the hotel apartment, are **below AED 187,500** in the previous 12 months"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 16:31:55.110155",
+          "tokens": 0,
+          "preview": "are you sure in the other serives there are the option to pay VAT on commercial propert"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 16:32:01.451332",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax levied on the supply of goods and services in the UAE, as per Federal Decree-Law No. 8 of 2017. --- > **Correction:** My previous res"
+        },
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 16:34:34.777327",
+          "tokens": 0,
+          "preview": "then make the check list of that tell me what documents required"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 16:34:45.974014",
+          "tokens": 0,
+          "preview": "You are asking about **Value Added Tax (VAT)** — a consumption tax levied on the supply of goods and services in the UAE, as per Federal Decree-Law No. 8 of 2017. --- ## ## **Checklist: Documents Requ"
+        }
+      ]
+    },
+    {
+      "id": "d7b05f50-e3c3-441f-8059-d1eec52a78fb",
+      "title": "tell about 2025 revenue  from trail balance",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-22 06:24:45.087302",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 06:24:45.091320",
+          "tokens": 0,
+          "preview": "tell about 2025 revenue  from trail balance"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 06:24:48.982305",
+          "tokens": 0,
+          "preview": "You are asking about **Revenue from trial balance** — the total revenue amount extracted directly from the trial balance or general ledger, before any classification, grouping, or adjustment.\n\nBased o"
+        }
+      ]
+    },
+    {
+      "id": "65248cb0-bd80-447b-91d8-1dda7c76e8c1",
+      "title": "in e invoicing, for third port shipment how to get peopll id of buyer, who shoul...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-22 05:59:46.815801",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 05:59:46.822242",
+          "tokens": 0,
+          "preview": "in e invoicing, for third port shipment how to get peopll id of buyer, who should get registered for peppol give breif"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 05:59:57.330901",
+          "tokens": 0,
+          "preview": "You are asking about **Peppol ID** — a globally unique identifier used in the Peppol network to route electronic invoices and documents securely between businesses.\n\n### Third-Party Shipment and Peppo"
+        }
+      ]
+    },
+    {
+      "id": "21247ce7-71b3-43b0-aa10-d26ce8ee70d6",
+      "title": "tell me about  e-invocing",
+      "mode": "analyst",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-22 05:42:50.054061",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-22 05:42:50.091876",
+          "tokens": 0,
+          "preview": "tell me about  e-invocing"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-22 05:43:06.717070",
+          "tokens": 0,
+          "preview": "You are asking about **e-Invoicing** — the process of generating, sending, receiving, and storing invoices in an electronic format, replacing traditional paper invoices, as mandated by the UAE Federal"
+        }
+      ]
+    },
+    {
+      "id": "711cfbb9-a816-4e9a-a91f-c71935da2d99",
+      "title": "in e invoicing, for third port shipment how to get peopll id of buyer, who shoul...",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-small-4-119b-2603",
+      "created_at": "2026-04-21 09:06:13.243865",
+      "message_count": 2,
+      "messages": [
+        {
+          "role": "user",
+          "timestamp": "2026-04-21 09:06:13.267182",
+          "tokens": 0,
+          "preview": "in e invoicing, for third port shipment how to get peopll id of buyer, who should get registered for peppol"
+        },
+        {
+          "role": "assistant",
+          "timestamp": "2026-04-21 09:06:33.744312",
+          "tokens": 0,
+          "preview": "You are asking about **Peppol ID** — a unique identifier used in electronic invoicing to facilitate cross-border and domestic B2B e-invoice exchange via the Peppol network.\n\n---\n\n### **Peppol ID Regis"
+        }
+      ]
+    },
+    {
+      "id": "37370cef-8d0c-425d-8bf5-997d2b45dc04",
+      "title": "Legal → Finance Handoff",
+      "mode": "fast",
+      "provider": "nvidia",
+      "model": "",
+      "created_at": "2026-04-20 03:31:03.292446",
+      "message_count": 1,
+      "messages": [
+        {
+          "role": "system",
+          "timestamp": "2026-04-20 03:31:03.304882",
+          "tokens": 0,
+          "preview": "Context from legal session: user: tell me about of revenue in 2025\nai: You are asking about **revenue** — the total amount of income generated by the sale of goods or services related to the primary o"
+        }
+      ]
+    }
+  ]
+}

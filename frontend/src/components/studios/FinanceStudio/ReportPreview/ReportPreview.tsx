@@ -1,6 +1,6 @@
 import { useFinanceStudio } from '../FinanceStudioContext';
 import { PreviewPage } from './PreviewPage';
-import { API_BASE_URL } from '../../../../../api-config';
+import { API_BASE_URL } from '../../../../api-config';
 
 export function ReportPreview() {
   const { outputs } = useFinanceStudio();

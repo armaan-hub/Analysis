@@ -368,14 +368,17 @@ class DocumentProcessor:
 document_processor = DocumentProcessor()
 
 
-async def ingest_text(text: str, source: str | None = None, source_type: str = "research") -> None:
+async def ingest_text(text: str, source: str | None = None, source_type: str = "research", category: str | None = None) -> None:
     """Index a raw text blob into the RAG engine with a source tag."""
     # Local import to avoid a circular dependency (rag_engine imports DocumentChunk from here)
     from core.rag_engine import rag_engine as _rag_engine  # noqa: PLC0415
 
     doc_id = "research_" + hashlib.md5((source or text[:50]).encode()).hexdigest()[:8]
+    meta: dict = {"source": source or "", "source_type": source_type, "page": 1}
+    if category:
+        meta["category"] = category
     chunk = DocumentChunk(
         text=text[:8000],
-        metadata={"source": source or "", "source_type": source_type, "page": 1},
+        metadata=meta,
     )
     await _rag_engine.ingest_chunks([chunk], doc_id=doc_id)

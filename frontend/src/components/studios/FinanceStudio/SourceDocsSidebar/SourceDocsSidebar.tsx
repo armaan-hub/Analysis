@@ -4,7 +4,7 @@ import { DocumentCard } from './DocumentCard';
 import { LearnedProfileTree } from './LearnedProfileTree';
 import { VersionSwitcher } from './VersionSwitcher';
 import { Plus, Upload } from 'lucide-react';
-import { API_BASE_URL } from '../../../../../api-config';
+import { API_BASE_URL } from '../../../../api-config';
 
 export function SourceDocsSidebar() {
   const { profileId, sourceDocs, refreshDocs, selectedSourceIds, toggleSource } = useFinanceStudio();

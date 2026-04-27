@@ -43,7 +43,7 @@ async def run_council(*, question: str, base_answer: str, llm) -> AsyncGenerator
             buf: list[str] = []
             try:
                 async for piece in llm.chat_stream(
-                    [{"role": "user", "content": prompt}], max_tokens=600, temperature=0.3
+                    [{"role": "user", "content": prompt}], max_tokens=1500, temperature=0.3
                 ):
                     buf.append(piece)
                     yield {"type": "council_expert", "expert": expert.name, "delta": piece}
@@ -71,7 +71,7 @@ async def run_council(*, question: str, base_answer: str, llm) -> AsyncGenerator
             synth_buf: list[str] = []
             try:
                 async for piece in llm.chat_stream(
-                    [{"role": "user", "content": synth_prompt}], max_tokens=800, temperature=0.2
+                    [{"role": "user", "content": synth_prompt}], max_tokens=2000, temperature=0.2
                 ):
                     synth_buf.append(piece)
                     yield {"type": "council_synthesis", "delta": piece}

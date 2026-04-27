@@ -4,7 +4,7 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8
 export const API = axios.create({ baseURL: API_BASE, timeout: 180000 });
 
 // ── Shared Types ──────────────────────────────────────────────────────────────
-export interface Source { source: string; page: string | number; score: number; excerpt: string; original_name?: string; }
+export interface Source { source: string; page: string | number; score: number; excerpt: string; original_name?: string; is_web?: boolean; title?: string; }
 
 export interface TextMessage {
   role: 'user' | 'ai' | 'assistant';

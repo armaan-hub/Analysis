@@ -703,7 +703,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       // replace the blank message with a visible prompt to retry.
       if (!aiText) {
         setMessages(prev => {
-          const hasFilled = prev.find(m => m.id === aiMsgId && m.text);
+          const hasFilled = prev.find(m => m.id === aiMsgId && 'text' in m && m.text);
           if (hasFilled) return prev; // already updated by error handler
           const copy = prev.filter(m => m.id !== aiMsgId);
           return [...copy, {
