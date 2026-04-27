@@ -8,7 +8,14 @@ interface Notebook {
   source_count?: number;
   thumbnail_icon?: string;
   domain?: string;
+  mode?: string;
 }
+
+const MODE_COLOURS: Record<string, string> = {
+  fast: '#f59e0b',
+  deep_research: '#6366f1',
+  analyst: '#10b981',
+};
 
 const DOMAIN_ICONS: Record<string, string> = {
   finance: '💰',
@@ -111,6 +118,22 @@ export function NotebookCard({ notebook, onClick, onDelete, view = 'grid', selec
   <span style={{ fontSize: isList ? '22px' : '28px', lineHeight: 1, pointerEvents: 'none' }}>
     {getDomainIcon(notebook.domain)}
   </span>
+  {notebook.mode && MODE_COLOURS[notebook.mode] && (
+    <span
+      data-testid="mode-dot"
+      style={{
+        position: 'absolute',
+        top: '8px',
+        right: '8px',
+        width: '9px',
+        height: '9px',
+        borderRadius: '50%',
+        background: MODE_COLOURS[notebook.mode],
+        boxShadow: `0 0 6px ${MODE_COLOURS[notebook.mode]}`,
+        pointerEvents: 'none',
+      }}
+    />
+  )}
   {selectionMode && (
     <div
       style={{ position: 'absolute', top: 6, left: 6, zIndex: 2 }}
