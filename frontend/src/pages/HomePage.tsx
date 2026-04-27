@@ -8,6 +8,8 @@ interface HomePageProps {
   onNewChat?: () => void;
 }
 
+type ModeFilter = 'all' | 'fast' | 'deep_research' | 'analyst';
+
 export default function HomePage({ onNewChat }: HomePageProps) {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [search, setSearch] = useState('');
@@ -15,19 +17,23 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeModes, setActiveModes] = useState<Set<ModeFilter>>(new Set(['all']));
   const navigate = useNavigate();
 
   useEffect(() => {
     API.get('/api/chat/conversations')
       .then(r => {
         const convos = r.data ?? [];
-        setNotebooks(convos.map((c: any) => ({
-          id: c.id,
-          title: c.title || 'Untitled Notebook',
-          updated_at: c.updated_at || new Date().toISOString(),
-          source_count: c.source_count,
-          domain: c.domain,
-        })));
+        setNotebooks(convos
+          .filter((c: any) => (c.message_count ?? 1) > 0)
+          .map((c: any) => ({
+            id: c.id,
+            title: c.title || 'Untitled Notebook',
+            updated_at: c.updated_at || new Date().toISOString(),
+            source_count: c.source_count,
+            domain: c.domain,
+            mode: c.mode,
+          })));
       })
       .catch(() => {});
   }, []);
@@ -37,6 +43,23 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const handleCreate = () => {
     if (onNewChat) onNewChat();
     else navigate('/notebook/new');
+  };
+
+  const toggleMode = (mode: ModeFilter) => {
+    if (mode === 'all') {
+      setActiveModes(new Set(['all']));
+      return;
+    }
+    setActiveModes(prev => {
+      const next = new Set(prev);
+      next.delete('all');
+      if (next.has(mode)) {
+        next.delete(mode);
+      } else {
+        next.add(mode);
+      }
+      return next.size === 0 ? new Set<ModeFilter>(['all']) : next;
+    });
   };
 
   const handleToggleSelect = (id: string) => {
@@ -69,15 +92,46 @@ export default function HomePage({ onNewChat }: HomePageProps) {
     }
   };
 
-  const filtered = notebooks.filter(n =>
-    n.title.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = notebooks
+    .filter(n => n.title.toLowerCase().includes(search.toLowerCase()))
+    .filter(n => activeModes.has('all') || activeModes.has((n.mode ?? 'fast') as ModeFilter));
 
   const deleteNotebook = deleteTarget === '__bulk__'
     ? null
     : filtered.find(n => n.id === deleteTarget) ?? notebooks.find(n => n.id === deleteTarget);
 
   /* ── inline styles ───────────────────────────────────────── */
+  const filterBarStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '8px',
+    flexWrap: 'wrap', marginBottom: '16px',
+  };
+
+  const filterLabelStyle: React.CSSProperties = {
+    fontSize: '11px', fontWeight: 600, color: 'var(--s-text-2)',
+    textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '4px',
+  };
+
+  const MODE_META: Record<string, { label: string; icon: string; colour: string }> = {
+    fast:          { label: 'Fast',          icon: '⚡', colour: '#f59e0b' },
+    deep_research: { label: 'Deep Research', icon: '🔬', colour: '#6366f1' },
+    analyst:       { label: 'Analyst',       icon: '📊', colour: '#10b981' },
+  };
+
+  const filterTagStyle = (mode: ModeFilter): React.CSSProperties => {
+    const isAll   = mode === 'all';
+    const active  = activeModes.has(mode);
+    const colour  = isAll ? '#ffffff' : (MODE_META[mode]?.colour ?? '#ffffff');
+    return {
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      padding: '5px 14px', borderRadius: '8px',
+      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+      transition: 'all 150ms ease',
+      background:   active ? `${colour}26` : 'transparent',
+      border:       active ? `1.5px solid ${colour}99` : '1.5px dashed rgba(255,255,255,0.12)',
+      color:        active ? colour : 'rgba(255,255,255,0.3)',
+    };
+  };
+
   const toolbarStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: '12px',
     flexWrap: 'wrap', marginBottom: '20px',
@@ -150,7 +204,44 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   return (
     <div className="home-page">
       <div className="home-page__header">
-        <h1 className="home-page__title">📚 Legal Studio</h1>
+        <h1 className="home-page__title">📚 Compliance and Analysis Studio</h1>
+      </div>
+
+      {/* Mode filter bar */}
+      <div style={filterBarStyle}>
+        <span style={filterLabelStyle}>Filter</span>
+
+        <button
+          type="button"
+          aria-label="All Modes"
+          style={filterTagStyle('all')}
+          onClick={() => toggleMode('all')}
+        >
+          All Modes
+        </button>
+
+        {(['fast', 'deep_research', 'analyst'] as ModeFilter[]).map(mode => {
+          const meta = MODE_META[mode];
+          return (
+            <button
+              key={mode}
+              type="button"
+              aria-label={meta.label}
+              style={filterTagStyle(mode)}
+              onClick={() => toggleMode(mode)}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: '7px', height: '7px', borderRadius: '50%',
+                  background: meta.colour, flexShrink: 0,
+                  boxShadow: activeModes.has(mode) ? `0 0 5px ${meta.colour}` : 'none',
+                }}
+              />
+              {meta.icon} {meta.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Toolbar: search + view toggle */}
