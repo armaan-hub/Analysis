@@ -45,7 +45,7 @@ describe('NotebookCard — mode dot', () => {
 
   it('renders no dot for an unknown mode value', () => {
     render(
-      <NotebookCard notebook={{ ...baseNotebook, mode: 'unknown_mode' }} onClick={() => {}} />
+      <NotebookCard notebook={{ ...baseNotebook, mode: 'unknown_mode' as any }} onClick={() => {}} />
     );
     expect(screen.queryByTestId('mode-dot')).not.toBeInTheDocument();
   });

@@ -118,4 +118,28 @@ describe('HomePage — mode filter bar', () => {
     expect(screen.queryByText('VAT Review')).not.toBeInTheDocument();
     expect(screen.queryByText('IFRS Analyst')).not.toBeInTheDocument();
   });
+
+  it('shows Fast + Analyst notebooks when both modes are active simultaneously', async () => {
+    render(<MemoryRouter><HomePage /></MemoryRouter>);
+    const fastBtn    = await screen.findByRole('button', { name: /^fast$/i });
+    const analystBtn = screen.getByRole('button', { name: /^analyst$/i });
+    fireEvent.click(fastBtn);
+    fireEvent.click(analystBtn);
+    expect(await screen.findByText('VAT Review')).toBeInTheDocument();
+    expect(screen.getByText('IFRS Analyst')).toBeInTheDocument();
+    expect(screen.queryByText('Corp Tax Deep')).not.toBeInTheDocument();
+  });
+
+  it('hides a notebook with no mode when a specific mode filter is active', async () => {
+    (API.get as any).mockResolvedValue({
+      data: [
+        ...mockConversations,
+        { id: 'c4', title: 'No Mode NB', updated_at: '2026-04-27T09:00:00Z', message_count: 1 },
+      ],
+    });
+    render(<MemoryRouter><HomePage /></MemoryRouter>);
+    const fastBtn = await screen.findByRole('button', { name: /^fast$/i });
+    fireEvent.click(fastBtn);
+    expect(screen.queryByText('No Mode NB')).not.toBeInTheDocument();
+  });
 });
