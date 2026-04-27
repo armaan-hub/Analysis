@@ -60,13 +60,14 @@ async def test_search_returns_empty_when_all_below_threshold():
 
 @pytest.mark.asyncio
 async def test_search_respects_max_results_after_threshold():
-    """After threshold filtering, cap at top 8 results by score."""
+    """After threshold filtering, cap at top_k results by score."""
     raw = [
         {"text": f"Relevant chunk {i}", "metadata": {"doc_id": f"d{i}", "category": "law"}, "score": 0.90 - i * 0.02}
         for i in range(12)  # 12 chunks all above threshold
     ]
     engine = _make_engine_with_results(raw)
-    results = await engine.search("law query", top_k=12, min_score=0.45)
+    # top_k=8: even with 12 chunks available, must return at most 8
+    results = await engine.search("law query", top_k=8, min_score=0.45)
     assert len(results) <= 8
     # Must be sorted by score descending
     scores = [r["score"] for r in results]
@@ -123,9 +124,17 @@ async def test_chat_default_filter_is_law_finance(client):
     assert resp.status_code == 200
     assert search_calls, "rag_engine.search must have been called"
     call = search_calls[0]
-    assert call["filter"] == {"category": {"$in": ["law", "finance"]}}, (
-        f"Expected law+finance default filter, got: {call['filter']}"
+    # The filter must always include the law+finance category guard (not unfiltered).
+    # Domain filtering may also be applied on top (via _build_rag_domain_filter).
+    cat_filter = {"category": {"$in": ["law", "finance"]}}
+    actual = call["filter"]
+    has_category = actual == cat_filter or (
+        "$and" in actual and any(c == cat_filter for c in actual["$and"])
     )
+    assert has_category, (
+        f"Expected law+finance category filter to be present, got: {actual}"
+    )
+    assert actual is not None, "Filter must not be None (search must not be unfiltered)"
     assert call["min_score"] == pytest.approx(0.30), (
         f"Expected min_score=0.30, got: {call['min_score']}"
     )
@@ -186,6 +195,7 @@ _AND_FILTER = {
     "$and": [
         {"doc_id": {"$in": ["doc-tb-001"]}},
         {"category": {"$in": ["law", "finance"]}},
+        {"domain": {"$in": ["corporate_tax"]}},
     ]
 }
 
@@ -241,8 +251,18 @@ async def test_chat_filter_fast_mode_selected_docs_combines_and(client):
 
     assert resp.status_code == 200
     assert search_calls
-    assert search_calls[0]["filter"] == _AND_FILTER, (
-        f"Fast mode must use $and filter to prevent workbook contamination, got: {search_calls[0]['filter']}"
+    # Filter must be an $and containing both doc_id scope AND law+finance category guard.
+    # Domain filtering may also be included on top by _build_rag_domain_filter.
+    actual = search_calls[0]["filter"]
+    assert "$and" in actual, (
+        f"Fast mode must use $and filter to prevent workbook contamination, got: {actual}"
+    )
+    clauses = actual["$and"]
+    assert {"doc_id": {"$in": ["doc-tb-001"]}} in clauses, (
+        f"doc_id scope clause missing. Clauses: {clauses}"
+    )
+    assert {"category": {"$in": ["law", "finance"]}} in clauses, (
+        f"law+finance category clause missing. Clauses: {clauses}"
     )
 
 
@@ -296,6 +316,11 @@ async def test_chat_filter_analyst_no_docs_uses_law_finance(client):
 
     assert resp.status_code == 200
     assert search_calls
-    assert search_calls[0]["filter"] == {"category": {"$in": ["law", "finance"]}}, (
-        f"Analyst mode without selected_doc_ids must use law+finance default, got: {search_calls[0]['filter']}"
+    assert search_calls[0]["filter"] == {
+        "$and": [
+            {"category": {"$in": ["law", "finance"]}},
+            {"domain": {"$in": ["vat"]}},
+        ]
+    }, (
+        f"Analyst mode without selected_doc_ids must use law+finance+domain filter, got: {search_calls[0]['filter']}"
     )
