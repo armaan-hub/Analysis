@@ -49,8 +49,13 @@ class TestPDFHandler:
         try:
             mock_handle = MagicMock()
             handler._pending["/data/file.pdf"] = mock_handle
-            with patch.object(loop, "call_later", return_value=MagicMock()):
-                handler._schedule("/data/file.pdf")
+            callbacks: list = []
+            with patch.object(loop, "call_soon_threadsafe", side_effect=lambda cb: callbacks.append(cb)):
+                with patch.object(loop, "call_later", return_value=MagicMock()):
+                    handler._schedule("/data/file.pdf")
+            # Invoke the callback as the event loop would
+            for cb in callbacks:
+                cb()
             mock_handle.cancel.assert_called_once()
         finally:
             loop.close()
@@ -65,6 +70,17 @@ class TestPDFHandler:
             with patch.object(handler, "_schedule") as mock_schedule:
                 handler.on_moved(event)
             mock_schedule.assert_called_once_with("/data/report.pdf")
+        finally:
+            loop.close()
+
+    def test_schedule_uses_call_soon_threadsafe(self):
+        """_schedule must use call_soon_threadsafe, not call_later directly (thread safety)."""
+        loop = asyncio.new_event_loop()
+        handler = _PDFHandler(category="law", loop=loop)
+        try:
+            with patch.object(loop, "call_soon_threadsafe") as mock_threadsafe:
+                handler._schedule("/data/vat_guide.pdf")
+            mock_threadsafe.assert_called_once()
         finally:
             loop.close()
 

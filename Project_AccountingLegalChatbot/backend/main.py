@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"[OK] Scheduler started ({time.perf_counter()-_t:.2f}s)")
 
     # Start auto-sync watchdog (monitors data_source_law/ and data_source_finance/)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     start_auto_sync(loop)
     logger.info(f"[OK] Auto-sync watchdog started")
     
