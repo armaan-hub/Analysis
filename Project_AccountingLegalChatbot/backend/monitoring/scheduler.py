@@ -167,6 +167,7 @@ def start_scheduler():
         name="FTA PDF Scraper",
         replace_existing=True,
         misfire_grace_time=3600,
+        max_instances=1,    # prevent overlapping runs
     )
     logger.info("Scheduled FTA scraper: daily at midnight")
 
