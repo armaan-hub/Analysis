@@ -102,7 +102,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
     .filter(n => n.title.toLowerCase().includes(search.toLowerCase()))
     .filter(n =>
       activeModes.has('all') ||
-      (n.mode != null && activeModes.has(n.mode as ModeFilter))
+      (n.mode != null && activeModes.has(n.mode))
     );
 
   const deleteNotebook = deleteTarget === '__bulk__'
@@ -216,7 +216,6 @@ export default function HomePage({ onNewChat }: HomePageProps) {
 
         <button
           type="button"
-          aria-label="All Modes"
           aria-pressed={activeModes.has('all')}
           style={filterTagStyle('all')}
           onClick={() => toggleMode('all')}
