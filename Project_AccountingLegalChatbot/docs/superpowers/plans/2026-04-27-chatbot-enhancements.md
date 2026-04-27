@@ -1570,8 +1570,9 @@ async def test_sources_include_domain_field(client, sample_conversation):
 
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["sources"]) > 0
-    first_source = data["sources"][0]
+    # Non-streaming ChatResponse shape: {"message": {"sources": [...], ...}, ...}
+    assert len(data["message"]["sources"]) > 0
+    first_source = data["message"]["sources"][0]
     assert "domain" in first_source
     assert first_source["domain"] == "vat"
 
@@ -1613,8 +1614,8 @@ async def test_sources_domain_defaults_to_empty_string_when_missing(client, samp
 
     assert resp.status_code == 200
     data = resp.json()
-    assert "domain" in data["sources"][0]
-    assert data["sources"][0]["domain"] == ""
+    assert "domain" in data["message"]["sources"][0]
+    assert data["message"]["sources"][0]["domain"] == ""
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1801,7 +1802,35 @@ Also wrap the actions `<div>` (Copy/Word/Excel buttons) with `{isExpanded && (`:
               {/* Actions — shown when expanded */}
               {isExpanded && (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  ...existing buttons...
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(text, key)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: 'var(--s-r-sm)', border: '1px solid var(--s-border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--s-font-ui)', fontSize: '11px', color: 'var(--s-text-2)' }}
+                    title="Copy to clipboard"
+                  >
+                    <Copy size={11} />
+                    {copying === key ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWordDownload(text, displayName)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: 'var(--s-r-sm)', border: '1px solid var(--s-border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--s-font-ui)', fontSize: '11px', color: 'var(--s-text-2)' }}
+                    title="Download as Word"
+                  >
+                    <FileText size={11} />
+                    Word
+                  </button>
+                  {showExcel && (
+                    <button
+                      type="button"
+                      onClick={() => handleExcelDownload(text, displayName)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: 'var(--s-r-sm)', border: '1px solid var(--s-border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--s-font-ui)', fontSize: '11px', color: 'var(--s-text-2)' }}
+                      title="Download as Excel"
+                    >
+                      <Table2 size={11} />
+                      Excel
+                    </button>
+                  )}
                 </div>
               )}
 ```
@@ -1893,15 +1922,6 @@ for i, msg in enumerate(messages, 1):
         except (json.JSONDecodeError, TypeError):
             pass
 ```
-
-- [ ] **Step 3: Verify frontend build**
-
-```bash
-cd frontend
-npm run build 2>&1 | tail -10
-```
-
-Expected: `✓ built in Xs` with no errors.
 
 - [ ] **Step 3: Verify frontend build**
 
