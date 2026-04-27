@@ -22,7 +22,7 @@ describe('NotebookCard — mode dot', () => {
     );
     const dot = screen.getByTestId('mode-dot');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ background: '#f59e0b' });
+    expect(dot).toHaveStyle({ background: '#f59e0b', boxShadow: '0 0 6px #f59e0b' });
   });
 
   it('renders a mode dot when mode is "deep_research"', () => {
@@ -31,7 +31,7 @@ describe('NotebookCard — mode dot', () => {
     );
     const dot = screen.getByTestId('mode-dot');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ background: '#6366f1' });
+    expect(dot).toHaveStyle({ background: '#6366f1', boxShadow: '0 0 6px #6366f1' });
   });
 
   it('renders a mode dot when mode is "analyst"', () => {
@@ -40,7 +40,7 @@ describe('NotebookCard — mode dot', () => {
     );
     const dot = screen.getByTestId('mode-dot');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ background: '#10b981' });
+    expect(dot).toHaveStyle({ background: '#10b981', boxShadow: '0 0 6px #10b981' });
   });
 
   it('renders no dot for an unknown mode value', () => {
