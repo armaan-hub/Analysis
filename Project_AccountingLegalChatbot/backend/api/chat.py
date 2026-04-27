@@ -587,6 +587,22 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
                 logger.info("RAG returned %d results for conversation %s", len(_search_results), conversation.id)
 
+            # No-LLM guard: doc-scoped query with zero chunks → honest refusal
+            from core.accuracy.citation_validator import should_skip_llm
+            if should_skip_llm(_search_results, _doc_scoped):
+                _no_ctx_content = "I don't have this in my documents."
+                no_ctx_msg = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=_no_ctx_content,
+                    sources=None,
+                )
+                db.add(no_ctx_msg)
+                await db.commit()
+                yield f"data: {json.dumps({'type': 'chunk', 'content': _no_ctx_content})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'message_id': no_ctx_msg.id})}\n\n"
+                return
+
             # ── 6. Build messages list ────────────────────────────────────────
             _msgs: list[dict] = []
             if _search_results:
@@ -725,6 +741,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 yield f"data: {json.dumps({'type': 'error', 'message': 'The AI returned an empty response. Please try again.'})}\n\n"
                 return
 
+            # Citation validation
+            from core.accuracy.citation_validator import validate_citations
+            full_response = validate_citations(full_response, _search_results)
+
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:
                 yield f"data: {json.dumps({'type': 'sources', 'sources': _sources})}\n\n"
@@ -836,15 +856,17 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 rag_filter = {"doc_id": {"$in": req.selected_doc_ids}}
             else:
                 # Fast/Deep: scope to selected docs but only professional knowledge base
-                rag_filter = {
+                _base_filter = {
                     "$and": [
                         {"doc_id": {"$in": req.selected_doc_ids}},
                         {"category": {"$in": ["law", "finance"]}},
                     ]
                 }
+                rag_filter = _build_rag_domain_filter(classifier_result, _base_filter)
         else:
-            # Default: search professional knowledge base (law + finance documents)
-            rag_filter = {"category": {"$in": ["law", "finance"]}}
+            # Default: search professional knowledge base, narrowed by detected domain
+            _base_filter = {"category": {"$in": ["law", "finance"]}}
+            rag_filter = _build_rag_domain_filter(classifier_result, _base_filter)
 
         try:
             if req.mode == "fast":
@@ -872,6 +894,34 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         except Exception as rag_exc:
             logger.warning(f"RAG search failed, falling back to no-context mode: {rag_exc}")
             search_results = []
+
+        # No-LLM guard: doc-scoped query with zero chunks → honest refusal
+        _doc_scoped_ns = req.mode == "analyst" and bool(req.selected_doc_ids)
+        from core.accuracy.citation_validator import should_skip_llm
+        if should_skip_llm(search_results, _doc_scoped_ns):
+            _no_ctx = "I don't have this in my documents."
+            no_ctx_msg = Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=_no_ctx,
+                sources=None,
+            )
+            db.add(no_ctx_msg)
+            await db.flush()
+            await db.commit()
+            return ChatResponse(
+                message=MessageResponse(
+                    id=no_ctx_msg.id,
+                    role="assistant",
+                    content=_no_ctx,
+                    sources=None,
+                    created_at=str(no_ctx_msg.created_at),
+                    tokens_used=0,
+                ),
+                conversation_id=conversation.id,
+                provider=settings.llm_provider,
+                model=settings.active_model,
+            )
 
 
         if search_results:
@@ -933,6 +983,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             max_tokens=_safe_max,
             reasoning_effort=_reasoning_effort,
         )
+        
+        # Citation validation: append 🚨 warning if 2+ fabrications detected
+        from core.accuracy.citation_validator import validate_citations
+        answer_content = validate_citations(response.content, search_results)
     except Exception as e:
         import httpx as _httpx
         elapsed = round(time.time() - start_time, 1)
@@ -962,7 +1016,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     assistant_msg = Message(
         conversation_id=conversation.id,
         role="assistant",
-        content=response.content,
+        content=answer_content,
         sources=sources if sources else None,
         tokens_used=response.tokens_used,
     )
@@ -986,7 +1040,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         message=MessageResponse(
             id=assistant_msg.id,
             role="assistant",
-            content=response.content,
+            content=answer_content,
             sources=sources if sources else None,
             created_at=str(assistant_msg.created_at),
             tokens_used=response.tokens_used,
