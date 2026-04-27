@@ -9,12 +9,15 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+MAX_PDF_BYTES = 50 * 1024 * 1024  # 50 MB hard cap
 
 # Government portals to scrape for PDF links
 _SCRAPE_URLS: list[str] = [
@@ -25,8 +28,29 @@ _SCRAPE_URLS: list[str] = [
 
 _HASH_FILE = Path(__file__).parent.parent.parent / "data" / "scraped_hashes.txt"
 _DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "data_source_law"
+_URLS_FILE = Path(__file__).parent.parent.parent / "data" / "scraped_urls.txt"
 
-_PDF_PATTERN = re.compile(r'href=["\']([^"\']+\.pdf[^"\']*)["\']', re.IGNORECASE)
+
+class _PDFLinkExtractor(HTMLParser):
+    """Extracts href attributes pointing to PDF files."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            href = dict(attrs).get("href") or ""
+            # Strip query string and fragment before checking extension
+            clean = href.split("?")[0].split("#")[0].lower()
+            if clean.endswith(".pdf"):
+                self.links.append(href)
+
+
+def _find_pdf_links(html: str) -> list[str]:
+    extractor = _PDFLinkExtractor()
+    extractor.feed(html)
+    return extractor.links
 
 
 def _load_seen_hashes() -> set[str]:
@@ -41,6 +65,18 @@ def _save_hash(md5: str) -> None:
     _HASH_FILE.parent.mkdir(parents=True, exist_ok=True)
     with _HASH_FILE.open("a", encoding="utf-8") as f:
         f.write(md5 + "\n")
+
+
+def _load_seen_urls() -> set[str]:
+    if not _URLS_FILE.exists():
+        return set()
+    return set(_URLS_FILE.read_text(encoding="utf-8").splitlines())
+
+
+def _save_url(url: str) -> None:
+    _URLS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with _URLS_FILE.open("a", encoding="utf-8") as f:
+        f.write(url + "\n")
 
 
 def _md5_of(data: bytes) -> str:
@@ -74,6 +110,7 @@ async def scrape_and_ingest() -> int:
     Returns the number of new documents ingested.
     """
     seen_hashes = _load_seen_hashes()
+    seen_urls = _load_seen_urls()
     _DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     new_count = 0
@@ -87,13 +124,29 @@ async def scrape_and_ingest() -> int:
                 logger.warning("Failed to fetch %s: %s", base_url, exc)
                 continue
 
-            pdf_links = _PDF_PATTERN.findall(resp.text)
+            pdf_links = _find_pdf_links(resp.text)
             for relative_link in pdf_links:
                 pdf_url = urljoin(base_url, relative_link)
+
+                if pdf_url in seen_urls:
+                    logger.debug("Skipping already-processed URL: %s", pdf_url)
+                    continue
+
                 try:
-                    pdf_resp = await client.get(pdf_url, headers={"User-Agent": "Mozilla/5.0"})
-                    pdf_resp.raise_for_status()
-                    pdf_bytes = pdf_resp.content
+                    async with client.stream("GET", pdf_url, headers={"User-Agent": "Mozilla/5.0"}) as pdf_resp:
+                        pdf_resp.raise_for_status()
+                        chunks: list[bytes] = []
+                        total = 0
+                        async for chunk in pdf_resp.aiter_bytes(chunk_size=65536):
+                            total += len(chunk)
+                            if total > MAX_PDF_BYTES:
+                                logger.warning("PDF too large (>%d MB), skipping: %s", MAX_PDF_BYTES // (1024*1024), pdf_url)
+                                chunks = []
+                                break
+                            chunks.append(chunk)
+                        if not chunks:
+                            continue
+                        pdf_bytes = b"".join(chunks)
                 except Exception as exc:
                     logger.warning("Failed to download %s: %s", pdf_url, exc)
                     continue
@@ -112,18 +165,25 @@ async def scrape_and_ingest() -> int:
                 logger.info("Downloaded new PDF: %s -> %s", pdf_url, dest.name)
 
                 # Import here to avoid circular deps at module load
+                ingested = False
                 try:
                     from core.document_processor import ingest_text
                     text = _extract_text_from_bytes(pdf_bytes, dest.name)
                     if text.strip():
                         await ingest_text(text, source=dest.name, category="law")
                         logger.info("Ingested: %s", dest.name)
+                        ingested = True
+                    else:
+                        logger.warning("Empty text extracted from %s; skipping ingestion", dest.name)
                 except Exception as exc:
                     logger.warning("Ingestion failed for %s: %s", dest.name, exc)
 
-                _save_hash(md5)
-                seen_hashes.add(md5)
-                new_count += 1
+                if ingested:
+                    _save_hash(md5)
+                    seen_hashes.add(md5)
+                    _save_url(pdf_url)
+                    seen_urls.add(pdf_url)
+                    new_count += 1
 
     logger.info("FTA scraper complete: %d new documents ingested", new_count)
     return new_count
