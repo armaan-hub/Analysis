@@ -5,6 +5,8 @@ interface ProviderConfig {
   api_key: string;
   model: string;
   base_url: string;
+  fast_api_key: string;
+  fast_model: string;
 }
 
 interface FullSettings {
@@ -16,12 +18,13 @@ interface FullSettings {
   providers: Record<string, ProviderConfig>;
 }
 
-const PROVIDER_META: Record<string, { label: string; icon: string; keyRequired: boolean; hasBaseUrl: boolean }> = {
-  nvidia:  { label: 'NVIDIA NIM',   icon: '🟢', keyRequired: true,  hasBaseUrl: true  },
-  openai:  { label: 'OpenAI',       icon: '⚫', keyRequired: true,  hasBaseUrl: false },
-  claude:  { label: 'Anthropic',    icon: '🟠', keyRequired: true,  hasBaseUrl: false },
-  mistral: { label: 'Mistral',      icon: '🔵', keyRequired: true,  hasBaseUrl: false },
-  ollama:  { label: 'Ollama (local)',icon: '🟣', keyRequired: false, hasBaseUrl: true  },
+const PROVIDER_META: Record<string, { label: string; icon: string; keyRequired: boolean; hasBaseUrl: boolean; hasFastModel: boolean }> = {
+  nvidia:  { label: 'NVIDIA NIM',    icon: '🟢', keyRequired: true,  hasBaseUrl: true,  hasFastModel: true  },
+  openai:  { label: 'OpenAI',        icon: '⚫', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
+  claude:  { label: 'Anthropic',     icon: '🟠', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
+  mistral: { label: 'Mistral',       icon: '🔵', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
+  groq:    { label: 'Groq',          icon: '🟡', keyRequired: true,  hasBaseUrl: false, hasFastModel: true  },
+  ollama:  { label: 'Ollama (local)', icon: '🟣', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
 };
 
 export default function SettingsPage() {
@@ -29,10 +32,13 @@ export default function SettingsPage() {
   const [loading, setLoading]           = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<string>('nvidia');
 
-  const [editKey,     setEditKey]     = useState('');
-  const [editModel,   setEditModel]   = useState('');
-  const [editBaseUrl, setEditBaseUrl] = useState('');
-  const [showKey,     setShowKey]     = useState(false);
+  const [editKey,      setEditKey]      = useState('');
+  const [editModel,    setEditModel]    = useState('');
+  const [editBaseUrl,  setEditBaseUrl]  = useState('');
+  const [editFastKey,  setEditFastKey]  = useState('');
+  const [editFastModel,setEditFastModel]= useState('');
+  const [showKey,      setShowKey]      = useState(false);
+  const [showFastKey,  setShowFastKey]  = useState(false);
 
   const [models,         setModels]         = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
@@ -57,6 +63,8 @@ export default function SettingsPage() {
         setEditKey(prov.api_key || '');
         setEditModel(prov.model || '');
         setEditBaseUrl(prov.base_url || '');
+        setEditFastKey(prov.fast_api_key || '');
+        setEditFastModel(prov.fast_model || '');
       })
       .catch(() => flash('Failed to load settings', false))
       .finally(() => setLoading(false));
@@ -67,10 +75,12 @@ export default function SettingsPage() {
     setModels([]);
     setModelsError('');
     setStatusMsg(null);
-    const prov: ProviderConfig = fullSettings?.providers?.[p] || { api_key: '', model: '', base_url: '' };
+    const prov: ProviderConfig = fullSettings?.providers?.[p] || { api_key: '', model: '', base_url: '', fast_api_key: '', fast_model: '' };
     setEditKey(prov.api_key || '');
     setEditModel(prov.model || '');
     setEditBaseUrl(prov.base_url || '');
+    setEditFastKey(prov.fast_api_key || '');
+    setEditFastModel(prov.fast_model || '');
   };
 
   const fetchModels = async () => {
@@ -93,10 +103,12 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await API.put('/api/settings/provider', {
-        provider: selectedProvider,
-        api_key:  editKey  || undefined,
-        model:    editModel || undefined,
-        base_url: editBaseUrl || undefined,
+        provider:      selectedProvider,
+        api_key:       editKey       || undefined,
+        model:         editModel     || undefined,
+        base_url:      editBaseUrl   || undefined,
+        fast_api_key:  editFastKey   || undefined,
+        fast_model:    editFastModel || undefined,
         activate,
       });
       const r = await API.get('/api/settings/current');
@@ -113,10 +125,12 @@ export default function SettingsPage() {
     setTesting(true);
     try {
       await API.put('/api/settings/provider', {
-        provider: selectedProvider,
-        api_key:  editKey  || undefined,
-        model:    editModel || undefined,
-        base_url: editBaseUrl || undefined,
+        provider:     selectedProvider,
+        api_key:      editKey      || undefined,
+        model:        editModel    || undefined,
+        base_url:     editBaseUrl  || undefined,
+        fast_api_key: editFastKey  || undefined,
+        fast_model:   editFastModel|| undefined,
         activate: false,
       });
       const r = await API.post('/api/settings/providers/test', { provider: selectedProvider });
@@ -129,7 +143,7 @@ export default function SettingsPage() {
     }
   };
 
-  const meta = PROVIDER_META[selectedProvider] || PROVIDER_META.nvidia;
+  const meta = PROVIDER_META[selectedProvider] ?? { label: selectedProvider, icon: '⚙️', keyRequired: true, hasBaseUrl: false, hasFastModel: false };
   const isActive = fullSettings?.llm_provider === selectedProvider;
 
   return (
@@ -187,9 +201,10 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* ── Deep / Main model ─────────────────────────────────── */}
               {meta.keyRequired && (
                 <div className="settings-field">
-                  <label className="settings-label">API Key</label>
+                  <label className="settings-label">API Key {meta.hasFastModel && <span style={{ fontSize: '0.7rem', color: 'var(--text-2)' }}>(Deep Research / Main)</span>}</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       type={showKey ? 'text' : 'password'}
@@ -219,7 +234,7 @@ export default function SettingsPage() {
               )}
 
               <div className="settings-field">
-                <label className="settings-label">Model</label>
+                <label className="settings-label">Model {meta.hasFastModel && <span style={{ fontSize: '0.7rem', color: 'var(--text-2)' }}>(Deep Research / Analyst)</span>}</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {models.length > 0 ? (
                     <select
@@ -233,7 +248,7 @@ export default function SettingsPage() {
                     <input
                       type="text"
                       className="settings-input"
-                      placeholder="e.g. gpt-4o or click Fetch Models"
+                      placeholder="e.g. deepseek-ai/deepseek-v3.2"
                       value={editModel}
                       onChange={e => setEditModel(e.target.value)}
                     />
@@ -251,6 +266,42 @@ export default function SettingsPage() {
                 {modelsError && <div style={{ fontSize: '0.75rem', color: 'var(--red)', marginTop: '4px' }}>{modelsError}</div>}
                 {models.length > 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '4px' }}>{models.length} models available from provider API</div>}
               </div>
+
+              {/* ── Fast Mode section ─────────────────────────────────── */}
+              {meta.hasFastModel && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginTop: '8px' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '10px' }}>⚡ Fast Mode Configuration</div>
+
+                  {meta.keyRequired && (
+                    <div className="settings-field">
+                      <label className="settings-label" style={{ fontSize: '0.78rem' }}>Fast Mode API Key <span style={{ fontSize: '0.7rem', color: 'var(--text-2)' }}>(leave blank to reuse main key)</span></label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type={showFastKey ? 'text' : 'password'}
+                          className="settings-input"
+                          placeholder="Enter fast mode API key…"
+                          value={editFastKey}
+                          onChange={e => setEditFastKey(e.target.value)}
+                        />
+                        <button className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowFastKey(v => !v)}>
+                          {showFastKey ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="settings-field" style={{ marginBottom: 0 }}>
+                    <label className="settings-label" style={{ fontSize: '0.78rem' }}>Fast Mode Model</label>
+                    <input
+                      type="text"
+                      className="settings-input"
+                      placeholder="e.g. deepseek-ai/deepseek-v3.1-terminus"
+                      value={editFastModel}
+                      onChange={e => setEditFastModel(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="provider-config-actions">
                 <button className="btn btn-secondary" onClick={testConnection} disabled={testing || saving}>
@@ -271,3 +322,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+

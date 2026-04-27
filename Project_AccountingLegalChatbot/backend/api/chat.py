@@ -23,6 +23,7 @@ from core.rag_engine import rag_engine
 from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, FORMATTING_REMINDER
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from core.chat.intent_classifier import classify_intent
+from core.rag_engine import rag_engine, _infer_domain_from_name
 from config import settings
 from core.web_search import search_web, build_web_context
 
@@ -40,6 +41,44 @@ _RESEARCH_KEYWORDS = {
 }
 
 _TITLE_GENERATION_DELAY_S: float = 0.1  # allow send_message's DB commit to propagate
+
+# Minimum classifier confidence to apply domain filtering to RAG search.
+# Below this threshold we fall back to category-only search (search all domains).
+_DOMAIN_FILTER_MIN_CONFIDENCE: float = 0.60
+
+# Maps classified domain label → document domain values to include in RAG filter.
+# "general" / "general_law" are intentionally absent — they mean "search all domains".
+_DOMAIN_TO_DOC_DOMAINS: dict[str, list[str]] = {
+    "e_invoicing": ["e_invoicing", "peppol"],
+    "peppol": ["peppol", "e_invoicing"],
+    "vat": ["vat"],
+    "corporate_tax": ["corporate_tax"],
+    "labour": ["labour"],
+    "commercial": ["commercial"],
+    "ifrs": ["ifrs", "general"],
+}
+
+
+def _build_rag_domain_filter(cls_result: ClassifierResult, base_filter: dict) -> dict:
+    """Merge a domain filter into the base category filter if confidence is high enough.
+
+    Returns the original base_filter unchanged when:
+    - Confidence is below threshold
+    - Domain maps to "search all" (general / general_law)
+    - Domain would produce an identical filter to base_filter
+    """
+    doc_domains = _DOMAIN_TO_DOC_DOMAINS.get(cls_result.domain.value)
+    if not doc_domains or cls_result.confidence < _DOMAIN_FILTER_MIN_CONFIDENCE:
+        return base_filter
+
+    domain_clause = {"domain": {"$in": doc_domains}}
+
+    # If base_filter already has an $and list, append to it
+    if "$and" in base_filter:
+        return {"$and": base_filter["$and"] + [domain_clause]}
+
+    # Wrap base_filter + domain_clause together
+    return {"$and": [base_filter, domain_clause]}
 
 
 def _is_research_query(message: str) -> bool:
@@ -60,7 +99,10 @@ async def _get_query_variations(query: str, provider: str | None = None) -> list
 
     Uses fast model — query variation is a simple paraphrasing task.
     """
-    if len(query.split()) <= 3:
+    words = query.split()
+    # Skip variations for very short queries (too little context) 
+    # or very long queries (already specific enough, variations add noise).
+    if len(words) <= 3 or len(words) > 15:
         return [query]
     try:
         llm = get_llm_provider(provider, mode="fast")
@@ -509,14 +551,16 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         _doc_scoped = True
                     else:
                         # Fast/Deep: scope to selected docs but only professional knowledge base
-                        _rag_filter = {
+                        _base_filter: dict = {
                             "$and": [
                                 {"doc_id": {"$in": req.selected_doc_ids}},
                                 {"category": {"$in": ["law", "finance"]}},
                             ]
                         }
+                        _rag_filter = _build_rag_domain_filter(_cls, _base_filter)
                 else:
-                    _rag_filter = {"category": {"$in": ["law", "finance"]}}
+                    _base_filter = {"category": {"$in": ["law", "finance"]}}
+                    _rag_filter = _build_rag_domain_filter(_cls, _base_filter)
 
                 try:
                     if req.mode == "fast":
@@ -646,7 +690,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             try:
                 async for chunk in _llm.chat_stream(
                     _msgs,
-                    temperature=settings.temperature,
+                    temperature=settings.fast_temperature if req.mode == "fast" else settings.deep_temperature if req.mode in ("analyst", "deep_research") else settings.temperature,
                     max_tokens=_safe_max,
                     reasoning_effort=_reasoning_effort,
                 ):
@@ -885,7 +929,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         # Non-streaming response
         response = await llm.chat(
             messages,
-            temperature=settings.temperature,
+            temperature=settings.fast_temperature if req.mode == "fast" else settings.deep_temperature if req.mode in ("analyst", "deep_research") else settings.temperature,
             max_tokens=_safe_max,
             reasoning_effort=_reasoning_effort,
         )
@@ -1242,7 +1286,7 @@ async def deep_research_stream(req: DeepResearchRequest):
 
             # Step 3: Synthesize
             yield f"data: {json.dumps({'type': 'step', 'text': 'Synthesising answer…'})}\n\n"
-            llm = get_llm_provider()
+            llm = get_llm_provider(mode="analyst")
             system = (
                 "You are a thorough research analyst. Synthesise the provided document excerpts and "
                 "web search results into a comprehensive, well-structured answer. Use Markdown with "
@@ -1259,7 +1303,7 @@ async def deep_research_stream(req: DeepResearchRequest):
                 {"role": "user", "content": context_block + f"## Question\n{req.query}"},
             ]
             answer_parts: list[str] = []
-            async for chunk in llm.chat_stream(messages_for_llm, temperature=0.3, max_tokens=2000):
+            async for chunk in llm.chat_stream(messages_for_llm, temperature=settings.deep_temperature, max_tokens=2000):
                 answer_parts.append(chunk)
                 yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
 

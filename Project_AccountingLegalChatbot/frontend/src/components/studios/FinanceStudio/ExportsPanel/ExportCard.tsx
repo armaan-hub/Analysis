@@ -6,7 +6,7 @@ import {
   ChevronRight, Download,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { API_BASE_URL } from '../../../../../api-config';
+import { API_BASE_URL } from '../../../../api-config';
 
 interface Props { outputType: OutputType; label: string; }
 

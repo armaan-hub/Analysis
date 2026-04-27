@@ -5,10 +5,10 @@ from api.chat import _build_sliding_context
 
 
 def test_default_max_tokens_is_none():
-    """max_tokens must be None — no hard limit, model uses its full capacity."""
+    """max_tokens must match deepseek-v3.2 spec (15649) for deep/analyst modes."""
     field = Settings.model_fields.get("max_tokens")
     assert field is not None, "max_tokens field not found in Settings"
-    assert field.default is None, f"Expected None, got {field.default}"
+    assert field.default == 15649, f"Expected 15649 (deepseek-v3.2 max), got {field.default}"
 
 
 def test_default_top_k_results_is_8():
@@ -19,10 +19,10 @@ def test_default_top_k_results_is_8():
 
 
 def test_fast_max_tokens_is_20000():
-    """fast_max_tokens must be 20000 — caps fast-mode responses for mistral-small."""
+    """fast_max_tokens must match deepseek-v3.1-terminus spec (12385) for fast mode."""
     field = Settings.model_fields.get("fast_max_tokens")
     assert field is not None, "fast_max_tokens field not found in Settings"
-    assert field.default == 20000, f"Expected 20000, got {field.default}"
+    assert field.default == 12385, f"Expected 12385 (deepseek-v3.1-terminus max), got {field.default}"
 
 
 def test_fast_top_k_is_15():

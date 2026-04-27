@@ -42,6 +42,9 @@ _CONTEXT_WINDOWS: dict[str, int] = {
     "gpt-3.5":              16_385,
     "claude":               200_000,
     "nemotron":             128_000,
+    "deepseek-v3.2":        131_072,   # deepseek-ai/deepseek-v3.2 — 128K context
+    "deepseek-v3.1":        131_072,   # deepseek-ai/deepseek-v3.1-terminus — 128K context
+    "deepseek":              65_536,   # fallback for any deepseek model
 }
 _CONTEXT_WINDOW_FALLBACK: int = 8_192
 
@@ -172,6 +175,205 @@ class BaseLLMProvider:
         yield  # make it a generator
 
 
+class MockProvider(BaseLLMProvider):
+    """Mock provider for testing. Returns canned responses based on input patterns."""
+
+    def __init__(self, api_key: str = "mock", model: str = "mock-model", base_url: str = ""):
+        super().__init__(api_key, model, base_url)
+        self.provider_name = "mock"
+
+    @staticmethod
+    def _all_text(messages: list[dict]) -> str:
+        """Flatten USER and ASSISTANT message content to lowercase for keyword matching.
+        EXCLUDES system prompts — system prompts contain domain keywords that would
+        cause every query in that domain to match the VAT scenario template."""
+        parts: list[str] = []
+        for m in messages:
+            if m.get("role") == "system":
+                continue  # skip — system prompts pollute keyword matching
+            c = m.get("content", "")
+            if isinstance(c, str):
+                parts.append(c)
+            elif isinstance(c, list):
+                for part in c:
+                    if isinstance(part, dict):
+                        parts.append(part.get("text", ""))
+        return " ".join(parts).lower()
+
+    async def chat(
+        self,
+        messages: list[dict],
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        reasoning_effort: Optional[str] = None,
+    ) -> LLMResponse:
+        last_content = messages[-1]["content"] if messages else ""
+        all_text = self._all_text(messages)
+
+        # Intent classification mock
+        if "Classify the user" in last_content or "Classify the user's question" in last_content:
+            return LLMResponse(
+                content='{"output_type":"answer","topic":"VAT on Hotel Apartment"}',
+                tokens_used=20,
+                provider="mock",
+                model=self.model,
+            )
+
+        # Query variation mock
+        if "alternative phrasings" in last_content:
+            return LLMResponse(
+                content='["hotel apartment vat sale", "fta notice hotel apartment payment"]',
+                tokens_used=20,
+                provider="mock",
+                model=self.model,
+            )
+
+        # Title generation mock
+        if "summarise the following user query as a short notebook title" in last_content.lower():
+            return LLMResponse(
+                content="VAT Notice Hotel Apartment Sale",
+                tokens_used=10,
+                provider="mock",
+                model=self.model,
+            )
+
+        # Council synthesis mock — detected by Council Chair system prompt
+        if "council chair" in all_text or "reconcile the four expert" in all_text:
+            return LLMResponse(
+                content=(
+                    "## Final Recommendation\n"
+                    "The sale of a Hotel Apartment in the UAE is subject to **5% VAT**. "
+                    "The client must register for VAT (if not already registered), submit a VAT return "
+                    "for the relevant period, and pay via the FTA e-Services portal.\n\n"
+                    "## Key Risks\n"
+                    "- Late payment penalties: 2% immediately + 4% after 7 days (UAE Cabinet Decision 49/2021)\n"
+                    "- Under-declaration surcharge if sale not reported in the correct VAT period\n\n"
+                    "## Standards Cited\n"
+                    "- UAE VAT Law (Federal Decree-Law No. 8 of 2017), Art. 29-30\n"
+                    "- FTA VAT Guide: Real Estate (VATGRE1)\n\n"
+                    "## Open Items\n"
+                    "- Confirm whether client is VAT-registered; if not, Voluntary Disclosure may apply\n"
+                    "- Verify exact date of sale to determine VAT period"
+                ),
+                tokens_used=120,
+                provider="mock",
+                model=self.model,
+            )
+
+        # Council expert critique mock
+        if "prior expert critiques" in all_text or "proposed base answer" in all_text:
+            expert_name = ""
+            for name in ("Senior CA", "CPA", "CMA", "Financial Analyst"):
+                if name.lower() in all_text:
+                    expert_name = name
+                    break
+            return LLMResponse(
+                content=(
+                    f"[{expert_name or 'Expert'} Critique] The answer correctly identifies 5% VAT. "
+                    "Recommend verifying the exact FTA notice date and whether the client is already VAT-registered "
+                    "to determine if a Voluntary Disclosure is needed instead of a standard return."
+                ),
+                tokens_used=50,
+                provider="mock",
+                model=self.model,
+            )
+
+        # VAT / Hotel Apartment scenario — match on full conversation context, not just last message
+        _vat_keywords = {"hotel apartment", "commercial property", "fta", "vat notice", "fta portal"}
+        if any(kw in all_text for kw in _vat_keywords):
+            # Determine intent from the LAST USER message first (most specific signal).
+            # For follow-ups (conversation has prior assistant turn), detect specific intent.
+            # For initial queries, always return the one-pager overview.
+            _last_user = ""
+            _is_followup = any(_m.get("role") == "assistant" for _m in messages)
+            for _m in reversed(messages):
+                if isinstance(_m.get("content"), str) and _m.get("role") == "user":
+                    _last_user = _m["content"].lower()
+                    break
+
+            # Penalties follow-up — only in follow-up turns to avoid mis-matching initial queries
+            if _is_followup and any(kw in _last_user for kw in ("penalt", "late payment", "fine", "calculate", "months after")):
+                response_text = (
+                    "## Late Payment Penalties – UAE VAT (FTA)\n\n"
+                    "Under **UAE Cabinet Decision No. 49 of 2021**:\n\n"
+                    "| Timeline | Penalty |\n"
+                    "|---|---|\n"
+                    "| Immediately on due date | **2%** of unpaid tax |\n"
+                    "| After 7 calendar days | Additional **4%** (total 6%) |\n"
+                    "| Monthly (from 1 month onwards) | **1% per month** on outstanding balance |\n\n"
+                    "**Example**: If VAT of AED 100,000 was due 3 months ago:\n"
+                    "- Day 0: AED 2,000 (2%)\n"
+                    "- Day 7: AED 4,000 more (4%) → AED 6,000\n"
+                    "- Month 1-3: 1% × 3 = AED 3,000\n"
+                    "- **Total penalty ≈ AED 9,000**\n\n"
+                    "Pay via FTA e-Services portal to stop further accrual."
+                )
+            # Documents follow-up — only in follow-up turns (not the initial one-pager request)
+            elif _is_followup and any(kw in _last_user for kw in ("documents", "upload", "what documents", "required documents")):
+                response_text = (
+                    "## Documents Required for FTA VAT Payment (Hotel Apartment Sale)\n\n"
+                    "1. **Sale/Purchase Agreement (SPA)** – signed copy of the property transfer\n"
+                    "2. **Title Deed** – original or certified copy from Dubai Land Department\n"
+                    "3. **Emirates ID** (seller) – clear copy, front and back\n"
+                    "4. **FTA VAT Notice** – the notice received from FTA\n"
+                    "5. **VAT Return (Form VAT201)** – completed for the relevant tax period\n"
+                    "6. **Bank Payment Confirmation** – e-Dirham or credit-card payment receipt\n\n"
+                    "Upload all documents via **FTA e-Services → VAT → Submit VAT Return** at tax.gov.ae."
+                )
+            else:
+                response_text = (
+                    "## One-Pager: VAT on Commercial Property Sale (UAE)\n\n"
+                    "### Background\n"
+                    "A **Hotel Apartment** is classified as **commercial property** under UAE law. "
+                    "The sale is subject to VAT at the **5% standard rate** "
+                    "(Federal Decree-Law No. 8 of 2017, Art. 29).\n\n"
+                    "### VAT Obligation\n"
+                    "The **seller** must account for output VAT on the sale proceeds. "
+                    "If the seller is VAT-registered, VAT is reported in the VAT return (Form VAT201) "
+                    "for the period in which the sale occurred.\n\n"
+                    "### Documents Required\n"
+                    "- Sale/Transfer Agreement (SPA)\n"
+                    "- Title Deed (Dubai Land Department)\n"
+                    "- Emirates ID of seller\n"
+                    "- FTA VAT Notice received\n"
+                    "- Completed VAT Return (Form VAT201)\n\n"
+                    "### Portal Process\n"
+                    "1. Log in to **FTA e-Services** at tax.gov.ae\n"
+                    "2. Navigate to **VAT → Submit VAT Return**\n"
+                    "3. Complete Form VAT201 and attach supporting documents\n"
+                    "4. Pay via **e-Dirham** or credit card\n\n"
+                    "### Legal Reference\n"
+                    "UAE VAT Law (Federal Decree-Law No. 8 of 2017); FTA Guide VATGRE1 (Real Estate)"
+                )
+        else:
+            response_text = "This is a mock response from the LLM manager for: " + last_content[:50]
+
+        return LLMResponse(
+            content=response_text,
+            tokens_used=50,
+            provider="mock",
+            model=self.model,
+        )
+
+    async def chat_stream(
+        self,
+        messages: list[dict],
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        reasoning_effort: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
+        response = await self.chat(messages, temperature, max_tokens, reasoning_effort)
+        import re as _re
+        # Tokenise preserving whitespace tokens so newlines are not lost.
+        # This keeps markdown structure (headings, tables, lists) intact when
+        # the frontend reassembles the stream.
+        tokens = _re.split(r'(\s+)', response.content)
+        for token in tokens:
+            if token:
+                yield token
+                await asyncio.sleep(0.005)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # NVIDIA NIM Provider (OpenAI-compatible API)
 # ═══════════════════════════════════════════════════════════════════
@@ -179,10 +381,12 @@ class BaseLLMProvider:
 class NvidiaProvider(BaseLLMProvider):
     """NVIDIA NIM API – uses OpenAI-compatible chat completions endpoint."""
 
-    def __init__(self, api_key: str, model: str, base_url: str):
+    def __init__(self, api_key: str, model: str, base_url: str, thinking_enabled: bool = True):
         super().__init__(api_key, model, base_url)
         self.provider_name = "nvidia"
         self._is_gemma = "gemma" in model.lower()
+        self._is_deepseek = "deepseek" in model.lower()
+        self._thinking_enabled = thinking_enabled
 
     @staticmethod
     def _strip_thinking(text: str) -> str:
@@ -213,18 +417,23 @@ class NvidiaProvider(BaseLLMProvider):
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "top_p": 1.00,
+            "top_p": 0.70 if ("terminus" in self.model.lower()) else 0.95 if self._is_deepseek else 1.00,
             "frequency_penalty": 0.00,
             "presence_penalty": 0.00,
             "stream": stream,
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        if reasoning_effort is not None:
+        # reasoning_effort is Mistral-specific — don't send to DeepSeek (causes HTTP 400)
+        if reasoning_effort is not None and not self._is_deepseek:
             payload["reasoning_effort"] = reasoning_effort
-        # enable_thinking is incompatible with vision/multimodal inputs — skip for image requests
+        # Gemma thinking mode (uses enable_thinking key, incompatible with vision inputs)
         if self._is_gemma and not self._messages_contain_images(messages):
             payload["chat_template_kwargs"] = {"enable_thinking": True}
+        # DeepSeek thinking mode (uses thinking key, different from Gemma)
+        # Only enabled when _thinking_enabled=True (fast mode disables this to avoid timeouts)
+        elif self._is_deepseek and self._thinking_enabled:
+            payload["chat_template_kwargs"] = {"thinking": True}
         return payload
 
     async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
@@ -630,6 +839,111 @@ class MistralProvider(BaseLLMProvider):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Groq Provider (free tier, OpenAI-compatible)
+# ═══════════════════════════════════════════════════════════════════
+
+class GroqProvider(BaseLLMProvider):
+    """Groq Cloud API — OpenAI-compatible, free tier available."""
+
+    def __init__(self, api_key: str, model: str, base_url: str = "https://api.groq.com/openai/v1"):
+        super().__init__(api_key, model, base_url)
+        self.provider_name = "groq"
+
+    async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload: dict = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": False,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
+        last_exc: Exception = RuntimeError("Groq provider unreachable")
+        for attempt in range(2):
+            if attempt > 0:
+                await asyncio.sleep(2)
+            try:
+                async with httpx.AsyncClient(timeout=self._DEFAULT_TIMEOUT) as client:
+                    resp = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                    )
+                    if resp.status_code >= 400:
+                        err_body = resp.text[:500]
+                        logger.error(f"Groq API {resp.status_code}: {err_body}")
+                        if resp.status_code in (429, 500, 502, 503, 504) and attempt < 1:
+                            last_exc = httpx.HTTPStatusError(
+                                f"HTTP {resp.status_code}: {err_body}", request=resp.request, response=resp
+                            )
+                            continue
+                    resp.raise_for_status()
+                    data = resp.json()
+                choice = data["choices"][0]
+                usage = data.get("usage", {})
+                return LLMResponse(
+                    content=choice["message"]["content"] or "",
+                    model=data.get("model", self.model),
+                    provider=self.provider_name,
+                    tokens_used=usage.get("total_tokens", 0),
+                    finish_reason=choice.get("finish_reason", "stop"),
+                )
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                last_exc = exc
+                logger.warning(f"Groq API network error (attempt {attempt+1}/2): {exc}")
+        raise RuntimeError("Groq provider unreachable after 2 attempts") from last_exc
+
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+        payload: dict = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
+        async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            ) as resp:
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    err_text = body.decode("utf-8", errors="replace")[:400]
+                    raise httpx.HTTPStatusError(
+                        f"HTTP {resp.status_code}: {err_text}",
+                        request=resp.request,
+                        response=resp,
+                    )
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                        content = chunk["choices"][0].get("delta", {}).get("content", "")
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Ollama Provider (local, OpenAI-compatible)
 # ═══════════════════════════════════════════════════════════════════
 
@@ -723,11 +1037,17 @@ _PROVIDER_MAP = {
         api_key=settings.mistral_api_key,
         model=settings.mistral_model,
     ),
+    "groq": lambda: GroqProvider(
+        api_key=settings.groq_api_key,
+        model=settings.groq_model,
+        base_url=settings.groq_base_url,
+    ),
     "ollama": lambda: OllamaProvider(
         api_key="",
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
     ),
+    "mock": lambda: MockProvider(),
 }
 
 
@@ -750,7 +1070,7 @@ def get_llm_provider(
     """
     name = (provider_name or settings.llm_provider).lower()
 
-    # Fast mode on NVIDIA: use the smaller, faster model
+    # Fast mode on NVIDIA: use the smaller, faster model and optionally a separate fast API key
     if name == "nvidia" and mode == "fast":
         fast_model = settings.nvidia_fast_model
         if not fast_model:
@@ -758,19 +1078,39 @@ def get_llm_provider(
                 "NVIDIA fast mode requested but 'nvidia_fast_model' is not configured. "
                 "Set NVIDIA_FAST_MODEL in your .env file."
             )
+        # Use dedicated fast API key if configured, otherwise fall back to the main key
+        fast_api_key = getattr(settings, "nvidia_fast_api_key", "") or settings.nvidia_api_key
         provider = NvidiaProvider(
-            api_key=settings.nvidia_api_key,
+            api_key=fast_api_key,
             model=fast_model,
             base_url=settings.nvidia_base_url,
+            thinking_enabled=True,   # terminus spec: thinking=True
         )
         logger.info(
-            "LLM provider initialized: %s / %s [fast mode]",
+            "LLM provider initialized: %s / %s [fast mode, %s key]",
             provider.provider_name,
             provider.model,
+            "fast" if fast_api_key != settings.nvidia_api_key else "main",
         )
         return provider
 
-    if mode == "fast" and name != "nvidia":
+    # Fast mode on Groq: use the smaller, instant model
+    if name == "groq" and mode == "fast":
+        fast_model = settings.groq_fast_model
+        if fast_model:
+            provider = GroqProvider(
+                api_key=settings.groq_api_key,
+                model=fast_model,
+                base_url=settings.groq_base_url,
+            )
+            logger.info(
+                "LLM provider initialized: %s / %s [fast mode]",
+                provider.provider_name,
+                provider.model,
+            )
+            return provider
+
+    if mode == "fast" and name not in ("nvidia", "groq"):
         logger.warning(
             "Fast mode requested but provider '%s' has no fast-model override; "
             "using main model.", name
@@ -796,9 +1136,10 @@ def list_available_providers() -> list[dict]:
     key_map = {
         "nvidia":  "nvidia_api_key",
         "openai":  "openai_api_key",
-        "claude":  "anthropic_api_key",   # settings has anthropic_api_key, not claude_api_key
+        "claude":  "anthropic_api_key",
         "mistral": "mistral_api_key",
-        "ollama":  None,                  # no key needed
+        "groq":    "groq_api_key",
+        "ollama":  None,
     }
     result = []
     for name in _PROVIDER_MAP:

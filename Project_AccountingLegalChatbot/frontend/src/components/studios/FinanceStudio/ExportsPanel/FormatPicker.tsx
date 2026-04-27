@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useFinanceStudio } from '../FinanceStudioContext';
-import { API_BASE_URL } from '../../../../../api-config';
+import { API_BASE_URL } from '../../../../api-config';
 
 interface Template { id: string; name: string; confidence?: number; is_prebuilt?: boolean; }
 

@@ -1,4 +1,7 @@
 import type { ExpertState } from '../../../hooks/useCouncil';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { normalizeMarkdown } from '../../../lib/utils/normalizeMarkdown';
 
 interface Props {
   experts: Record<string, ExpertState>;
@@ -21,14 +24,18 @@ export function CouncilPanel({ experts, synthesis, running, error }: Props) {
           <div key={name} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
             <strong>{name}</strong>{e?.status === 'thinking' && <em style={{ marginLeft: 8, color: '#718096' }}>thinking…</em>}
             {e?.status === 'final' && <span style={{ marginLeft: 8, color: '#276749', fontSize: 12 }}>✓</span>}
-            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, marginTop: 8, margin: '8px 0 0' }}>{e?.content ?? ''}</pre>
+            <div className="report-markdown" style={{ marginTop: 8 }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(e?.content ?? '')}</ReactMarkdown>
+            </div>
           </div>
         );
       })}
       {synthesis && (
         <div style={{ borderTop: '2px solid #1a365d', paddingTop: 12 }}>
           <strong>Council Synthesis</strong>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 14, marginTop: 8, margin: '8px 0 0' }}>{synthesis}</pre>
+          <div className="report-markdown" style={{ marginTop: 8 }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(synthesis)}</ReactMarkdown>
+          </div>
         </div>
       )}
     </div>

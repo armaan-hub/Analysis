@@ -86,7 +86,7 @@ function AIMessage({ msg, onSourceClick, resolve }: { msg: Message; onSourceClic
     <div className="chat-msg chat-msg--ai">
       <DiamondIcon />
       <div className="chat-msg__body">
-        <div className="chat-msg__bubble">
+        <div className="chat-msg__bubble report-markdown">
           {msg.queriesRun && msg.queriesRun.length > 0 && (
             <SearchIndicator queries={msg.queriesRun} />
           )}

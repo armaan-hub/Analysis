@@ -21,11 +21,11 @@ def _make_engine_with_results(raw_results: list[dict]) -> RAGEngine:
 
     mock_collection = MagicMock()
     mock_collection.count.return_value = 10
-    # Convert score back to distance for ChromaDB format: distance = 1 - score
+    # Convert score back to ChromaDB cosine distance: score = 1 - dist/2  →  dist = 2*(1-score)
     mock_collection.query.return_value = {
         "documents": [[r["text"] for r in raw_results]],
         "metadatas": [[r["metadata"] for r in raw_results]],
-        "distances": [[1 - r["score"] for r in raw_results]],
+        "distances": [[2 * (1 - r["score"]) for r in raw_results]],
         "ids": [[f"chunk_{i}" for i in range(len(raw_results))]],
     }
     engine.collection = mock_collection

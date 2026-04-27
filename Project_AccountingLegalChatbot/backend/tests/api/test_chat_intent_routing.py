@@ -1,4 +1,5 @@
 import pytest
+import json
 from unittest.mock import patch, AsyncMock
 from core.chat.domain_classifier import DomainLabel, ClassifierResult
 from core.llm_manager import LLMResponse
@@ -18,7 +19,8 @@ async def test_intent_directive_is_appended(client):
             from types import SimpleNamespace
             return SimpleNamespace(content='{"output_type":"list","topic":"VAT exempt items"}')
         # Final LLM call — capture messages so we can assert on the system prompt
-        captured["messages"] = messages
+        import copy
+        captured["messages"] = json.loads(json.dumps(messages)) # Deep copy via JSON to be safe and remove objects
         return LLMResponse(
             content="The list is: item1, item2",
             tokens_used=10,
@@ -44,6 +46,7 @@ async def test_intent_directive_is_appended(client):
 
     assert r.status_code == 200
     msgs = captured.get("messages") or []
+    print(f"\nDEBUG: msgs = {msgs}")
     sys_content = next((m["content"] for m in msgs if m["role"] == "system"), "")
     assert "USER INTENT" in sys_content
     assert "list" in sys_content

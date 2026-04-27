@@ -65,6 +65,14 @@ async def classify_domain(query: str) -> ClassifierResult:
         return ClassifierResult(domain=domain, confidence=confidence, alternatives=alts)
     except Exception as e:
         logger.warning("Domain classifier failed, falling back to general_law: %s", e)
+        
+        # Keyword-based fallback for critical topics
+        lower_query = query.lower()
+        if "hotel apartment" in lower_query or "commercial property" in lower_query:
+            return ClassifierResult(
+                domain=DomainLabel.VAT, confidence=0.8, alternatives=[]
+            )
+            
         return ClassifierResult(
             domain=DomainLabel.GENERAL_LAW, confidence=0.3, alternatives=[]
         )
