@@ -63,3 +63,45 @@ def test_no_skip_when_results_exist():
 def test_no_skip_when_not_doc_scoped():
     # Not doc-scoped: web search fallback may still fire — don't block LLM
     assert should_skip_llm(search_results=[], doc_scoped=False) is False
+
+
+def test_verified_quote_not_flagged():
+    """A quote whose key words appear verbatim in source should NOT be flagged."""
+    answer = (
+        '"Supplies that are zero-rated include exported goods." '
+        '"The standard VAT rate is five percent under this decree."'
+    )
+    chunks = [{"text": "Supplies that are zero-rated include exported goods. "
+                        "The standard VAT rate is five percent under this decree."}]
+    result = validate_citations(answer, chunks)
+    assert "🚨" not in result
+
+
+def test_claims_only_triggers_warning():
+    """Two unverified claims (no quotes) should also trigger the 🚨 warning."""
+    answer = (
+        "The law states: all financial institutions must report holdings quarterly. "
+        "According to Article 15: foreign investors are exempt from all transaction levies."
+    )
+    chunks = [{"text": "Standard VAT rate is 5% on most goods."}]
+    result = validate_citations(answer, chunks)
+    assert "🚨" in result
+
+
+def test_alternate_refusal_prefixes_skip_validation():
+    """'i do not have' and 'no information' prefixes should skip validation."""
+    for prefix in ("I do not have the required documents.", "No information available."):
+        result = validate_citations(prefix, [])
+        assert "🚨" not in result
+        assert result == prefix
+
+
+def test_curly_quotes_detected():
+    """Curly quotes should be treated same as straight quotes."""
+    answer = (
+        '\u201cThe law states that penalties double each month.\u201d '
+        '\u201cAccording to Article 5: all exports face additional levy.\u201d'
+    )
+    chunks = [{"text": "VAT is 5%."}]
+    result = validate_citations(answer, chunks)
+    assert "🚨" in result
