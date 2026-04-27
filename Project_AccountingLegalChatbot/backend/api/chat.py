@@ -621,6 +621,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         "page": r["metadata"].get("page", "?"),
                         "score": round(r.get("score", 0), 3),
                         "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
+                        "domain": r["metadata"].get("domain", ""),
                     }
                     for r in _search_results
                 ]
@@ -936,6 +937,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     "page": r["metadata"].get("page", "?"),
                     "score": round(r.get("score", 0), 3),
                     "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
+                    "domain": r["metadata"].get("domain", ""),
                 }
                 for r in search_results
             ]
