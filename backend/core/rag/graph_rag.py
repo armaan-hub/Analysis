@@ -19,7 +19,7 @@ try:
     import spacy as _spacy
     _nlp = _spacy.load("en_core_web_sm")
     _SPACY_AVAILABLE = True
-except Exception:
+except (ImportError, OSError):
     _nlp = None
     _SPACY_AVAILABLE = False
 
@@ -27,7 +27,7 @@ except Exception:
 _FINANCE_TERMS = frozenset([
     "revenue", "ebitda", "net profit", "gross margin", "cash flow",
     "balance sheet", "income statement", "vat", "tax", "audit", "ifrs", "gaap",
-    "amortisation", "depreciation", "provision", "liability", "asset",
+    "amortisation", "depreciation", "provision", "asset",
     "equity", "dividend", "working capital", "free cash flow",
 ])
 
@@ -41,6 +41,10 @@ _LEGAL_TERMS = frozenset([
     "corporate governance", "shareholder", "board of directors",
     "commercial", "partnership", "company law",
 ])
+
+assert not (_FINANCE_TERMS & _LEGAL_TERMS), (
+    f"Term overlap between FINANCE and LEGAL sets: {_FINANCE_TERMS & _LEGAL_TERMS}"
+)
 
 # ── UAE-specific regex patterns ───────────────────────────────────────────────
 _UAE_LAW_RE = re.compile(
@@ -140,7 +144,7 @@ class GraphRAG:
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ent_doc ON entities(doc_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_ent_name ON entities(name COLLATE NOCASE)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ent_name_lower ON entities(LOWER(name))")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS entity_relations (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -214,15 +218,16 @@ class GraphRAG:
             WHERE LOWER(name) IN ({placeholders})
             GROUP BY doc_id, chunk_index
             ORDER BY match_count DESC
+            LIMIT ?
             """,
-            normalised,
+            normalised + [top_k],
         ).fetchall()
         if self._conn is None:
             conn.close()
 
         total = len(normalised)
         results = []
-        for doc_id, chunk_index, match_count in rows[:top_k]:
+        for doc_id, chunk_index, match_count in rows:
             results.append({
                 "chunk_id": f"{doc_id}_chunk_{chunk_index}",
                 "doc_id": doc_id,
