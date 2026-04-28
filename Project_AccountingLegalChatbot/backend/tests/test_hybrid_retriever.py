@@ -112,3 +112,30 @@ async def test_graph_failure_still_returns_vector_results(mock_rag, mock_graph):
     results = await retriever.retrieve("wills", top_k=5)
     assert len(results) >= 1
     assert results[0]["id"] == "docA_chunk_0"
+
+
+@pytest.mark.asyncio
+async def test_combined_score_formula(mock_rag, mock_graph):
+    """Merged chunk must carry exactly 0.6*vec + 0.4*graph combined score."""
+    retriever = HybridRetriever(mock_rag, mock_graph)
+    results = await retriever.retrieve("estate wills", top_k=10)
+    by_id = {r["id"]: r for r in results}
+
+    # docA_chunk_0 appears in both paths: 0.6*0.85 + 0.4*0.7 = 0.79
+    r = by_id["docA_chunk_0"]
+    assert abs(r["combined_score"] - 0.79) < 1e-6, f"Got: {r['combined_score']}"
+
+    # docA_chunk_1 is vector-only: 0.6*0.80 = 0.48
+    r1 = by_id["docA_chunk_1"]
+    assert abs(r1["combined_score"] - 0.48) < 1e-6, f"Got: {r1['combined_score']}"
+
+
+@pytest.mark.asyncio
+async def test_graph_only_chunk_missing_from_chromadb_is_dropped(mock_rag, mock_graph):
+    """Graph-only chunk not in ChromaDB must be silently omitted, not crash."""
+    mock_rag.collection.get = MagicMock(return_value={"ids": [], "documents": [], "metadatas": []})
+    retriever = HybridRetriever(mock_rag, mock_graph)
+    results = await retriever.retrieve("estate", top_k=5)
+    ids = {r["id"] for r in results}
+    assert "docB_chunk_0" not in ids
+    assert len(results) >= 1

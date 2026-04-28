@@ -70,10 +70,10 @@ class HybridRetriever:
         """
         query_entities = _extract_query_entities(query)
 
-        vec_task = asyncio.create_task(self._vector_search(query, top_k, rag_filter))
-        graph_task = asyncio.create_task(self._graph_search(query_entities, top_k))
         vec_results, graph_results = await asyncio.gather(
-            vec_task, graph_task, return_exceptions=True
+            self._vector_search(query, top_k, rag_filter),
+            self._graph_search(query_entities, top_k),
+            return_exceptions=True,
         )
 
         if isinstance(vec_results, Exception):
@@ -105,7 +105,7 @@ class HybridRetriever:
                     + self._gw * gs
                 )
             else:
-                chunk_data = self._fetch_chunk(cid)
+                chunk_data = await self._fetch_chunk(cid)
                 if chunk_data:
                     merged[cid] = {
                         "id": cid,
@@ -127,11 +127,14 @@ class HybridRetriever:
     async def _graph_search(self, entities: list[str], top_k: int) -> list[dict]:
         if not entities:
             return []
-        return self._graph.search_by_entities(entities, top_k=top_k)
+        return await asyncio.to_thread(
+            self._graph.search_by_entities, entities, top_k=top_k
+        )
 
-    def _fetch_chunk(self, chunk_id: str) -> dict | None:
+    async def _fetch_chunk(self, chunk_id: str) -> dict | None:
         try:
-            result = self._rag.collection.get(
+            result = await asyncio.to_thread(
+                self._rag.collection.get,
                 ids=[chunk_id],
                 include=["documents", "metadatas"],
             )
