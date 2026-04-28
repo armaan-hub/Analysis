@@ -46,6 +46,9 @@ _TITLE_GENERATION_DELAY_S: float = 0.1  # allow send_message's DB commit to prop
 # Below this threshold we fall back to category-only search (search all domains).
 _DOMAIN_FILTER_MIN_CONFIDENCE: float = 0.60
 
+# Retry threshold: if best filtered score is below this, retry with no domain filter.
+_BROAD_FALLBACK_THRESHOLD: float = 0.65
+
 # Maps classified domain label → document domain values to include in RAG filter.
 # "general" / "general_law" are intentionally absent — they mean "search all domains".
 _DOMAIN_TO_DOC_DOMAINS: dict[str, list[str]] = {
@@ -585,6 +588,51 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     logger.warning("RAG search failed, falling back to no-context mode: %s", _rag_exc)
                     _search_results = []
 
+                # ------ broad-search fallback ------
+                # Check if a domain filter WAS applied and results are weak
+                _domain_filter_applied = (
+                    _rag_filter is not None
+                    and (
+                        ("domain" in _rag_filter)
+                        or ("$and" in _rag_filter and any("domain" in c for c in _rag_filter["$and"]))
+                    )
+                )
+                if _domain_filter_applied and not _doc_scoped and _search_results:
+                    _top_score = max((r.get("score", 0) for r in _search_results), default=0.0)
+                    if _top_score < _BROAD_FALLBACK_THRESHOLD:
+                        try:
+                            # Retry with base filter only (no domain filter)
+                            if req.mode == "fast":
+                                _broad_all = await asyncio.gather(
+                                    *[rag_engine.search(
+                                        q,
+                                        top_k=settings.fast_top_k,
+                                        filter=_base_filter,
+                                        min_score=settings.rag_min_score,
+                                    ) for q in _query_vars],
+                                    return_exceptions=True,
+                                )
+                                _broad_results = _dedup_merge(_broad_all, settings.fast_top_k)
+                            else:
+                                _broad_results = await rag_engine.search(
+                                    req.message,
+                                    top_k=settings.top_k_results,
+                                    filter=_base_filter,
+                                    min_score=settings.rag_min_score,
+                                )
+                            # Use broad results if they score better
+                            if _broad_results:
+                                _broad_top = max((r.get("score", 0) for r in _broad_results), default=0.0)
+                                if _broad_top > _top_score:
+                                    _search_results = _broad_results
+                                    logger.info(
+                                        f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
+                                        f"broad top score {_broad_top:.2f} used instead"
+                                    )
+                        except Exception as _fallback_exc:
+                            logger.warning(f"Broad fallback search failed (non-fatal): {_fallback_exc}")
+                # ------ end fallback ------
+
                 logger.info("RAG returned %d results for conversation %s", len(_search_results), conversation.id)
 
             # No-LLM guard: doc-scoped query with zero chunks → honest refusal
@@ -654,8 +702,10 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _th = _build_sliding_context(history[:-1])
             for _m in _th:
                 _msgs.append({"role": _m.role, "content": _m.content})
+            # Append formatting reminder to the system message (not as a separate mid-conversation system role,
+            # which causes HTTP 400 on Mistral/OpenAI-compatible APIs when placed after user/assistant turns)
             if req.mode == "fast":
-                _msgs.append({"role": "system", "content": FORMATTING_REMINDER})
+                _msgs[0]["content"] += f"\n\n{FORMATTING_REMINDER}"
             _msgs.append({"role": "user", "content": req.message})
 
             # ── 8. Web search fallback (if no RAG results) ───────────────────
@@ -897,8 +947,57 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             logger.warning(f"RAG search failed, falling back to no-context mode: {rag_exc}")
             search_results = []
 
-        # No-LLM guard: doc-scoped query with zero chunks → honest refusal
+        # ------ broad-search fallback ------
+        # Check if a domain filter WAS applied and results are weak
+        _domain_filter_applied = (
+            rag_filter is not None
+            and (
+                ("domain" in rag_filter)
+                or ("$and" in rag_filter and any("domain" in c for c in rag_filter["$and"]))
+            )
+        )
         _doc_scoped_ns = req.mode == "analyst" and bool(req.selected_doc_ids)
+        if _domain_filter_applied and not _doc_scoped_ns and search_results:
+            _top_score = max((r.get("score", 0) for r in search_results), default=0.0)
+            if _top_score < _BROAD_FALLBACK_THRESHOLD:
+                try:
+                    # Retry with base filter only (no domain filter)
+                    if req.mode == "fast":
+                        query_variations = await _get_query_variations(req.message, req.provider)
+                        _broad_all = await asyncio.gather(
+                            *[
+                                rag_engine.search(
+                                    q,
+                                    top_k=settings.fast_top_k,
+                                    filter=_base_filter,
+                                    min_score=settings.rag_min_score,
+                                )
+                                for q in query_variations
+                            ],
+                            return_exceptions=True,
+                        )
+                        _broad_results = _dedup_merge(_broad_all, settings.fast_top_k)
+                    else:
+                        _broad_results = await rag_engine.search(
+                            req.message,
+                            top_k=settings.top_k_results,
+                            filter=_base_filter,
+                            min_score=settings.rag_min_score,
+                        )
+                    # Use broad results if they score better
+                    if _broad_results:
+                        _broad_top = max((r.get("score", 0) for r in _broad_results), default=0.0)
+                        if _broad_top > _top_score:
+                            search_results = _broad_results
+                            logger.info(
+                                f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
+                                f"broad top score {_broad_top:.2f} used instead"
+                            )
+                except Exception as fallback_exc:
+                    logger.warning(f"Broad fallback search failed (non-fatal): {fallback_exc}")
+        # ------ end fallback ------
+
+        # No-LLM guard: doc-scoped query with zero chunks → honest refusal
         from core.accuracy.citation_validator import should_skip_llm
         if should_skip_llm(search_results, _doc_scoped_ns):
             _no_ctx = "I don't have this in my documents."
@@ -970,9 +1069,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     for msg in trimmed_history:
         messages.append({"role": msg.role, "content": msg.content})
 
-    # Add current user message (with formatting reminder for fast mode)
+    # Add current user message
+    # Formatting reminder goes into system message (not as a separate role mid-conversation,
+    # which causes HTTP 400 on Mistral/OpenAI-compatible APIs)
     if req.mode == "fast":
-        messages.append({"role": "system", "content": FORMATTING_REMINDER})
+        messages[0]["content"] += f"\n\n{FORMATTING_REMINDER}"
     messages.append({"role": "user", "content": req.message})
 
     # Call LLM
@@ -1331,7 +1432,11 @@ async def deep_research_stream(req: DeepResearchRequest):
 
             # Step 2: Web research
             yield f"data: {json.dumps({'type': 'step', 'text': 'Running deep web research…'})}\n\n"
-            web_results = await deep_search(req.query, max_queries=5)
+            try:
+                web_results = await asyncio.wait_for(deep_search(req.query, max_queries=5), timeout=60.0)
+            except asyncio.TimeoutError:
+                logger.warning("Deep web search timed out — continuing with RAG results only")
+                web_results = []
             web_sources: list[dict] = []
             web_context_parts: list[str] = []
             for w in web_results or []:
