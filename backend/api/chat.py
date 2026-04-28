@@ -24,11 +24,24 @@ from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, 
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from core.chat.intent_classifier import classify_intent
 from core.rag_engine import rag_engine, _infer_domain_from_name
+from pathlib import Path as _Path
+from core.rag.hybrid_retriever import HybridRetriever
+from core.rag.graph_rag import GraphRAG
 from config import settings
 from core.web_search import search_web, build_web_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
+
+
+def _build_hybrid_retriever() -> HybridRetriever:
+    return HybridRetriever(
+        rag_engine=rag_engine,
+        graph_rag=GraphRAG(str(_Path(settings.graph_store_dir) / "graph.db")),
+    )
+
+
+_hybrid_retriever = _build_hybrid_retriever()
 
 # Type aliases
 ConversationMode = Literal["fast", "deep_research", "analyst"]
@@ -574,24 +587,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     _rag_filter = _build_rag_domain_filter(_cls, _base_filter)
 
                 try:
-                    if req.mode == "fast":
-                        _all = await asyncio.gather(
-                            *[rag_engine.search(
-                                q,
-                                top_k=settings.fast_top_k,
-                                filter=_rag_filter,
-                                min_score=settings.rag_min_score,
-                            ) for q in _query_vars],
-                            return_exceptions=True,
-                        )
-                        _search_results = _dedup_merge(_all, settings.fast_top_k)
-                    else:
-                        _search_results = await rag_engine.search(
-                            req.message,
-                            top_k=settings.top_k_results,
-                            filter=_rag_filter,
-                            min_score=settings.rag_min_score,
-                        )
+                    _search_results = await _hybrid_retriever.retrieve(
+                        query=req.message,
+                        top_k=settings.fast_top_k if req.mode == "fast" else settings.top_k_results,
+                        rag_filter=_rag_filter,
+                    )
                 except Exception as _rag_exc:
                     logger.warning("RAG search failed, falling back to no-context mode: %s", _rag_exc)
                     _search_results = []
@@ -951,31 +951,20 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             rag_filter = _build_rag_domain_filter(classifier_result, _base_filter)
 
         try:
-            if req.mode == "fast":
-                query_variations = await _get_query_variations(req.message, req.provider)
-                all_results = await asyncio.gather(
-                    *[
-                        rag_engine.search(
-                            q,
-                            top_k=settings.fast_top_k,
-                            filter=rag_filter,
-                            min_score=settings.rag_min_score,
-                        )
-                        for q in query_variations
-                    ],
-                    return_exceptions=True,
-                )
-                search_results = _dedup_merge(all_results, settings.fast_top_k)
-            else:
-                search_results = await rag_engine.search(
-                    req.message,
-                    top_k=settings.top_k_results,
-                    filter=rag_filter,
-                    min_score=settings.rag_min_score,
-                )
+            query_variations = (
+                await _get_query_variations(req.message, req.provider)
+                if req.mode == "fast"
+                else [req.message]
+            )
+            search_results = await _hybrid_retriever.retrieve(
+                query=req.message,
+                top_k=settings.fast_top_k if req.mode == "fast" else settings.top_k_results,
+                rag_filter=rag_filter,
+            )
         except Exception as rag_exc:
             logger.warning(f"RAG search failed, falling back to no-context mode: {rag_exc}")
             search_results = []
+            query_variations = [req.message]
 
         # ------ broad-search fallback ------
         # Check if a domain filter WAS applied and results are weak

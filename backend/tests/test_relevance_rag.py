@@ -108,14 +108,14 @@ def test_bulk_retag_script_exists_and_has_correct_structure():
 @pytest.mark.asyncio
 async def test_chat_default_filter_is_law_finance(client):
     """Without selected_doc_ids, RAG must use category IN ['law','finance'] — not unfiltered."""
-    search_calls = []
+    retrieve_calls = []
 
-    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
-        search_calls.append({"filter": filter, "min_score": min_score})
+    async def _fake_retrieve(query, top_k=8, rag_filter=None):
+        retrieve_calls.append({"rag_filter": rag_filter})
         return []
 
     with (
-        patch("api.chat.rag_engine.search", side_effect=_fake_search),
+        patch("api.chat._hybrid_retriever.retrieve", side_effect=_fake_retrieve),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -123,12 +123,12 @@ async def test_chat_default_filter_is_law_finance(client):
         )
 
     assert resp.status_code == 200
-    assert search_calls, "rag_engine.search must have been called"
-    call = search_calls[0]
+    assert retrieve_calls, "_hybrid_retriever.retrieve must have been called"
+    call = retrieve_calls[0]
     # The filter must always include the law+finance category guard (not unfiltered).
     # Domain filtering may also be applied on top (via _build_rag_domain_filter).
     cat_filter = {"category": {"$in": ["law", "finance"]}}
-    actual = call["filter"]
+    actual = call["rag_filter"]
     has_category = actual == cat_filter or (
         "$and" in actual and any(c == cat_filter for c in actual["$and"])
     )
@@ -136,22 +136,19 @@ async def test_chat_default_filter_is_law_finance(client):
         f"Expected law+finance category filter to be present, got: {actual}"
     )
     assert actual is not None, "Filter must not be None (search must not be unfiltered)"
-    assert call["min_score"] == pytest.approx(0.30), (
-        f"Expected min_score=0.30, got: {call['min_score']}"
-    )
 
 
 @pytest.mark.asyncio
 async def test_chat_selected_docs_override_default_filter(client):
     """Analyst mode with selected_doc_ids uses doc_id filter only (client workbooks are valid)."""
-    search_calls = []
+    retrieve_calls = []
 
-    async def _fake_search(query, top_k=5, filter=None, min_score=None, **kw):
-        search_calls.append({"filter": filter, "min_score": min_score})
+    async def _fake_retrieve(query, top_k=8, rag_filter=None):
+        retrieve_calls.append({"rag_filter": rag_filter})
         return []
 
     with (
-        patch("api.chat.rag_engine.search", side_effect=_fake_search),
+        patch("api.chat._hybrid_retriever.retrieve", side_effect=_fake_retrieve),
     ):
         resp = await client.post(
             "/api/chat/send",
@@ -165,13 +162,10 @@ async def test_chat_selected_docs_override_default_filter(client):
         )
 
     assert resp.status_code == 200
-    assert search_calls
-    call = search_calls[0]
-    assert call["filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
-        f"Expected doc_id-only filter for analyst mode, got: {call['filter']}"
-    )
-    assert call["min_score"] == pytest.approx(0.30), (
-        f"Expected min_score=0.30 for doc-scoped search, got: {call['min_score']}"
+    assert retrieve_calls
+    call = retrieve_calls[0]
+    assert call["rag_filter"] == {"doc_id": {"$in": ["doc-tb-001"]}}, (
+        f"Expected doc_id-only filter for analyst mode, got: {call['rag_filter']}"
     )
 
 
@@ -500,7 +494,7 @@ async def test_general_law_keeps_high_score_sources(client):
     from unittest.mock import AsyncMock, patch
 
     law_result = [
-        {"text": "UAE Personal Status Law Article 317 on succession.", "metadata": {"source": "PersonalStatusLaw.pdf", "domain": "general", "doc_id": "d5", "category": "law", "page": 1}, "score": 0.82},
+        {"id": "law-chunk-1", "text": "UAE Personal Status Law Article 317 on succession.", "metadata": {"source": "PersonalStatusLaw.pdf", "domain": "general", "doc_id": "d5", "category": "law", "page": 1}, "score": 0.82},
     ]
 
     payload = {

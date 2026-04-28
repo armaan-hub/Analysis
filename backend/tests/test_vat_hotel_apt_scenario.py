@@ -64,6 +64,7 @@ def _mock_llm(response_text: str = "VAT answer"):
 
 RAG_RESULT = [
     {
+        "id": "chunk-vatgre1",
         "text": (
             "Hotel Apartments are classified as commercial property under UAE VAT Law. "
             "The sale is subject to 5% standard-rate VAT. "
@@ -79,6 +80,7 @@ RAG_RESULT = [
         "score": 0.91,
     },
     {
+        "id": "chunk-vat-payment",
         "text": (
             "Documents required for VAT payment on property sale: "
             "Sale/Purchase Agreement, Title Deed, Emirates ID, VAT Return Form VAT201."
@@ -850,3 +852,130 @@ class TestMockProviderContextAwareness:
         assert "Hotel Apartment: 5% VAT applies." != resp.content, (
             "Council synthesis must not be identical to base answer"
         )
+
+
+# ── Domain Filter Parity: Streaming vs Non-Streaming ────────────────────────
+# Regression test for the bug where non-streaming path skipped
+# _build_rag_domain_filter, allowing off-domain docs to leak through.
+
+@pytest.mark.asyncio
+async def test_non_streaming_applies_domain_filter_for_vat(client):
+    """Non-streaming send must apply the VAT domain filter to the RAG search call.
+
+    Bug: streaming path calls _build_rag_domain_filter; non-streaming path did not.
+    Symptom: VATP035 (Electronic Devices) document leaked into Hotel Apartment VAT
+    responses at low score because no domain filter narrowed the search to vat docs.
+
+    The expected filter for VAT domain is:
+      {"$and": [{"category": {"$in": ["law", "finance"]}}, {"domain": {"$in": ["vat"]}}]}
+    """
+    from api.chat import _DOMAIN_TO_DOC_DOMAINS
+
+    search_mock = AsyncMock(return_value=RAG_RESULT)
+
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_vat_classifier())),
+        patch("api.chat.get_llm_provider", return_value=_mock_llm()),
+        patch("api.chat.rag_engine.search", new=search_mock),
+        patch("api.chat._generate_title", new=AsyncMock()),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": QUERY, "mode": "fast", "stream": False},
+        )
+
+    assert resp.status_code == 200, resp.text
+
+    # Collect every unique filter dict passed to rag_engine.search
+    called_filters = [call.kwargs.get("filter") for call in search_mock.call_args_list]
+    assert called_filters, "rag_engine.search must have been called"
+
+    vat_domains = _DOMAIN_TO_DOC_DOMAINS["vat"]  # ["vat"]
+    domain_clause = {"domain": {"$in": vat_domains}}
+
+    for flt in called_filters:
+        assert flt is not None, "RAG search must use a filter (not unfiltered)"
+        # The filter must include the domain clause (either inline or inside $and)
+        has_domain_filter = (
+            flt == domain_clause
+            or (
+                "$and" in flt
+                and any(clause == domain_clause for clause in flt["$and"])
+            )
+        )
+        assert has_domain_filter, (
+            f"Non-streaming path did not apply VAT domain filter.\n"
+            f"  Expected domain clause: {domain_clause}\n"
+            f"  Actual filter used: {flt}\n"
+            "  This allows off-domain docs (e.g. VATP035 Electronic Devices) to leak in."
+        )
+
+
+@pytest.mark.asyncio
+async def test_streaming_and_non_streaming_use_same_rag_filter_shape(client):
+    """Streaming and non-streaming paths must produce equivalent RAG filter shapes.
+
+    Both paths must apply _build_rag_domain_filter so the domain clause appears
+    in the filter sent to ChromaDB. Before the fix, only streaming did this.
+    """
+    from api.chat import _DOMAIN_TO_DOC_DOMAINS
+
+    stream_filters: list = []
+    nonstream_filters: list = []
+
+    async def capture_stream(*args, **kwargs):
+        stream_filters.append(kwargs.get("filter"))
+        return RAG_RESULT
+
+    async def capture_nonstream(*args, **kwargs):
+        nonstream_filters.append(kwargs.get("filter"))
+        return RAG_RESULT
+
+    # Streaming call
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_vat_classifier())),
+        patch("api.chat.get_llm_provider", return_value=_mock_llm()),
+        patch("api.chat.rag_engine.search", new=capture_stream),
+        patch("api.chat.classify_intent", new=AsyncMock(
+            return_value=type("I", (), {"output_type": "one_pager", "topic": "VAT"})()
+        )),
+        patch("api.chat._get_query_variations", new=AsyncMock(return_value=[QUERY])),
+        patch("api.chat.search_web", new=AsyncMock(return_value=[])),
+        patch("api.chat._generate_title", new=AsyncMock()),
+    ):
+        await client.post(
+            "/api/chat/send",
+            json={"message": QUERY, "mode": "fast", "stream": True},
+        )
+
+    # Non-streaming call
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_vat_classifier())),
+        patch("api.chat.get_llm_provider", return_value=_mock_llm()),
+        patch("api.chat.rag_engine.search", new=capture_nonstream),
+        patch("api.chat._generate_title", new=AsyncMock()),
+    ):
+        await client.post(
+            "/api/chat/send",
+            json={"message": QUERY, "mode": "fast", "stream": False},
+        )
+
+    assert stream_filters, "Streaming path must call rag_engine.search"
+    assert nonstream_filters, "Non-streaming path must call rag_engine.search"
+
+    vat_domains = _DOMAIN_TO_DOC_DOMAINS["vat"]
+    domain_clause = {"domain": {"$in": vat_domains}}
+
+    def _has_domain_clause(flt: dict) -> bool:
+        return (
+            flt == domain_clause
+            or "$and" in flt
+            and any(c == domain_clause for c in flt["$and"])
+        )
+
+    assert all(_has_domain_clause(f) for f in stream_filters), (
+        f"Streaming path missing domain clause. Filters: {stream_filters}"
+    )
+    assert all(_has_domain_clause(f) for f in nonstream_filters), (
+        f"Non-streaming path missing domain clause. Filters: {nonstream_filters}"
+    )

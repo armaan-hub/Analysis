@@ -27,7 +27,7 @@ async def test_selected_doc_ids_scopes_rag_filter(client):
     """When selected_doc_ids is provided in non-analyst mode, rag_engine.search must be called
     with $and filter combining doc_id scope and law+finance category to prevent workbook contamination."""
     mock_search = AsyncMock(return_value=[
-        {"text": "stub chunk", "score": 0.9, "metadata": {"source": "test.pdf"}}
+        {"id": "chunk_001", "text": "stub chunk", "score": 0.9, "metadata": {"source": "test.pdf"}}
     ])
 
     with (
@@ -53,6 +53,7 @@ async def test_selected_doc_ids_scopes_rag_filter(client):
         "$and": [
             {"doc_id": {"$in": ["doc-aaa", "doc-bbb"]}},
             {"category": {"$in": ["law", "finance"]}},
+            {"domain": {"$in": ["vat"]}},
         ]
     }
     assert resp.status_code == 200

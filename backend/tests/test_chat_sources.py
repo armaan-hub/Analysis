@@ -26,6 +26,7 @@ def _mock_llm():
 
 RAG_RESULT = [
     {
+        "id": "chunk-vat-001",
         "text": "VAT rate is 5% on most goods.",
         "metadata": {
             "source": "a1b2c3d4_vat_guide.pdf",
@@ -44,7 +45,7 @@ async def test_sources_use_original_name_not_uuid(client):
     with (
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier())),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
-        patch("api.chat.rag_engine.search", new=AsyncMock(return_value=RAG_RESULT)),
+        patch("api.chat._hybrid_retriever.retrieve", new=AsyncMock(return_value=RAG_RESULT)),
         patch("api.chat._generate_title", new=AsyncMock()),
     ):
         resp = await client.post(
@@ -58,3 +59,30 @@ async def test_sources_use_original_name_not_uuid(client):
         f"Expected original_name, got: {sources[0]['source']}"
     )
     assert "a1b2c3d4" not in sources[0]["source"]
+
+
+@pytest.mark.asyncio
+async def test_chat_uses_hybrid_retriever_for_search(client):
+    """The /api/chat/send endpoint must use HybridRetriever for primary RAG search."""
+    from core.rag.hybrid_retriever import HybridRetriever
+
+    hybrid_mock = AsyncMock(return_value=[
+        {
+            "id": "chunk-001",
+            "text": "UAE VAT 5% standard rate.",
+            "score": 0.91,
+            "metadata": {
+                "source": "vat_guide.pdf",
+                "original_name": "UAE VAT Guide.pdf",
+                "page": 1,
+                "doc_id": "doc-vat",
+            },
+        }
+    ])
+    with patch.object(HybridRetriever, "retrieve", hybrid_mock):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": "Draft wills for 10 million estate", "session_id": None},
+        )
+    assert resp.status_code == 200
+    hybrid_mock.assert_called_once()

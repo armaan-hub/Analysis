@@ -43,13 +43,13 @@ async def test_get_query_variations_falls_back_on_error():
 
 @pytest.mark.asyncio
 async def test_fast_mode_calls_rag_multiple_times(client):
-    """Fast mode send must call rag_engine.search for each query variation."""
-    search_mock = AsyncMock(return_value=[])
+    """Fast mode send must delegate to HybridRetriever.retrieve exactly once."""
+    retrieve_mock = AsyncMock(return_value=[])
 
     with (
         patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier())),
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),
-        patch("api.chat.rag_engine.search", search_mock),
+        patch("api.chat._hybrid_retriever.retrieve", new=retrieve_mock),
         patch("api.chat._get_query_variations", new=AsyncMock(return_value=["q1", "q2", "q3"])),
         patch("api.chat._generate_title", new=AsyncMock()),
     ):
@@ -58,6 +58,6 @@ async def test_fast_mode_calls_rag_multiple_times(client):
             json={"message": "UAE VAT rate?", "use_rag": True, "mode": "fast", "stream": False},
         )
     assert resp.status_code == 200
-    assert search_mock.call_count >= 2, (
-        f"Expected multiple RAG calls in fast mode, got {search_mock.call_count}"
+    assert retrieve_mock.call_count == 1, (
+        f"Expected exactly one HybridRetriever.retrieve call, got {retrieve_mock.call_count}"
     )
