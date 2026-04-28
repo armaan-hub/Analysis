@@ -325,6 +325,31 @@ class DocumentProcessor:
 
     # ── Chunking ──────────────────────────────────────────────────
 
+    @staticmethod
+    def _extract_heading_from_text(text: str) -> str:
+        """Return the most likely section heading from the start of a text block.
+
+        Heuristic: a heading is a line that is:
+        - Entirely uppercase, OR
+        - Title Case and <= 80 chars and ends without a sentence terminator
+        Returns empty string if no heading detected.
+        """
+        first_line = text.strip().split("\n")[0].strip()
+        if not first_line:
+            return ""
+        # All-caps heading (e.g. "WILLS AND INHERITANCE")
+        if first_line.isupper() and 3 <= len(first_line) <= 120:
+            return first_line
+        # Title Case heading (e.g. "Article 4 – Distribution of Estate")
+        words = first_line.split()
+        if (
+            2 <= len(words) <= 12
+            and not first_line[-1] in ".,:;"
+            and sum(1 for w in words if w and w[0].isupper()) >= len(words) * 0.6
+        ):
+            return first_line
+        return ""
+
     def _split_text(
         self,
         pages: list[dict],
@@ -334,10 +359,16 @@ class DocumentProcessor:
         """Split extracted pages/sheets into overlapping chunks."""
         chunks = []
         chunk_index = 0
+        current_section = ""
 
         for page_data in pages:
             text = page_data["text"]
             page_ref = page_data["page"]
+
+            # Update running section from the page's leading text
+            page_heading = self._extract_heading_from_text(text)
+            if page_heading:
+                current_section = page_heading
 
             # Sliding window chunking
             start = 0
@@ -346,6 +377,11 @@ class DocumentProcessor:
                 chunk_text = text[start:end].strip()
 
                 if chunk_text:
+                    chunk_heading = self._extract_heading_from_text(chunk_text)
+                    if chunk_heading:
+                        current_section = chunk_heading
+                    section = chunk_heading if chunk_heading else current_section
+
                     chunks.append(DocumentChunk(
                         text=chunk_text,
                         metadata={
@@ -353,6 +389,9 @@ class DocumentProcessor:
                             "source": filename,
                             "page": str(page_ref),
                             "chunk_index": chunk_index,
+                            "section": section,
+                            "word_count": len(chunk_text.split()),
+                            "total_chunks": 0,  # backfilled below
                         },
                     ))
                     chunk_index += 1
@@ -360,6 +399,11 @@ class DocumentProcessor:
                 start += self.chunk_size - self.chunk_overlap
                 if start >= len(text):
                     break
+
+        # Second pass: backfill total_chunks with the final count
+        total = len(chunks)
+        for chunk in chunks:
+            chunk.metadata["total_chunks"] = total
 
         return chunks
 
