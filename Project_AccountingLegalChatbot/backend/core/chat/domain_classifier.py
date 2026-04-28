@@ -87,6 +87,8 @@ _FLAT_KEYWORDS_SORTED: list[tuple[str, str]] = sorted(
 _FLAT_KW_LIST: list[str] = [kw for kw, _ in _FLAT_KEYWORDS]
 _KW_TO_DOMAIN: dict[str, str] = {kw: domain for kw, domain in _FLAT_KEYWORDS}
 
+_FUZZY_STOPWORDS: frozenset[str] = frozenset({"will", "may", "can", "has", "had"})
+
 
 def _word_boundary_match(kw: str, text: str) -> bool:
     """Return True if kw appears as a whole-word match in text."""
@@ -112,7 +114,7 @@ def _fuzzy_classify_query(query: str) -> "ClassifierResult | None":
 
     # Pass 2: difflib fuzzy match on individual query words
     for word in lower.split():
-        if len(word) < 3:
+        if len(word) < 3 or word in _FUZZY_STOPWORDS:
             continue
         matches = difflib.get_close_matches(word, _FLAT_KW_LIST, n=1, cutoff=_FUZZY_CUTOFF)
         if matches:
