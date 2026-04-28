@@ -553,6 +553,10 @@ async def test_ingest_stores_section_in_metadata():
     assert "section" in meta, f"Missing 'section' in {meta.keys()}"
     assert "word_count" in meta, f"Missing 'word_count' in {meta.keys()}"
     assert "total_chunks" in meta, f"Missing 'total_chunks' in {meta.keys()}"
+    assert meta["total_chunks"] == 1
+    assert meta["chunk_index"] == 0
+    assert meta["prev_chunk_id"] == ""
+    assert meta["next_chunk_id"] == ""
 
 
 @pytest.mark.asyncio
@@ -577,3 +581,5 @@ async def test_ingest_stores_entities_in_metadata():
     meta = captured_meta["metadatas"][0]
     assert "entities" in meta, f"Missing 'entities' in {meta.keys()}"
     assert isinstance(meta["entities"], str), f"entities must be str, got {type(meta['entities'])}"
+    # Federal Decree-Law No. 28 should be extracted by UAE law regex
+    assert len(meta["entities"]) > 0, "Expected non-empty entities for chunk with UAE law reference"

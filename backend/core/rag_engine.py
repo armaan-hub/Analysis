@@ -442,7 +442,7 @@ class RAGEngine:
             meta["domain"] = domain
             # GraphRAG enrichment fields
             meta.setdefault("section", "")
-            meta.setdefault("word_count", len(text.split()))
+            meta["word_count"] = int(raw.get("word_count") or len(text.split()))
             meta["total_chunks"] = len(chunks)
             meta["chunk_index"] = i
             meta["prev_chunk_id"] = f"{doc_id}_chunk_{i-1}" if i > 0 else ""
@@ -459,18 +459,28 @@ class RAGEngine:
             metadatas=metadatas,
         )
 
-        # Index entities in the knowledge graph (fire-and-forget: never block ingestion)
-        try:
-            from pathlib import Path
-            from config import settings
-            graph_db_path = Path(settings.graph_store_dir) / "graph.db"
-            graph_db_path.parent.mkdir(parents=True, exist_ok=True)
-            graph = _GraphRAG(db_path=str(graph_db_path))
-            for idx, (text, ents) in enumerate(zip(texts, entity_lists)):
-                if ents:
-                    graph.store_entities(doc_id, idx, ents)
-        except Exception as exc:
-            logger.warning(f"GraphRAG indexing skipped for {doc_id}: {exc}")
+        # True fire-and-forget: dispatch to background, never block ingest
+        async def _index_entities(
+            _doc_id: str, _texts: list, _entity_lists: list, _db_path: str
+        ) -> None:
+            try:
+                import asyncio as _asyncio
+                _graph = _GraphRAG(db_path=_db_path)
+                all_rows = [
+                    (_doc_id, idx, name, etype)
+                    for idx, ents in enumerate(_entity_lists)
+                    for name, etype in ents
+                ]
+                if all_rows:
+                    await _asyncio.to_thread(
+                        _graph._batch_store_entities, all_rows
+                    )
+            except Exception as exc:
+                logger.warning(f"GraphRAG indexing skipped for {_doc_id}: {exc}")
+
+        graph_db_path_str = str(Path(settings.graph_store_dir) / "graph.db")
+        Path(graph_db_path_str).parent.mkdir(parents=True, exist_ok=True)
+        asyncio.create_task(_index_entities(doc_id, texts, entity_lists, graph_db_path_str))
 
         return len(chunks)
 
