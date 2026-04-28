@@ -107,3 +107,9 @@ def test_search_by_entities_scores_higher_for_more_matches(graph):
     results = graph.search_by_entities(["wills", "estate"], top_k=5)
     scores = {r["chunk_id"]: r["graph_score"] for r in results}
     assert scores.get("docZ_chunk_0", 0) > scores.get("docZ_chunk_1", 0)
+
+
+def test_search_by_entities_empty_list_returns_empty(graph):
+    """Empty list and whitespace-only inputs return empty list."""
+    assert graph.search_by_entities([]) == []
+    assert graph.search_by_entities(["", "  "]) == []

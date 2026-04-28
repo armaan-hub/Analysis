@@ -33,7 +33,8 @@ _FINANCE_TERMS = frozenset([
 
 # ── UAE legal / inheritance keyword terms ────────────────────────────────────
 _LEGAL_TERMS = frozenset([
-    "inheritance", "estate", "will", "wills", "probate", "beneficiary",
+    "inheritance", "estate", "wills", "last will", "will and testament",
+    "testamentary", "probate", "beneficiary",
     "beneficiaries", "succession", "heir", "heirs", "testator", "testatrix",
     "executor", "guardian", "trust", "endowment", "waqf",
     "personal status", "family law", "divorce", "custody", "alimony",
@@ -45,6 +46,8 @@ _LEGAL_TERMS = frozenset([
 _overlap = _FINANCE_TERMS & _LEGAL_TERMS
 if _overlap:
     raise ValueError(f"Term overlap between FINANCE and LEGAL sets: {_overlap}")
+
+_ALL_KEYWORD_TERMS = _FINANCE_TERMS | _LEGAL_TERMS
 
 # ── UAE-specific regex patterns ───────────────────────────────────────────────
 _UAE_LAW_RE = re.compile(
@@ -58,6 +61,7 @@ _UAE_LAW_RE = re.compile(
 )
 
 _ARTICLE_RE = re.compile(r"\bArticle\s+\d+(?:\s*[–-]\s*\d+)?\b", re.IGNORECASE)
+# Matches 0–2 decimal places (AED amounts are conventionally 2 d.p.)
 _AED_RE = re.compile(r"\bAED\s*[\d,]+(?:\.\d{1,2})?\b", re.IGNORECASE)
 _ORG_RE = re.compile(
     r"\b([A-Z][a-zA-Z&,\.\s]{2,40}(?:Inc|Ltd|LLC|Corp|Co|Group|Holdings|FZE|PJSC)?)\b"
@@ -106,7 +110,7 @@ def _extract_entities(text: str) -> list[tuple[str, str]]:
     if not _SPACY_AVAILABLE:
         for m in _ORG_RE.finditer(text):
             name = m.group(1).strip().rstrip(",.")
-            if 3 <= len(name) <= 60 and name.lower() not in _FINANCE_TERMS | _LEGAL_TERMS:
+            if 3 <= len(name) <= 60 and name.lower() not in _ALL_KEYWORD_TERMS:
                 entities.append((name, "ORG"))
 
     # Deduplicate (case-insensitive), preserve first occurrence, cap at 40 per chunk
