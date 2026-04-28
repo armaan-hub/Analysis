@@ -3,7 +3,7 @@ Graph RAG layer.
 
 Stores named entities extracted from document chunks into SQLite, then uses
 NetworkX to traverse the entity graph and return related chunk indices.
-Entity extraction uses a regex + keyword heuristic to avoid extra LLM calls.
+Entity extraction uses spaCy (optional) + UAE-specific regex + keyword heuristics.
 """
 from __future__ import annotations
 
@@ -14,43 +14,110 @@ from typing import Sequence
 
 import networkx as nx
 
-# ── Simple keyword-based entity recogniser ───────────────────────────────────
-_ACCOUNTING_TERMS = frozenset([
+# ── Optional spaCy ───────────────────────────────────────────────────────────
+try:
+    import spacy as _spacy
+    _nlp = _spacy.load("en_core_web_sm")
+    _SPACY_AVAILABLE = True
+except Exception:
+    _nlp = None
+    _SPACY_AVAILABLE = False
+
+# ── Accounting / finance keyword terms ───────────────────────────────────────
+_FINANCE_TERMS = frozenset([
     "revenue", "ebitda", "net profit", "gross margin", "cash flow",
     "balance sheet", "income statement", "vat", "tax", "audit", "ifrs", "gaap",
     "amortisation", "depreciation", "provision", "liability", "asset",
     "equity", "dividend", "working capital", "free cash flow",
 ])
 
-_ENT_RE = re.compile(
+# ── UAE legal / inheritance keyword terms ────────────────────────────────────
+_LEGAL_TERMS = frozenset([
+    "inheritance", "estate", "will", "wills", "probate", "beneficiary",
+    "beneficiaries", "succession", "heir", "heirs", "testator", "testatrix",
+    "executor", "guardian", "trust", "endowment", "waqf",
+    "personal status", "family law", "divorce", "custody", "alimony",
+    "contract", "obligation", "liability", "penalty", "compensation",
+    "corporate governance", "shareholder", "board of directors",
+    "commercial", "partnership", "company law",
+])
+
+# ── UAE-specific regex patterns ───────────────────────────────────────────────
+_UAE_LAW_RE = re.compile(
+    r"(?:"
+    r"Federal\s+(?:Decree-?Law|Law)\s+No\.?\s*\d+"
+    r"|Cabinet\s+(?:Decision|Resolution)\s+No\.?\s*\d+"
+    r"|Ministerial\s+(?:Decision|Resolution)\s+No\.?\s*\d+"
+    r"|(?:UAE\s+)?(?:Civil|Commercial|Penal|Labour)\s+(?:Code|Law)"
+    r")",
+    re.IGNORECASE,
+)
+
+_ARTICLE_RE = re.compile(r"\bArticle\s+\d+(?:\s*[–-]\s*\d+)?\b", re.IGNORECASE)
+_AED_RE = re.compile(r"\bAED\s*[\d,]+(?:\.\d{1,2})?\b", re.IGNORECASE)
+_ORG_RE = re.compile(
     r"\b([A-Z][a-zA-Z&,\.\s]{2,40}(?:Inc|Ltd|LLC|Corp|Co|Group|Holdings|FZE|PJSC)?)\b"
 )
 
 
 def _extract_entities(text: str) -> list[tuple[str, str]]:
-    """Return list of (name, type) tuples from raw chunk text."""
+    """Return list of (name, type) tuples.
+
+    Type tags: METRIC, LEGAL, LAW, MONEY, ORG.
+    Tries spaCy first (if available), then falls back to regex + keyword heuristics.
+    """
     entities: list[tuple[str, str]] = []
     lower = text.lower()
-    for term in _ACCOUNTING_TERMS:
+
+    # Finance keyword terms
+    for term in _FINANCE_TERMS:
         if term in lower:
             entities.append((term.title(), "METRIC"))
-    for m in _ENT_RE.finditer(text):
-        name = m.group(1).strip().rstrip(",.")
-        if 3 <= len(name) <= 60 and name.lower() not in _ACCOUNTING_TERMS:
-            entities.append((name, "ORG"))
-    # deduplicate preserving order
+
+    # Legal keyword terms
+    for term in _LEGAL_TERMS:
+        if term in lower:
+            entities.append((term.title(), "LEGAL"))
+
+    # UAE law references
+    for m in _UAE_LAW_RE.finditer(text):
+        entities.append((m.group(0).strip(), "LAW"))
+
+    # Article references
+    for m in _ARTICLE_RE.finditer(text):
+        entities.append((m.group(0).strip(), "LAW"))
+
+    # AED monetary amounts
+    for m in _AED_RE.finditer(text):
+        entities.append((m.group(0).strip(), "MONEY"))
+
+    # spaCy NER (ORG, PERSON, DATE, GPE) — optional
+    if _SPACY_AVAILABLE and _nlp is not None:
+        doc = _nlp(text[:1000])  # cap at 1000 chars to control latency
+        for ent in doc.ents:
+            if ent.label_ in {"ORG", "PERSON", "DATE", "GPE", "LAW", "MONEY"}:
+                entities.append((ent.text.strip(), ent.label_))
+
+    # Fallback ORG regex when spaCy unavailable
+    if not _SPACY_AVAILABLE:
+        for m in _ORG_RE.finditer(text):
+            name = m.group(1).strip().rstrip(",.")
+            if 3 <= len(name) <= 60 and name.lower() not in _FINANCE_TERMS | _LEGAL_TERMS:
+                entities.append((name, "ORG"))
+
+    # Deduplicate (case-insensitive), preserve first occurrence, cap at 40 per chunk
     seen: set[str] = set()
     out: list[tuple[str, str]] = []
     for n, t in entities:
-        key = n.lower()
-        if key not in seen:
+        key = n.lower().strip()
+        if key and key not in seen:
             seen.add(key)
             out.append((n, t))
-    return out[:30]  # cap per chunk
+    return out[:40]
 
 
 class GraphRAG:
-    """Manages entity storage and graph traversal for a single SQLite database."""
+    """Manages entity storage and graph traversal using SQLite + NetworkX."""
 
     def __init__(self, db_path: str | Path = "chatbot.db"):
         self._db_path = str(db_path)
@@ -73,6 +140,7 @@ class GraphRAG:
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ent_doc ON entities(doc_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ent_name ON entities(name COLLATE NOCASE)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS entity_relations (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +190,47 @@ class GraphRAG:
             conn.close()
         return [{"chunk_index": r[0], "name": r[1], "entity_type": r[2]} for r in rows]
 
+    def search_by_entities(self, query_entities: list[str], top_k: int = 10) -> list[dict]:
+        """Find chunks across the whole corpus that contain query entities.
+
+        Returns list of dicts with keys: chunk_id, doc_id, chunk_index, graph_score.
+        graph_score = matched_entity_count / total_query_entities (0.0–1.0).
+        Results sorted descending by graph_score, limited to top_k.
+        """
+        if not query_entities:
+            return []
+
+        # Normalise to lowercase for case-insensitive matching
+        normalised = [e.lower().strip() for e in query_entities if e.strip()]
+        if not normalised:
+            return []
+
+        placeholders = ",".join("?" * len(normalised))
+        conn = self._connect()
+        rows = conn.execute(
+            f"""
+            SELECT doc_id, chunk_index, COUNT(DISTINCT name) AS match_count
+            FROM entities
+            WHERE LOWER(name) IN ({placeholders})
+            GROUP BY doc_id, chunk_index
+            ORDER BY match_count DESC
+            """,
+            normalised,
+        ).fetchall()
+        if self._conn is None:
+            conn.close()
+
+        total = len(normalised)
+        results = []
+        for doc_id, chunk_index, match_count in rows[:top_k]:
+            results.append({
+                "chunk_id": f"{doc_id}_chunk_{chunk_index}",
+                "doc_id": doc_id,
+                "chunk_index": chunk_index,
+                "graph_score": round(match_count / total, 4),
+            })
+        return results
+
     def build_graph(self, doc_id: str) -> nx.Graph:
         """Build an in-memory co-occurrence graph for one document."""
         rows = self.get_entities_for_doc(doc_id)
@@ -142,11 +251,7 @@ class GraphRAG:
 
     def find_related_chunks(self, doc_id: str, seed_chunk_indices: list[int],
                             depth: int = 1) -> set[int]:
-        """
-        Given seed chunk indices, traverse entity co-occurrence graph to find
-        related chunk indices within `depth` hops.
-        Returns a set of chunk indices (excluding the seeds themselves).
-        """
+        """Traverse entity co-occurrence graph to find related chunk indices."""
         rows = self.get_entities_for_doc(doc_id)
         if not rows:
             return set()
@@ -160,10 +265,7 @@ class GraphRAG:
         for idx in seed_chunk_indices:
             seed_entities.update(chunk_to_entities.get(idx, []))
 
-        # Start with seed entities themselves (depth 0)
         related_entities: set[str] = set(seed_entities)
-        
-        # Traverse graph for depth hops
         frontier = set(seed_entities)
         for _ in range(depth):
             next_frontier: set[str] = set()
@@ -173,10 +275,9 @@ class GraphRAG:
             frontier = next_frontier - related_entities
             related_entities.update(next_frontier)
 
-        # Find all chunks containing any of the related entities
         related_chunks: set[int] = set()
         for idx, names in chunk_to_entities.items():
-            if idx not in seed_chunk_indices:  # Exclude seed chunks
+            if idx not in seed_chunk_indices:
                 for name in names:
                     if name in related_entities:
                         related_chunks.add(idx)
