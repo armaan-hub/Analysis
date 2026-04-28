@@ -493,8 +493,11 @@ async def test_general_law_keeps_high_score_sources(client):
     """When domain=general_law but a source scores >= 0.72, it must NOT be suppressed."""
     from unittest.mock import AsyncMock, patch
 
+    # combined_score = 0.6×vector + 0.4×graph; for a genuine law doc with full entity match: ~0.89
     law_result = [
-        {"id": "law-chunk-1", "text": "UAE Personal Status Law Article 317 on succession.", "metadata": {"source": "PersonalStatusLaw.pdf", "domain": "general", "doc_id": "d5", "category": "law", "page": 1}, "score": 0.82},
+        {"id": "law-chunk-1", "text": "UAE Personal Status Law Article 317 on succession.",
+         "metadata": {"source": "PersonalStatusLaw.pdf", "domain": "general", "doc_id": "d5", "category": "law", "page": 1},
+         "score": 0.82, "graph_score": 1.0, "combined_score": 0.892},
     ]
 
     payload = {
@@ -505,7 +508,8 @@ async def test_general_law_keeps_high_score_sources(client):
         "use_rag": True,
     }
 
-    with patch("api.chat.rag_engine.search", new=AsyncMock(return_value=law_result)):
+    # Patch _hybrid_retriever.retrieve (primary search path since Task 6)
+    with patch("api.chat._hybrid_retriever.retrieve", new=AsyncMock(return_value=law_result)):
         with patch("api.chat.classify_domain") as mock_classify:
             mock_classify.return_value = ClassifierResult(
                 domain=DomainLabel("general_law"),

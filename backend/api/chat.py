@@ -68,7 +68,7 @@ _BROAD_FALLBACK_THRESHOLD: float = 0.39  # 0.6 × 0.65 — calibrated for combin
 # Below this, finance-corpus results are likely false positives — e.g., VAT real-estate
 # docs scoring ~0.69 on "draft wills for estate" because "estate/properties" match.
 # Suppressing them lets the LLM answer from general legal knowledge instead.
-_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.432  # 0.6 × 0.72 — calibrated for combined_score scale
+_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.72  # compared against combined_score; keeps margin above false-positive range (~0.40–0.55)
 
 # Maps classified domain label → document domain values to include in RAG filter.
 # "general" / "general_law" are intentionally absent — they mean "search all domains".
