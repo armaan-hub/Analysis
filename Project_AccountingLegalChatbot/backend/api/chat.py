@@ -62,13 +62,13 @@ _DOMAIN_FILTER_MIN_CONFIDENCE: float = 0.60
 # Retry threshold: if best domain-filtered score is below this, retry without domain filter.
 # Intentionally above _DOMAIN_FILTER_MIN_CONFIDENCE (0.60) — if classifier confidence
 # was low enough to skip domain filtering, we won't reach here anyway.
-_BROAD_FALLBACK_THRESHOLD: float = 0.65
+_BROAD_FALLBACK_THRESHOLD: float = 0.39  # 0.6 × 0.65 — calibrated for combined_score scale
 
 # Minimum relevance score for general_law/general queries (no domain filter applied).
 # Below this, finance-corpus results are likely false positives — e.g., VAT real-estate
 # docs scoring ~0.69 on "draft wills for estate" because "estate/properties" match.
 # Suppressing them lets the LLM answer from general legal knowledge instead.
-_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.72
+_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.432  # 0.6 × 0.72 — calibrated for combined_score scale
 
 # Maps classified domain label → document domain values to include in RAG filter.
 # "general" / "general_law" are intentionally absent — they mean "search all domains".
@@ -606,7 +606,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     )
                 )
                 if _domain_filter_applied and not _doc_scoped:
-                    _top_score = max((r.get("score", 0) for r in _search_results), default=0.0) if _search_results else 0.0
+                    _top_score = max((r.get("combined_score", r.get("score", 0)) for r in _search_results), default=0.0) if _search_results else 0.0
+                    _top_score_raw = max((r.get("score", 0) for r in _search_results), default=0.0) if _search_results else 0.0
                     if not _search_results or _top_score < _BROAD_FALLBACK_THRESHOLD:
                         try:
                             # Retry with base filter only (no domain filter)
@@ -631,7 +632,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             # Use broad results if they score better
                             if _broad_results:
                                 _broad_top = max((r.get("score", 0) for r in _broad_results), default=0.0)
-                                if _broad_top > _top_score:
+                                if _broad_top > _top_score_raw:
                                     _search_results = _broad_results
                                     logger.info(
                                         f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
@@ -653,7 +654,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     and _cls.domain.value in ("general_law", "general")
                     and _search_results
                 ):
-                    _gl_top = max((r.get("score", 0) for r in _search_results), default=0.0)
+                    _gl_top = max((r.get("combined_score", r.get("score", 0)) for r in _search_results), default=0.0)
                     if _gl_top < _GENERAL_LAW_MIN_RELEVANCE_SCORE:
                         logger.info(
                             f"Suppressing {len(_search_results)} low-relevance finance sources "
@@ -977,7 +978,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
         _doc_scoped_ns = req.mode == "analyst" and bool(req.selected_doc_ids)
         if _domain_filter_applied and not _doc_scoped_ns:
-            _top_score = max((r.get("score", 0) for r in search_results), default=0.0) if search_results else 0.0
+            _top_score = max((r.get("combined_score", r.get("score", 0)) for r in search_results), default=0.0) if search_results else 0.0
+            _top_score_raw = max((r.get("score", 0) for r in search_results), default=0.0) if search_results else 0.0
             if not search_results or _top_score < _BROAD_FALLBACK_THRESHOLD:
                 try:
                     # Retry with base filter only (no domain filter)
@@ -1005,7 +1007,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     # Use broad results if they score better
                     if _broad_results:
                         _broad_top = max((r.get("score", 0) for r in _broad_results), default=0.0)
-                        if _broad_top > _top_score:
+                        if _broad_top > _top_score_raw:
                             search_results = _broad_results
                             logger.info(
                                 f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
@@ -1023,7 +1025,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             and classifier_result.domain.value in ("general_law", "general")
             and search_results
         ):
-            _gl_top = max((r.get("score", 0) for r in search_results), default=0.0)
+            _gl_top = max((r.get("combined_score", r.get("score", 0)) for r in search_results), default=0.0)
             if _gl_top < _GENERAL_LAW_MIN_RELEVANCE_SCORE:
                 logger.info(
                     f"Suppressing {len(search_results)} low-relevance finance sources "
