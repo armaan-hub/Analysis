@@ -36,7 +36,9 @@ def test_extract_and_store(graph):
     graph.extract_and_store("doc1", 0, "The revenue grew and EBITDA improved.")
     rows = graph.get_entities_for_doc("doc1")
     names = {r["name"] for r in rows}
-    assert "Revenue" in names or "Ebitda" in names or len(names) > 0
+    assert "Revenue" in names or "Ebitda" in names, (
+        f"Expected Revenue or Ebitda from accounting text. Got: {names}"
+    )
 
 
 # ── UAE Legal NER tests ───────────────────────────────────────────

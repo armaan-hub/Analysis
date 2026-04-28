@@ -42,9 +42,9 @@ _LEGAL_TERMS = frozenset([
     "commercial", "partnership", "company law",
 ])
 
-assert not (_FINANCE_TERMS & _LEGAL_TERMS), (
-    f"Term overlap between FINANCE and LEGAL sets: {_FINANCE_TERMS & _LEGAL_TERMS}"
-)
+_overlap = _FINANCE_TERMS & _LEGAL_TERMS
+if _overlap:
+    raise ValueError(f"Term overlap between FINANCE and LEGAL sets: {_overlap}")
 
 # ── UAE-specific regex patterns ───────────────────────────────────────────────
 _UAE_LAW_RE = re.compile(
@@ -213,7 +213,7 @@ class GraphRAG:
         conn = self._connect()
         rows = conn.execute(
             f"""
-            SELECT doc_id, chunk_index, COUNT(DISTINCT name) AS match_count
+            SELECT doc_id, chunk_index, COUNT(DISTINCT LOWER(name)) AS match_count
             FROM entities
             WHERE LOWER(name) IN ({placeholders})
             GROUP BY doc_id, chunk_index
