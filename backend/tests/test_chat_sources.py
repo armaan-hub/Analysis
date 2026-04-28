@@ -79,7 +79,12 @@ async def test_chat_uses_hybrid_retriever_for_search(client):
             },
         }
     ])
-    with patch.object(HybridRetriever, "retrieve", hybrid_mock):
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_stub_classifier())),
+        patch("api.chat.get_llm_provider", return_value=_mock_llm()),
+        patch("api.chat._generate_title", new=AsyncMock()),
+        patch.object(HybridRetriever, "retrieve", hybrid_mock),
+    ):
         resp = await client.post(
             "/api/chat/send",
             json={"message": "Draft wills for 10 million estate", "session_id": None},
