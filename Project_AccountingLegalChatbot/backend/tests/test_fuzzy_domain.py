@@ -86,3 +86,31 @@ def test_env_var_crash_guard():
             os.environ.pop("FUZZY_CUTOFF", None)
         else:
             os.environ["FUZZY_CUTOFF"] = original
+
+
+def test_wills_keyword_routes_to_general_law():
+    """'wills' must route to GENERAL_LAW, not VAT, even though estate has VAT connotation."""
+    result = _fuzzy_classify_query("draft wills for estate and properties")
+    assert result is not None
+    assert result.domain == DomainLabel.GENERAL_LAW
+
+
+def test_inheritance_keyword_routes_to_general_law():
+    """'inheritance' must route to GENERAL_LAW."""
+    result = _fuzzy_classify_query("uae inheritance law for expatriates")
+    assert result is not None
+    assert result.domain == DomainLabel.GENERAL_LAW
+
+
+def test_probate_keyword_routes_to_general_law():
+    """'probate' must route to GENERAL_LAW."""
+    result = _fuzzy_classify_query("probate process in dubai for non-muslims")
+    assert result is not None
+    assert result.domain == DomainLabel.GENERAL_LAW
+
+
+def test_estate_planning_keyword_routes_to_general_law():
+    """'estate planning' multi-word must route to GENERAL_LAW, not VAT."""
+    result = _fuzzy_classify_query("estate planning for high net worth individuals")
+    assert result is not None
+    assert result.domain == DomainLabel.GENERAL_LAW
