@@ -441,12 +441,13 @@ async def test_broad_fallback_not_used_when_broad_score_not_better(client):
             response = await client.post("/api/chat/send", json=payload)
 
     assert response.status_code == 200
-    # Broad search was attempted (call_count >= 2) but domain results were kept
-    # Sources should reference RealEstate.pdf (domain result), not BroadDoc.pdf
     body = response.json()
     sources = body.get("message", {}).get("sources", [])
     source_names = [s.get("source", "") for s in sources]
-    # The domain result should still be present (not replaced by equal broad result)
+    # Broad fallback must have been attempted (filtered call + broad call)
+    assert call_count["n"] >= 2, \
+        f"Expected at least 2 RAG calls (filtered + broad attempted), got {call_count['n']}"
+    # Domain result should still be present (not replaced by equal-score broad result)
     assert any("RealEstate" in name for name in source_names), \
         f"Domain result should be kept when broad search is not strictly better. Sources: {source_names}"
 
