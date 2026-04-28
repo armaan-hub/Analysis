@@ -51,6 +51,12 @@ _DOMAIN_FILTER_MIN_CONFIDENCE: float = 0.60
 # was low enough to skip domain filtering, we won't reach here anyway.
 _BROAD_FALLBACK_THRESHOLD: float = 0.65
 
+# Minimum relevance score for general_law/general queries (no domain filter applied).
+# Below this, finance-corpus results are likely false positives — e.g., VAT real-estate
+# docs scoring ~0.69 on "draft wills for estate" because "estate/properties" match.
+# Suppressing them lets the LLM answer from general legal knowledge instead.
+_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.72
+
 # Maps classified domain label → document domain values to include in RAG filter.
 # "general" / "general_law" are intentionally absent — they mean "search all domains".
 _DOMAIN_TO_DOC_DOMAINS: dict[str, list[str]] = {
@@ -635,6 +641,28 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             logger.warning(f"Broad fallback search failed (non-fatal): {_fallback_exc}")
                 # ------ end fallback ------
 
+                # ------ general_law false-positive suppression ------
+                # When domain=general_law the filter has no domain clause, so finance-corpus
+                # docs (VAT real-estate, etc.) can score ~0.65-0.70 on legal queries simply
+                # because of overlapping words like "estate/properties/million".
+                # If every result is below _GENERAL_LAW_MIN_RELEVANCE_SCORE we treat them
+                # as false positives and clear them so the LLM answers from general knowledge.
+                if (
+                    not _doc_scoped
+                    and not _domain_filter_applied
+                    and _cls.domain.value in ("general_law", "general")
+                    and _search_results
+                ):
+                    _gl_top = max((r.get("score", 0) for r in _search_results), default=0.0)
+                    if _gl_top < _GENERAL_LAW_MIN_RELEVANCE_SCORE:
+                        logger.info(
+                            f"Suppressing {len(_search_results)} low-relevance finance sources "
+                            f"for {_cls.domain.value} query (top score {_gl_top:.2f} < "
+                            f"{_GENERAL_LAW_MIN_RELEVANCE_SCORE})"
+                        )
+                        _search_results = []
+                # ------ end suppression ------
+
                 logger.info("RAG returned %d results for conversation %s", len(_search_results), conversation.id)
 
             # No-LLM guard: doc-scoped query with zero chunks → honest refusal
@@ -997,6 +1025,24 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 except Exception as fallback_exc:
                     logger.warning(f"Broad fallback search failed (non-fatal): {fallback_exc}")
         # ------ end fallback ------
+
+        # ------ general_law false-positive suppression ------
+        # Same logic as streaming path — see comment there for rationale.
+        if (
+            not _doc_scoped_ns
+            and not _domain_filter_applied
+            and classifier_result.domain.value in ("general_law", "general")
+            and search_results
+        ):
+            _gl_top = max((r.get("score", 0) for r in search_results), default=0.0)
+            if _gl_top < _GENERAL_LAW_MIN_RELEVANCE_SCORE:
+                logger.info(
+                    f"Suppressing {len(search_results)} low-relevance finance sources "
+                    f"for {classifier_result.domain.value} query (top score {_gl_top:.2f} < "
+                    f"{_GENERAL_LAW_MIN_RELEVANCE_SCORE})"
+                )
+                search_results = []
+        # ------ end suppression ------
 
         # No-LLM guard: doc-scoped query with zero chunks → honest refusal
         from core.accuracy.citation_validator import should_skip_llm
