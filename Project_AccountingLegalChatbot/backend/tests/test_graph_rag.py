@@ -65,7 +65,8 @@ def test_legal_terms_extracted(graph):
         "The estate shall be distributed equally among the beneficiaries as per the will.")
     rows = graph.get_entities_for_doc("doc_law3")
     names = {r["name"].lower() for r in rows}
-    assert names & {"estate", "beneficiar", "will", "inheritance", "beneficiaries"} or len(names) > 0
+    legal_matches = names & {"estate", "will", "beneficiaries", "inheritance"}
+    assert legal_matches, f"No legal terms extracted. Got: {names}"
 
 
 def test_aed_amount_extracted(graph):
