@@ -402,9 +402,13 @@ class RAGEngine:
           - doc_id, original_name, category from caller
           - domain inferred from original_name for domain-filtered RAG
           - page/source from the chunk's own metadata
+          - section, word_count, total_chunks, prev/next chunk links, entities (GraphRAG)
         """
         if not chunks:
             return 0
+
+        # Local import to avoid circular imports at module level
+        from core.rag.graph_rag import GraphRAG as _GraphRAG, _extract_entities as _ner
 
         texts: list[str] = []
         raw_metadatas: list[dict] = []
@@ -421,7 +425,8 @@ class RAGEngine:
 
         ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
         metadatas: list[dict] = []
-        for raw in raw_metadatas:
+        entity_lists: list[list] = []
+        for i, (raw, text) in enumerate(zip(raw_metadatas, texts)):
             meta: dict = {}
             # Copy only scalar values from per-chunk metadata (ChromaDB constraint)
             for k, v in raw.items():
@@ -435,6 +440,16 @@ class RAGEngine:
             meta["source"] = original_name or doc_id
             meta["category"] = category
             meta["domain"] = domain
+            # GraphRAG enrichment fields
+            meta.setdefault("section", "")
+            meta.setdefault("word_count", len(text.split()))
+            meta["total_chunks"] = len(chunks)
+            meta["chunk_index"] = i
+            meta["prev_chunk_id"] = f"{doc_id}_chunk_{i-1}" if i > 0 else ""
+            meta["next_chunk_id"] = f"{doc_id}_chunk_{i+1}" if i < len(chunks) - 1 else ""
+            entities = _ner(text)
+            meta["entities"] = ",".join(n for n, _ in entities[:20])
+            entity_lists.append(entities)
             metadatas.append(meta)
 
         self.collection.upsert(
@@ -443,6 +458,20 @@ class RAGEngine:
             documents=texts,
             metadatas=metadatas,
         )
+
+        # Index entities in the knowledge graph (fire-and-forget: never block ingestion)
+        try:
+            from pathlib import Path
+            from config import settings
+            graph_db_path = Path(settings.graph_store_dir) / "graph.db"
+            graph_db_path.parent.mkdir(parents=True, exist_ok=True)
+            graph = _GraphRAG(db_path=str(graph_db_path))
+            for idx, (text, ents) in enumerate(zip(texts, entity_lists)):
+                if ents:
+                    graph.store_entities(doc_id, idx, ents)
+        except Exception as exc:
+            logger.warning(f"GraphRAG indexing skipped for {doc_id}: {exc}")
+
         return len(chunks)
 
     def get_stats(self) -> dict:

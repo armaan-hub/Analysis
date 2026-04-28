@@ -525,3 +525,55 @@ async def test_general_law_keeps_high_score_sources(client):
     assert any("PersonalStatusLaw" in s.get("source", "") for s in sources), (
         f"High-scoring law source must NOT be suppressed, got: {[s.get('source') for s in sources]}"
     )
+
+
+# ── Enriched metadata tests ───────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_ingest_stores_section_in_metadata():
+    """Chunk metadata must include 'section' field after ingestion."""
+    from core.rag_engine import RAGEngine
+    from unittest.mock import AsyncMock, MagicMock
+
+    engine = RAGEngine()
+    engine.collection = MagicMock()
+    engine.collection.count.return_value = 0
+    engine.embedding_provider.embed_texts = AsyncMock(return_value=[[0.1] * 1024])
+
+    captured_meta = {}
+    def capture_upsert(**kwargs):
+        captured_meta.update({"metadatas": kwargs.get("metadatas", [])})
+    engine.collection.upsert = MagicMock(side_effect=capture_upsert)
+
+    chunks = [{"text": "WILLS AND INHERITANCE\nEstates are distributed.", "metadata": {"page": 1, "chunk_index": 0, "section": "WILLS AND INHERITANCE", "word_count": 5, "total_chunks": 1}}]
+    await engine.ingest_chunks(chunks, "doc_test_section", original_name="Wills Law.pdf", category="law")
+
+    assert captured_meta["metadatas"], "No metadatas captured"
+    meta = captured_meta["metadatas"][0]
+    assert "section" in meta, f"Missing 'section' in {meta.keys()}"
+    assert "word_count" in meta, f"Missing 'word_count' in {meta.keys()}"
+    assert "total_chunks" in meta, f"Missing 'total_chunks' in {meta.keys()}"
+
+
+@pytest.mark.asyncio
+async def test_ingest_stores_entities_in_metadata():
+    """Chunk metadata must include 'entities' string after ingestion."""
+    from core.rag_engine import RAGEngine
+    from unittest.mock import AsyncMock, MagicMock
+
+    engine = RAGEngine()
+    engine.collection = MagicMock()
+    engine.collection.count.return_value = 0
+    engine.embedding_provider.embed_texts = AsyncMock(return_value=[[0.1] * 1024])
+
+    captured_meta = {}
+    def capture_upsert(**kwargs):
+        captured_meta.update({"metadatas": kwargs.get("metadatas", [])})
+    engine.collection.upsert = MagicMock(side_effect=capture_upsert)
+
+    chunks = [{"text": "The estate shall be distributed per Federal Decree-Law No. 28.", "metadata": {"page": 1, "chunk_index": 0, "section": "", "word_count": 12, "total_chunks": 1}}]
+    await engine.ingest_chunks(chunks, "doc_ent_test", original_name="Inheritance Law.pdf", category="law")
+
+    meta = captured_meta["metadatas"][0]
+    assert "entities" in meta, f"Missing 'entities' in {meta.keys()}"
+    assert isinstance(meta["entities"], str), f"entities must be str, got {type(meta['entities'])}"
