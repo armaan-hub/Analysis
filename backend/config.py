@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     # ── File Storage ─────────────────────────────────────────────────
     upload_dir: str = "./uploads"
     vector_store_dir: str = "./vector_store_v2"
+    graph_store_dir: str = "./graph_store"
 
     # ── Server ───────────────────────────────────────────────────────
     host: str = "0.0.0.0"
@@ -87,12 +88,12 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
     top_k_results: int = 8               # default for analyst / deep_research modes
-    max_tokens: Optional[int] = 15649    # deep/analyst: deepseek-v3.2 spec
-    fast_top_k: int = 15                 # fast mode: higher retrieval budget
-    fast_max_tokens: Optional[int] = 12385   # fast mode: deepseek-v3.1-terminus spec
+    max_tokens: Optional[int] = 8192         # deep/analyst: mistral-large-3-675b spec
+    fast_top_k: int = 15                     # fast mode: higher retrieval budget
+    fast_max_tokens: Optional[int] = 16384   # fast mode: mistral-small-4-119b spec
     temperature: float = 0.10                # low temperature for precise legal/accounting answers
-    fast_temperature: float = 0.20           # fast mode temperature (DeepSeek terminus: 0.2)
-    deep_temperature: float = 1.00           # deep research / analyst temperature (DeepSeek v3.2: 1.0)
+    fast_temperature: float = 0.10           # fast mode temperature (Mistral small-4: 0.1)
+    deep_temperature: float = 0.15           # deep research / analyst temperature (Mistral large-3: 0.15)
     rag_min_score: float = Field(
         default=0.30,
         gt=0.0,
@@ -120,7 +121,7 @@ class Settings(BaseSettings):
                 return str((_backend_dir / path).resolve())
             return p
 
-        for key in ("database_url", "upload_dir", "vector_store_dir"):
+        for key in ("database_url", "upload_dir", "vector_store_dir", "graph_store_dir"):
             if key in values and isinstance(values[key], str):
                 values[key] = _abs(values[key])
         return values
@@ -157,6 +158,7 @@ class Settings(BaseSettings):
         """Create required directories if they don't exist."""
         Path(self.upload_dir).mkdir(parents=True, exist_ok=True)
         Path(self.vector_store_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.graph_store_dir).mkdir(parents=True, exist_ok=True)
         db_raw = self.database_url
         if db_raw.startswith("sqlite:///"):
             db_raw = db_raw[len("sqlite:///"):]
