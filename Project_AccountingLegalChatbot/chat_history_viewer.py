@@ -248,6 +248,8 @@ def print_full_conversation(conn, conv_id):
                     score = src.get("score")
                     domain = src.get("domain", "")
                     score_str = f"  score={score:.3f}" if score is not None else ""
+                    if score is not None and score < 0.65:
+                        score_str += c("yellow", "  ⚠️ low-confidence")
                     domain_str = f"  [{domain}]" if domain else ""
                     print(c("gray", f"    {j}. {name}{domain_str}{score_str}"))
 
