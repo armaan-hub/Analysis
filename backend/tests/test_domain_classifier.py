@@ -59,8 +59,8 @@ async def test_classify_wills_query_returns_general_law():
 
 
 def test_wills_keyword_fallback_not_vat():
-    """Keyword fallback: 'wills' must NOT classify as VAT even though properties is mentioned."""
+    """Keyword fallback: 'wills' must classify as GENERAL_LAW, not VAT."""
     from core.chat.domain_classifier import _fuzzy_classify_query
     result = _fuzzy_classify_query("draft wills for estate")
-    # After the fix, this must be GENERAL_LAW (or None — not VAT)
-    assert result is None or result.domain == DomainLabel.GENERAL_LAW
+    assert result is not None, "'wills' keyword must produce a match, not fall through"
+    assert result.domain == DomainLabel.GENERAL_LAW
