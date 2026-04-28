@@ -144,7 +144,8 @@ class GraphRAG:
                 doc_id      TEXT    NOT NULL,
                 chunk_index INTEGER NOT NULL,
                 name        TEXT    NOT NULL,
-                entity_type TEXT    NOT NULL DEFAULT 'GENERAL'
+                entity_type TEXT    NOT NULL DEFAULT 'GENERAL',
+                UNIQUE(doc_id, chunk_index, name)
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ent_doc ON entities(doc_id)")
@@ -181,8 +182,21 @@ class GraphRAG:
         """Persist pre-computed entities."""
         conn = self._connect()
         conn.executemany(
-            "INSERT INTO entities (doc_id, chunk_index, name, entity_type) VALUES (?,?,?,?)",
+            "INSERT OR REPLACE INTO entities (doc_id, chunk_index, name, entity_type) VALUES (?,?,?,?)",
             [(doc_id, chunk_index, name, etype) for name, etype in entities],
+        )
+        conn.commit()
+        if self._conn is None:
+            conn.close()
+
+    def _batch_store_entities(self, rows: list[tuple]) -> None:
+        """Insert all (doc_id, chunk_index, name, entity_type) rows in one connection."""
+        if not rows:
+            return
+        conn = self._connect()
+        conn.executemany(
+            "INSERT OR REPLACE INTO entities (doc_id, chunk_index, name, entity_type) VALUES (?,?,?,?)",
+            rows,
         )
         conn.commit()
         if self._conn is None:
