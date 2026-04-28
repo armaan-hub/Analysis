@@ -123,15 +123,15 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const filterTagStyle = (mode: ModeFilter): React.CSSProperties => {
     const isAll   = mode === 'all';
     const active  = activeModes.has(mode);
-    const colour  = isAll ? '#ffffff' : (MODE_META[mode]?.colour ?? '#ffffff');
+    const colour  = isAll ? 'var(--primary)' : (MODE_META[mode]?.colour ?? 'var(--primary)');
     return {
       display: 'inline-flex', alignItems: 'center', gap: '6px',
       padding: '5px 14px', borderRadius: '8px',
       fontSize: '12px', fontWeight: 600, cursor: 'pointer',
       transition: 'all 150ms ease',
       background:   active ? `${colour}26` : 'transparent',
-      border:       active ? `1.5px solid ${colour}99` : '1.5px dashed rgba(255,255,255,0.12)',
-      color:        active ? colour : 'rgba(255,255,255,0.3)',
+      border:       active ? `1.5px solid ${colour}99` : `1.5px dashed var(--border)`,
+      color:        active ? colour : 'var(--text-3)',
     };
   };
 
