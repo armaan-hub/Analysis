@@ -88,12 +88,12 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
     top_k_results: int = 8               # default for analyst / deep_research modes
-    max_tokens: Optional[int] = 8192         # deep/analyst: mistral-large-3-675b spec
-    fast_top_k: int = 15                     # fast mode: higher retrieval budget
-    fast_max_tokens: Optional[int] = 16384   # fast mode: mistral-small-4-119b spec
+    max_tokens: Optional[int] = 15649    # deep/analyst: deepseek-v3.2 spec
+    fast_top_k: int = 15                 # fast mode: higher retrieval budget
+    fast_max_tokens: Optional[int] = 12385   # fast mode: deepseek-v3.1-terminus spec
     temperature: float = 0.10                # low temperature for precise legal/accounting answers
-    fast_temperature: float = 0.10           # fast mode temperature (Mistral small-4: 0.1)
-    deep_temperature: float = 0.15           # deep research / analyst temperature (Mistral large-3: 0.15)
+    fast_temperature: float = 0.20           # fast mode temperature (DeepSeek terminus: 0.2)
+    deep_temperature: float = 1.00           # deep research / analyst temperature (DeepSeek v3.2: 1.0)
     rag_min_score: float = Field(
         default=0.30,
         gt=0.0,
