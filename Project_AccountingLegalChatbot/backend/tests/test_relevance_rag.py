@@ -451,3 +451,77 @@ async def test_broad_fallback_not_used_when_broad_score_not_better(client):
     assert any("RealEstate" in name for name in source_names), \
         f"Domain result should be kept when broad search is not strictly better. Sources: {source_names}"
 
+
+@pytest.mark.asyncio
+async def test_general_law_suppresses_low_score_finance_sources(client):
+    """When domain=general_law and all RAG results score < 0.72, sources must be suppressed.
+
+    This is the root cause of the 'Draft Wills' bug: the vector store only contains
+    finance docs; VAT real-estate docs score ~0.65-0.69 on legal queries because of
+    coincidental overlap in 'estate/properties/million'. We must not cite them.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    # Simulate the actual bug: finance corpus returns VAT docs scoring ~0.69
+    vat_false_positives = [
+        {"text": "Real estate VAT guide on residential properties.", "metadata": {"source": "Real Estate.pdf", "domain": "vat", "doc_id": "d1", "category": "finance", "page": 1}, "score": 0.694},
+        {"text": "UAE VAT real estate FAQ commercial property.", "metadata": {"source": "UAE-VAT-REAL-ESTATE-FAQ.pdf", "domain": "vat", "doc_id": "d2", "category": "finance", "page": 11}, "score": 0.671},
+        {"text": "VATP035 electronic devices criteria.", "metadata": {"source": "VATP035.pdf", "domain": "vat", "doc_id": "d3", "category": "finance", "page": 1}, "score": 0.659},
+    ]
+
+    payload = {
+        "conversation_id": None,
+        "message": "Draft Wills for 10 Million Estate With 2 Children",
+        "mode": "fast",
+        "stream": False,
+        "use_rag": True,
+    }
+
+    with patch("api.chat.rag_engine.search", new=AsyncMock(return_value=vat_false_positives)):
+        with patch("api.chat.classify_domain") as mock_classify:
+            mock_classify.return_value = ClassifierResult(
+                domain=DomainLabel("general_law"),
+                confidence=0.95,
+                alternatives=[],
+            )
+            response = await client.post("/api/chat/send", json=payload)
+
+    assert response.status_code == 200
+    sources = response.json()["message"].get("sources") or []
+    assert sources == [], (
+        f"Expected NO sources for general_law query with low-scoring finance docs (<0.72), "
+        f"got: {[s.get('source') for s in sources]}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_general_law_keeps_high_score_sources(client):
+    """When domain=general_law but a source scores >= 0.72, it must NOT be suppressed."""
+    from unittest.mock import AsyncMock, patch
+
+    law_result = [
+        {"text": "UAE Personal Status Law Article 317 on succession.", "metadata": {"source": "PersonalStatusLaw.pdf", "domain": "general", "doc_id": "d5", "category": "law", "page": 1}, "score": 0.82},
+    ]
+
+    payload = {
+        "conversation_id": None,
+        "message": "What are the UAE succession rules for non-Muslims?",
+        "mode": "fast",
+        "stream": False,
+        "use_rag": True,
+    }
+
+    with patch("api.chat.rag_engine.search", new=AsyncMock(return_value=law_result)):
+        with patch("api.chat.classify_domain") as mock_classify:
+            mock_classify.return_value = ClassifierResult(
+                domain=DomainLabel("general_law"),
+                confidence=0.90,
+                alternatives=[],
+            )
+            response = await client.post("/api/chat/send", json=payload)
+
+    assert response.status_code == 200
+    sources = response.json()["message"].get("sources") or []
+    assert any("PersonalStatusLaw" in s.get("source", "") for s in sources), (
+        f"High-scoring law source must NOT be suppressed, got: {[s.get('source') for s in sources]}"
+    )
