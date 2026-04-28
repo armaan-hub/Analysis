@@ -36,6 +36,15 @@ A: {"domain": "e_invoicing", "confidence": 0.94, "alternatives": [["peppol", 0.0
 Q: "What is the limitation period for civil claims in UAE?"
 A: {"domain": "general_law", "confidence": 0.9, "alternatives": [["commercial", 0.07]]}
 
+Q: "Draft a will for a 10 million estate and properties"
+A: {"domain": "general_law", "confidence": 0.92, "alternatives": [["commercial", 0.05]]}
+
+Q: "UAE inheritance law for expatriate with property in Dubai"
+A: {"domain": "general_law", "confidence": 0.93, "alternatives": [["commercial", 0.04]]}
+
+Q: "How to register a DIFC will for an estate worth 5 million dirhams"
+A: {"domain": "general_law", "confidence": 0.91, "alternatives": [["commercial", 0.06]]}
+
 Output rules:
 - Respond with JSON only. No prose. No markdown fencing.
 - Choose labels from the list above. Do not invent new ones.
