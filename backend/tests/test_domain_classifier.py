@@ -46,3 +46,21 @@ async def test_classify_fallback_on_bad_json():
         r = await classify_domain("ambiguous query")
     assert r.domain == DomainLabel.GENERAL_LAW
     assert r.confidence <= 0.5
+
+
+@pytest.mark.asyncio
+async def test_classify_wills_query_returns_general_law():
+    """LLM path: 'Draft Wills for 10M Estate' must classify as general_law."""
+    fake_json = '{"domain": "general_law", "confidence": 0.92, "alternatives": [["commercial", 0.05]]}'
+    with patch("core.chat.domain_classifier._llm_complete", new=AsyncMock(return_value=fake_json)):
+        r = await classify_domain("Draft Wills for 10 Million Estate and Properties")
+    assert r.domain == DomainLabel.GENERAL_LAW
+    assert r.confidence > 0.80
+
+
+def test_wills_keyword_fallback_not_vat():
+    """Keyword fallback: 'wills' must NOT classify as VAT even though properties is mentioned."""
+    from core.chat.domain_classifier import _fuzzy_classify_query
+    result = _fuzzy_classify_query("draft wills for estate")
+    # After the fix, this must be GENERAL_LAW (or None — not VAT)
+    assert result is None or result.domain == DomainLabel.GENERAL_LAW

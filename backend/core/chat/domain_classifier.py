@@ -67,6 +67,11 @@ _DOMAIN_KEYWORDS: dict[str, list[str]] = {
         "consolidation", "revenue recognition", "lease", "impairment",
         "fair value", "disclosure",
     ],
+    "general_law": [
+        "wills", "will and testament", "inheritance", "inherit",
+        "probate", "testator", "beneficiary", "estate planning",
+        "succession", "guardian appointment",
+    ],
 }
 
 # Flat list of (keyword, domain) pairs for difflib matching
