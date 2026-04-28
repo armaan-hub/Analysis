@@ -392,3 +392,61 @@ async def test_broad_fallback_triggered_when_domain_filter_returns_low_scores(cl
     assert any("CivilTransactionsLaw" in s or "DIFCWills" in s for s in source_names), (
         f"Expected broad search results in sources, got: {source_names}"
     )
+
+
+@pytest.mark.asyncio
+async def test_broad_fallback_not_used_when_broad_score_not_better(client):
+    """When broad search doesn't score strictly higher than domain-filtered results,
+    the original domain-filtered results must be kept."""
+    from unittest.mock import MagicMock, patch
+
+    domain_results = [
+        {"id": "dom1", "text": "VAT real estate treatment", "metadata": {"source": "RealEstate.pdf", "domain": "vat", "doc_id": "d1", "category": "finance", "page": 1}, "score": 0.62},
+    ]
+    equal_broad_results = [
+        {"id": "broad1", "text": "Some broad doc", "metadata": {"source": "BroadDoc.pdf", "domain": "general", "doc_id": "d2", "category": "law", "page": 1}, "score": 0.62},  # equal, not strictly better
+    ]
+
+    call_count = {"n": 0}
+
+    async def mock_search(query, top_k=5, filter=None, min_score=0.3):
+        call_count["n"] += 1
+        # Detect domain filter by checking for domain key in filter
+        has_domain = False
+        if filter:
+            if "$and" in filter:
+                has_domain = any("domain" in clause for clause in filter["$and"])
+            else:
+                has_domain = "domain" in filter
+        
+        if has_domain:
+            return domain_results
+        return equal_broad_results  # broad result not strictly better
+
+    payload = {
+        "conversation_id": None,
+        "message": "Draft Wills for 10 Million Estate and Properties",
+        "mode": "fast",
+        "stream": False,
+        "use_rag": True,
+    }
+
+    with patch("api.chat.rag_engine.search", side_effect=mock_search):
+        with patch("api.chat.classify_domain") as mock_classify:
+            mock_classify.return_value = ClassifierResult(
+                domain=DomainLabel("vat"),
+                confidence=0.92,
+                alternatives=[],
+            )
+            response = await client.post("/api/chat/send", json=payload)
+
+    assert response.status_code == 200
+    # Broad search was attempted (call_count >= 2) but domain results were kept
+    # Sources should reference RealEstate.pdf (domain result), not BroadDoc.pdf
+    body = response.json()
+    sources = body.get("message", {}).get("sources", [])
+    source_names = [s.get("source", "") for s in sources]
+    # The domain result should still be present (not replaced by equal broad result)
+    assert any("RealEstate" in name for name in source_names), \
+        f"Domain result should be kept when broad search is not strictly better. Sources: {source_names}"
+

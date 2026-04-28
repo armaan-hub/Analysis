@@ -46,7 +46,9 @@ _TITLE_GENERATION_DELAY_S: float = 0.1  # allow send_message's DB commit to prop
 # Below this threshold we fall back to category-only search (search all domains).
 _DOMAIN_FILTER_MIN_CONFIDENCE: float = 0.60
 
-# Retry threshold: if best filtered score is below this, retry with no domain filter.
+# Retry threshold: if best domain-filtered score is below this, retry without domain filter.
+# Intentionally above _DOMAIN_FILTER_MIN_CONFIDENCE (0.60) — if classifier confidence
+# was low enough to skip domain filtering, we won't reach here anyway.
 _BROAD_FALLBACK_THRESHOLD: float = 0.65
 
 # Maps classified domain label → document domain values to include in RAG filter.
@@ -597,9 +599,9 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         or ("$and" in _rag_filter and any("domain" in c for c in _rag_filter["$and"]))
                     )
                 )
-                if _domain_filter_applied and not _doc_scoped and _search_results:
-                    _top_score = max((r.get("score", 0) for r in _search_results), default=0.0)
-                    if _top_score < _BROAD_FALLBACK_THRESHOLD:
+                if _domain_filter_applied and not _doc_scoped:
+                    _top_score = max((r.get("score", 0) for r in _search_results), default=0.0) if _search_results else 0.0
+                    if not _search_results or _top_score < _BROAD_FALLBACK_THRESHOLD:
                         try:
                             # Retry with base filter only (no domain filter)
                             if req.mode == "fast":
@@ -957,13 +959,12 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             )
         )
         _doc_scoped_ns = req.mode == "analyst" and bool(req.selected_doc_ids)
-        if _domain_filter_applied and not _doc_scoped_ns and search_results:
-            _top_score = max((r.get("score", 0) for r in search_results), default=0.0)
-            if _top_score < _BROAD_FALLBACK_THRESHOLD:
+        if _domain_filter_applied and not _doc_scoped_ns:
+            _top_score = max((r.get("score", 0) for r in search_results), default=0.0) if search_results else 0.0
+            if not search_results or _top_score < _BROAD_FALLBACK_THRESHOLD:
                 try:
                     # Retry with base filter only (no domain filter)
                     if req.mode == "fast":
-                        query_variations = await _get_query_variations(req.message, req.provider)
                         _broad_all = await asyncio.gather(
                             *[
                                 rag_engine.search(
