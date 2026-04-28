@@ -342,10 +342,12 @@ class DocumentProcessor:
             return first_line
         # Title Case heading (e.g. "Article 4 – Distribution of Estate")
         words = first_line.split()
+        alpha_words = [w for w in words if w.isalpha()]
         if (
             2 <= len(words) <= 12
-            and not first_line[-1] in ".,:;"
-            and sum(1 for w in words if w and w[0].isupper()) >= len(words) * 0.6
+            and first_line[-1] not in ".,:;"
+            and alpha_words
+            and sum(1 for w in alpha_words if w[0].isupper()) / len(alpha_words) >= 0.6
         ):
             return first_line
         return ""
@@ -423,6 +425,11 @@ async def ingest_text(text: str, source: str | None = None, source_type: str = "
         meta["category"] = category
     chunk = DocumentChunk(
         text=text[:8000],
-        metadata=meta,
+        metadata={
+            **meta,
+            "section": "",
+            "word_count": len(text[:8000].split()),
+            "total_chunks": 1,
+        },
     )
     await _rag_engine.ingest_chunks([chunk], doc_id=doc_id)
