@@ -43,6 +43,26 @@ Write-Log "  Logs     : backend_server.log | frontend_server.log" White
 Write-Log "  Press Ctrl+C to stop both services." Yellow
 Write-Log ""
 
+# ── Port cleanup helper ───────────────────────────────────────────────────────
+function Stop-ViteProcesses {
+    # Kill any process holding Vite's port range (5173-5179) so the next start
+    # always gets 5173. Stop-Job kills the PS job wrapper but leaves node.exe alive.
+    $killed = 0
+    5173..5179 | ForEach-Object {
+        $port = $_
+        netstat -ano | Select-String ":${port}\s" | ForEach-Object {
+            $parts = ($_ -split '\s+') | Where-Object { $_ -ne '' }
+            $pid_ = $parts[-1]
+            if ($pid_ -match '^\d+$') {
+                Stop-Process -Id ([int]$pid_) -Force -ErrorAction SilentlyContinue
+                Write-Log "  [CLEANUP] Killed process $pid_ on port $port" DarkGray
+                $killed++
+            }
+        }
+    }
+    if ($killed -gt 0) { Start-Sleep -Seconds 1 }   # give Windows time to release ports
+}
+
 # ── Job factory functions ─────────────────────────────────────────────────────
 function New-BackendJob {
     param($backendPath, $pythonExe)
@@ -121,17 +141,8 @@ if ((Get-Date) -ge $backendDeadline) {
 }
 
 Write-Log "[2/2] Starting frontend ..." Green
-# Kill any lingering node processes using port 5173 from a previous run
-$lingering = netstat -ano | Select-String ":5173\s" | ForEach-Object {
-    ($_ -split '\s+')[-1]
-} | Where-Object { $_ -match '^\d+$' } | Select-Object -Unique
-foreach ($pid in $lingering) {
-    try {
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-        Write-Log "  [CLEANUP] Killed lingering process $pid on port 5173" DarkGray
-    } catch {}
-}
-Start-Sleep -Milliseconds 500   # brief pause to let the port release
+# Kill any lingering Vite/node processes before starting
+Stop-ViteProcesses
 
 $frontendJob   = New-FrontendJob $FRONTEND
 $frontendFails = 0
@@ -192,14 +203,7 @@ try {
             Write-Log "[RESTART $frontendFails/$MAX_CONSEC_FAILS] Frontend stopped (uptime: ${uptimeSec}s). Restarting in ${RESTART_DELAY}s..." Yellow
             Start-Sleep -Seconds $RESTART_DELAY
             Remove-Job -Job $frontendJob -Force -ErrorAction SilentlyContinue
-            # Kill any lingering node process on port 5173 before restarting
-            $lingering = netstat -ano | Select-String ":5173\s" | ForEach-Object {
-                ($_ -split '\s+')[-1]
-            } | Where-Object { $_ -match '^\d+$' } | Select-Object -Unique
-            foreach ($pid in $lingering) {
-                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-            }
-            Start-Sleep -Milliseconds 500
+            Stop-ViteProcesses
             $frontendJob   = New-FrontendJob $FRONTEND
             $frontendStart = Get-Date
             Write-Log "[OK] Frontend restarted." Green
@@ -222,16 +226,8 @@ finally {
         Remove-Job -Job $frontendJob -Force -ErrorAction SilentlyContinue
         Write-Log "  [OK] Frontend job stopped." DarkGray
     }
-    # Kill any node process still holding port 5173 (child process from npm run dev
-    # is not always cleaned up when the PS job is stopped)
-    $remaining = netstat -ano | Select-String ":5173\s" | ForEach-Object {
-        ($_ -split '\s+')[-1]
-    } | Where-Object { $_ -match '^\d+$' } | Select-Object -Unique
-    foreach ($pid in $remaining) {
-        try {
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-            Write-Log "  [OK] Killed Node process $pid on port 5173." DarkGray
-        } catch {}
-    }
+    # Kill any node/vite process still holding the port (child of npm run dev
+    # is not always cleaned up when the PS job wrapper is stopped)
+    Stop-ViteProcesses
     Write-Log "Done." Green
 }
