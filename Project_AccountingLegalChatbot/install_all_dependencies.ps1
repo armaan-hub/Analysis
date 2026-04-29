@@ -21,8 +21,30 @@ $venvPython = Join-Path $venvDir "Scripts\python.exe"
 
 Write-Host "Installing project dependencies..." -ForegroundColor Cyan
 
+# ── Prerequisite version gates ────────────────────────────────────
 Require-Command python
+$pyVersion = & python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+if ([version]$pyVersion -lt [version]"3.11") {
+    throw "Python 3.11+ required (found $pyVersion). Please upgrade Python."
+}
+Write-Host "  Python $pyVersion OK" -ForegroundColor Green
+
+Require-Command node
+$nodeVersion = (node --version).TrimStart('v')
+if ([version]$nodeVersion -lt [version]"20.0.0") {
+    throw "Node.js 20+ required (found $nodeVersion). React 19 / Vite 6 require Node 20+."
+}
+Write-Host "  Node $nodeVersion OK" -ForegroundColor Green
+
 Require-Command npm
+
+# ── Optional prerequisite warnings ───────────────────────────────
+if (-not (Get-Command tesseract -ErrorAction SilentlyContinue)) {
+    Write-Warning "tesseract not found in PATH — OCR for scanned Arabic PDFs will not work.`n  Install: winget install UB-Mannheim.TesseractOCR"
+}
+if (-not (Get-Command pdftoppm -ErrorAction SilentlyContinue)) {
+    Write-Warning "poppler (pdftoppm) not found in PATH — pdf2image will not work.`n  Download: https://github.com/oschwartz10612/poppler-windows/releases"
+}
 
 if ($RecreateVenv -and (Test-Path $venvDir)) {
     Write-Host "Recreating backend virtual environment..." -ForegroundColor Yellow
@@ -31,12 +53,8 @@ if ($RecreateVenv -and (Test-Path $venvDir)) {
 
 if (-not (Test-Path $venvPython)) {
     Write-Host "Creating backend virtual environment..." -ForegroundColor Yellow
-    Push-Location $backendDir
-    try {
-        python -m venv venv
-    } finally {
-        Pop-Location
-    }
+    # Use the full $venvDir path so the venv always lands in backend/venv/ regardless of CWD
+    python -m venv "$venvDir"
 }
 
 Write-Host "Installing backend Python packages..." -ForegroundColor Yellow
@@ -48,6 +66,10 @@ try {
 } finally {
     Pop-Location
 }
+
+# Download spaCy English model (required for NLP features)
+Write-Host "Downloading spaCy language model (en_core_web_sm)..." -ForegroundColor Yellow
+& $venvPython -m spacy download en_core_web_sm
 
 Write-Host "Installing frontend Node packages..." -ForegroundColor Yellow
 Push-Location $frontendDir

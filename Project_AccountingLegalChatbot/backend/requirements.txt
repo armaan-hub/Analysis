@@ -1,32 +1,32 @@
 # Accounting & Legal AI Chatbot – Backend Dependencies
 
 # Core Framework
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
 python-dotenv==1.0.1
-pydantic==2.10.4
-pydantic-settings==2.7.1
+pydantic==2.13.3
+pydantic-settings==2.14.0
 
 # Database
-sqlalchemy==2.0.36
+sqlalchemy==2.0.49
 aiosqlite==0.20.0
 
 # LLM Providers
-openai==1.58.1
-anthropic==0.40.0
+openai==1.109.1
+anthropic==0.97.0
 httpx==0.28.1
 
 # RAG / Embeddings
 chromadb==0.5.15
 
 # Document Parsing
-PyMuPDF==1.25.3
+PyMuPDF==1.27.2
 python-docx==1.1.2
 openpyxl==3.1.5
 
 # Data processing (Trial Balance mapper)
 pandas==2.2.3
-scikit-learn==1.4.2
+scikit-learn==1.6.1
 
 # OCR (for scanned Arabic PDFs — requires Tesseract + poppler on PATH)
 pdf2image==1.17.0
@@ -55,7 +55,8 @@ duckduckgo-search==6.3.7
 websockets==14.1
 
 # CORS
-starlette==0.41.3
+# starlette is a transitive dependency of fastapi — do not pin separately
+# FastAPI 0.136.x will resolve the correct starlette version automatically
 
 # Utilities
 python-dateutil==2.9.0
@@ -65,7 +66,7 @@ spacy>=3.7,<4.0
 
 # Requests dependency pins (W2 fix: silence RequestsDependencyWarning)
 urllib3>=1.26.0,<3
-charset-normalizer==3.3.2
+charset-normalizer==3.4.1
 
 # Testing (W1 fix: pytest was missing)
 pytest==7.4.4

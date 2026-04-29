@@ -49,7 +49,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(String(36), primary_key=True, default=_new_id)
-    conversation_id = Column(String(36), ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(String(36), ForeignKey("conversations.id"), nullable=False, index=True)
     role = Column(String(20), nullable=False)  # user | assistant | system
     content = Column(Text, nullable=False)
     sources = Column(JSON, nullable=True)  # RAG source citations
