@@ -39,6 +39,9 @@ export default function SettingsPage() {
   const [editFastModel,setEditFastModel]= useState('');
   const [showKey,      setShowKey]      = useState(false);
   const [showFastKey,  setShowFastKey]  = useState(false);
+  // Tracks which providers already have a key configured (so we don't overwrite with masked values)
+  const [hasKey,       setHasKey]       = useState<Record<string, boolean>>({});
+  const [hasFastKey,   setHasFastKey]   = useState<Record<string, boolean>>({});
 
   const [models,         setModels]         = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
@@ -60,11 +63,21 @@ export default function SettingsPage() {
         const active = r.data.llm_provider || 'nvidia';
         setSelectedProvider(active);
         const prov = r.data.providers?.[active] || {};
-        setEditKey(prov.api_key || '');
+        // Never pre-fill with masked values — track "key configured" state separately
+        setEditKey('');
         setEditModel(prov.model || '');
         setEditBaseUrl(prov.base_url || '');
-        setEditFastKey(prov.fast_api_key || '');
+        setEditFastKey('');
         setEditFastModel(prov.fast_model || '');
+        // Record which providers already have keys set (based on non-empty masked value)
+        const keyFlags: Record<string, boolean> = {};
+        const fastKeyFlags: Record<string, boolean> = {};
+        Object.entries((r.data.providers || {}) as Record<string, { api_key: string; fast_api_key: string }>).forEach(([p, cfg]) => {
+          keyFlags[p] = !!cfg.api_key;
+          fastKeyFlags[p] = !!cfg.fast_api_key;
+        });
+        setHasKey(keyFlags);
+        setHasFastKey(fastKeyFlags);
       })
       .catch(() => flash('Failed to load settings', false))
       .finally(() => setLoading(false));
@@ -76,10 +89,11 @@ export default function SettingsPage() {
     setModelsError('');
     setStatusMsg(null);
     const prov: ProviderConfig = fullSettings?.providers?.[p] || { api_key: '', model: '', base_url: '', fast_api_key: '', fast_model: '' };
-    setEditKey(prov.api_key || '');
+    // Never pre-fill key fields with masked values — leave blank so users must type to change
+    setEditKey('');
     setEditModel(prov.model || '');
     setEditBaseUrl(prov.base_url || '');
-    setEditFastKey(prov.fast_api_key || '');
+    setEditFastKey('');
     setEditFastModel(prov.fast_model || '');
   };
 
@@ -113,6 +127,11 @@ export default function SettingsPage() {
       });
       const r = await API.get('/api/settings/current');
       setFullSettings(r.data);
+      // Update "key configured" flags after a successful save
+      if (editKey) setHasKey(prev => ({ ...prev, [selectedProvider]: true }));
+      if (editFastKey) setHasFastKey(prev => ({ ...prev, [selectedProvider]: true }));
+      setEditKey('');
+      setEditFastKey('');
       flash(activate ? `Activated ${selectedProvider} — model: ${editModel}` : 'Saved', true);
     } catch (e) {
       flash(getErrMsg(e, 'Failed to save'), false);
@@ -133,6 +152,9 @@ export default function SettingsPage() {
         fast_model:   editFastModel|| undefined,
         activate: false,
       });
+      // Update key flags and clear fields if a new key was submitted
+      if (editKey) { setHasKey(prev => ({ ...prev, [selectedProvider]: true })); setEditKey(''); }
+      if (editFastKey) { setHasFastKey(prev => ({ ...prev, [selectedProvider]: true })); setEditFastKey(''); }
       const r = await API.post('/api/settings/providers/test', { provider: selectedProvider });
       const d = r.data as { success: boolean; message: string; model: string };
       flash(d.success ? `Connection OK — ${d.model}: ${d.message}` : `Failed: ${d.message}`, d.success);
@@ -209,7 +231,7 @@ export default function SettingsPage() {
                     <input
                       type={showKey ? 'text' : 'password'}
                       className="settings-input"
-                      placeholder="Enter API key…"
+                      placeholder={hasKey[selectedProvider] ? 'Key configured — enter new key to replace' : 'Enter API key…'}
                       value={editKey}
                       onChange={e => setEditKey(e.target.value)}
                     />
@@ -217,6 +239,9 @@ export default function SettingsPage() {
                       {showKey ? 'Hide' : 'Show'}
                     </button>
                   </div>
+                  {hasKey[selectedProvider] && !editKey && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--green)', marginTop: '4px' }}>✓ API key is configured</div>
+                  )}
                 </div>
               )}
 
@@ -279,7 +304,7 @@ export default function SettingsPage() {
                         <input
                           type={showFastKey ? 'text' : 'password'}
                           className="settings-input"
-                          placeholder="Enter fast mode API key…"
+                          placeholder={hasFastKey[selectedProvider] ? 'Key configured — enter new key to replace' : 'Enter fast mode API key…'}
                           value={editFastKey}
                           onChange={e => setEditFastKey(e.target.value)}
                         />
@@ -287,6 +312,9 @@ export default function SettingsPage() {
                           {showFastKey ? 'Hide' : 'Show'}
                         </button>
                       </div>
+                      {hasFastKey[selectedProvider] && !editFastKey && (
+                        <div style={{ fontSize: '0.72rem', color: 'var(--green)', marginTop: '4px' }}>✓ Fast mode key is configured</div>
+                      )}
                     </div>
                   )}
 
@@ -310,8 +338,8 @@ export default function SettingsPage() {
                 <button className="btn btn-secondary" onClick={() => save(false)} disabled={saving || testing}>
                   {saving ? '⟳ Saving…' : '💾 Save'}
                 </button>
-                <button className="btn btn-primary" onClick={() => save(true)} disabled={saving || testing || isActive}>
-                  {isActive ? '✓ Active' : '▶ Save & Activate'}
+                <button className="btn btn-primary" onClick={() => save(true)} disabled={saving || testing}>
+                  {'▶ Save & Activate'}
                 </button>
               </div>
             </div>
