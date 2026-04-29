@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    strictPort: true,   // Fail fast if 5173 is busy (vs silently bumping to 5174/5175)
+    strictPort: true,       // Fail fast if 5173 is busy (vs silently bumping to 5174/5175)
+    closeOnStdinEnd: false,  // Keep running when stdin closes (needed for PowerShell Start-Job / non-TTY environments)
   },
   test: {
     globals: true,
