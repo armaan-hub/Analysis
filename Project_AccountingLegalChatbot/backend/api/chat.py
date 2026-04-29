@@ -68,7 +68,7 @@ _BROAD_FALLBACK_THRESHOLD: float = 0.39  # 0.6 × 0.65 — calibrated for combin
 # Below this, finance-corpus results are likely false positives — e.g., VAT real-estate
 # docs scoring ~0.69 on "draft wills for estate" because "estate/properties" match.
 # Suppressing them lets the LLM answer from general legal knowledge instead.
-_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.72  # compared against combined_score; keeps margin above false-positive range (~0.40–0.55)
+_GENERAL_LAW_MIN_RELEVANCE_SCORE: float = 0.35  # law docs score 0.40-0.57 combined; 0.35 allows genuine results through while blocking truly irrelevant results
 
 # Maps classified domain label → document domain values to include in RAG filter.
 # "general" / "general_law" are intentionally absent — they mean "search all domains".
@@ -644,8 +644,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
                 # ------ general_law false-positive suppression ------
                 # When domain=general_law the filter has no domain clause, so finance-corpus
-                # docs (VAT real-estate, etc.) can score ~0.65-0.70 on legal queries simply
+                # docs (VAT real-estate, etc.) can score ~0.40-0.41 on legal queries simply
                 # because of overlapping words like "estate/properties/million".
+                # Law docs (post re-ingest) score 0.40-0.57 combined_score and rank #1 above
+                # finance false-positives; threshold 0.35 lets genuine law results through
+                # while still suppressing truly irrelevant results (score < 0.35).
                 # If every result is below _GENERAL_LAW_MIN_RELEVANCE_SCORE we treat them
                 # as false positives and clear them so the LLM answers from general knowledge.
                 if (

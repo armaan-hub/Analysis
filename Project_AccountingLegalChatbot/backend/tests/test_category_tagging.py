@@ -14,7 +14,7 @@ from core.rag_engine import rag_engine
 @pytest.mark.asyncio
 async def test_upload_legal_studio_sets_law_category(client):
     """Upload with studio="legal" → chunks should have category="law" in ChromaDB."""
-    content = b"UAE legal document " + str(uuid.uuid4()).encode() + b" about labor law."
+    content = b"UAE contract inheritance estate " + str(uuid.uuid4()).encode() + b" about obligations and liability."
     
     resp = await client.post(
         "/api/documents/upload",
@@ -67,7 +67,7 @@ async def test_upload_analyst_sets_finance_category(client):
 @pytest.mark.asyncio
 async def test_upload_no_studio_sets_general_category(client):
     """Upload without studio param → chunks should have category="general"."""
-    content = b"Generic document " + str(uuid.uuid4()).encode() + b" without studio tag."
+    content = b"Generic document contract " + str(uuid.uuid4()).encode() + b" without studio tag obligations."
     
     resp = await client.post(
         "/api/documents/upload",
@@ -130,7 +130,7 @@ async def test_ingest_chunks_stores_category():
 async def test_category_filter_isolation(client):
     """Verify category filter actually isolates documents by category."""
     # Upload legal doc
-    legal_content = b"Legal document " + str(uuid.uuid4()).encode()
+    legal_content = b"Legal contract inheritance estate " + str(uuid.uuid4()).encode()
     resp1 = await client.post(
         "/api/documents/upload",
         files={"file": ("legal.txt", io.BytesIO(legal_content), "text/plain")},
@@ -139,7 +139,7 @@ async def test_category_filter_isolation(client):
     legal_doc_id = resp1.json()["document"]["id"]
     
     # Upload finance doc
-    finance_content = b"Finance document " + str(uuid.uuid4()).encode()
+    finance_content = b"Finance revenue dividend " + str(uuid.uuid4()).encode()
     resp2 = await client.post(
         "/api/documents/upload",
         files={"file": ("finance.txt", io.BytesIO(finance_content), "text/plain")},
@@ -195,7 +195,7 @@ async def test_upload_finance_studio_sets_finance_category(client):
 @pytest.mark.asyncio
 async def test_dedup_retags_chunks_when_studio_changes(client):
     """If the same file is re-uploaded with a different studio, chunks are re-tagged."""
-    unique_content = b"Dedup re-tag test " + str(uuid.uuid4()).encode() + b" document content here."
+    unique_content = b"Dedup re-tag contract inheritance test " + str(uuid.uuid4()).encode() + b" obligations liability here."
 
     # First upload: no studio → category="general"
     resp1 = await client.post(
