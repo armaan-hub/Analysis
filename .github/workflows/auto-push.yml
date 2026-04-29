@@ -40,9 +40,11 @@ jobs:
       - name: Detect major changes
         id: detect
         run: |
-          # Get last commit message
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          # Get last commit subject line only (multi-line bodies break $GITHUB_OUTPUT)
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          # Escape for GITHUB_OUTPUT (newlines and % are unsafe)
+          COMMIT_MSG_SAFE="${COMMIT_MSG//'%'/'%25'}"
+          echo "commit_msg=$COMMIT_MSG_SAFE" >> $GITHUB_OUTPUT
           
           # Check for major update keywords
           if echo "$COMMIT_MSG" | grep -iE "(feature|fix|major|update|improvement|refactor|security|hotfix|critical)"; then
