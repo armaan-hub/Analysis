@@ -25,13 +25,15 @@ _STOPWORDS = frozenset([
     "the", "and", "for", "with", "from", "that", "this", "are", "was",
     "will", "have", "has", "had", "can", "may", "how", "what", "when",
     "where", "which", "who", "why", "all", "any", "one", "two",
+    "its", "not", "but", "our", "you", "his", "her", "him", "she",
+    "they", "did", "get", "got", "let", "set", "use", "via", "per",
 ])
 
 
 def _extract_query_entities(query: str) -> list[str]:
     """Extract candidate entity strings from a query for graph lookup."""
     entities: set[str] = set()
-    words = re.findall(r"\b[a-zA-Z]{4,}\b", query)
+    words = re.findall(r"\b[a-zA-Z]{3,}\b", query)
     for w in words:
         if w.lower() not in _STOPWORDS:
             entities.add(w.lower())
