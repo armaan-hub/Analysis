@@ -13,6 +13,8 @@ import uuid
 from pathlib import Path
 from typing import Optional, Literal
 
+import httpx
+
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from config import settings
@@ -39,7 +41,7 @@ class EmbeddingProvider:
         return await self._embed_nvidia(texts)
 
     async def embed_query(self, query: str) -> list[float]:
-        """Generate embedding for a single query with retry on transient failures."""
+        """Generate embedding for a single query. Raises on failure (no retry)."""
         if self.provider == "mock":
             return [0.1] * 1024
         if self.provider == "openai":
@@ -67,7 +69,6 @@ class EmbeddingProvider:
         return data["data"][0]["embedding"]
 
     async def _embed_nvidia(self, texts: list[str]) -> list[list[float]]:
-        import httpx
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -116,7 +117,7 @@ class EmbeddingProvider:
             batch = texts[i:i + batch_size]
             payload = {
                 "input": batch,
-                "model": "text-embedding-3-small",
+                "model": settings.openai_embed_model,
             }
             
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -270,6 +271,30 @@ class RAGEngine:
                 logger.critical(f"Fatal error: Could not initialize ChromaDB even after reset: {e2}")
                 raise e2
 
+    def _reinit_client(self) -> None:
+        """Re-initialize the ChromaDB client and collection without calling __init__.
+        
+        Safe to call under concurrent load — avoids the re-entrant __init__ hazard.
+        """
+        try:
+            if settings.vector_store_dir == ":memory:":
+                self.chroma_client = chromadb.EphemeralClient(
+                    settings=ChromaSettings(anonymized_telemetry=False)
+                )
+            else:
+                self.chroma_client = chromadb.PersistentClient(
+                    path=settings.vector_store_dir,
+                    settings=ChromaSettings(anonymized_telemetry=False),
+                )
+            self._collection = self.chroma_client.get_or_create_collection(
+                name="documents",
+                metadata={"hnsw:space": "cosine"},
+            )
+            logger.info("ChromaDB client re-initialized successfully")
+        except Exception as e:
+            logger.critical(f"_reinit_client failed: {e}")
+            raise
+
     @property
     def collection(self):
         """Robust collection access that attempts to recover from common segment errors."""
@@ -280,8 +305,7 @@ class RAGEngine:
         except (AttributeError, Exception) as e:
             if "dimensionality" in str(e) or "segment" in str(e).lower():
                 logger.warning(f"ChromaDB segment error detected ({e}). Attempting to re-initialize client...")
-                # Re-initialize client (often fixes transient segment issues in PersistentClient)
-                self.__init__()
+                self._reinit_client()
                 return self._collection
             raise e
 

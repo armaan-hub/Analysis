@@ -71,7 +71,7 @@ class Settings(BaseSettings):
 
     # ── Server ───────────────────────────────────────────────────────
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8001   # run_project.ps1 default; override via PORT in .env
 
     # ── Monitoring ───────────────────────────────────────────────────
     monitor_interval_hours: int = 6

@@ -344,7 +344,7 @@ async def _generate_title(conversation_id: str, message: str, provider: str | No
 
 class ChatRequest(BaseModel):
     """Incoming chat message."""
-    message: str
+    message: str = Field(..., min_length=1, description="The user's chat message (must not be empty)")
     conversation_id: Optional[str] = None
     use_rag: bool = True  # Whether to search documents for context
     provider: Optional[str] = None  # Override provider for this request
@@ -763,7 +763,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             "IMPORTANT: You have comprehensive research results from multiple sources below. "
                             "Synthesize ALL sources into a well-structured response. "
                             "Use numbered sections with bold headings. "
-                            "Cite sources as [Source Name] inline where relevant. "
+                            "When citing sources, use markdown hyperlinks in the format [Title](url) — copy the exact URL from the source. "
                             "Be thorough — the user asked for deep research.\n\n"
                             + web_context
                         )
@@ -771,7 +771,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         web_instruction = (
                             "IMPORTANT: Answer ONLY using the web search results provided below. "
                             "Do not add information from your training data. "
-                            "Cite the source URLs inline. Take your time and be accurate.\n\n"
+                            "When citing sources, use markdown hyperlinks in the format [Title](url) — copy the exact URL from each source. "
+                            "Take your time and be accurate.\n\n"
                             + web_context
                         )
                     _msgs[0] = {"role": "system", "content": _sys + "\n\n" + web_instruction}
@@ -1502,7 +1503,9 @@ async def deep_research_stream(req: DeepResearchRequest):
             system = (
                 "You are a thorough research analyst. Synthesise the provided document excerpts and "
                 "web search results into a comprehensive, well-structured answer. Use Markdown with "
-                "## headings and bullet points. Cite sources inline as (Source Name) or [Source URL]."
+                "## headings and bullet points. When citing web sources, use markdown hyperlinks in the "
+                "format [Title](url) — copy the exact URL from the source as provided. "
+                "For document sources, cite as (Document Name, p.N)."
             )
             context_block = ""
             if rag_context_parts:

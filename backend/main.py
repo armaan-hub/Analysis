@@ -2,7 +2,9 @@
 """
 Accounting & Legal AI Chatbot – FastAPI Application Entry Point.
 
-Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+Run with: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+Or use:   python main.py
+Or use:   ..\run_project.ps1   (starts backend + frontend together)
 """
 
 import asyncio
@@ -96,7 +98,7 @@ app = FastAPI(
         "Features RAG-powered document analysis, financial report generation, "
         "and regulatory monitoring."
     ),
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
