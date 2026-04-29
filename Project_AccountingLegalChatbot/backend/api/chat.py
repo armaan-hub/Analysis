@@ -19,11 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_db, AsyncSessionLocal
 from db.models import Conversation, Message, Document
 from core.llm_manager import get_llm_provider
-from core.rag_engine import rag_engine
+from core.rag_engine import rag_engine, _infer_domain_from_name
 from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, FORMATTING_REMINDER
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from core.chat.intent_classifier import classify_intent
-from core.rag_engine import rag_engine, _infer_domain_from_name
 from pathlib import Path as _Path
 from core.rag.hybrid_retriever import HybridRetriever
 from core.rag.graph_rag import GraphRAG
@@ -638,6 +637,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                                         f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
                                         f"broad top score {_broad_top:.2f} used instead"
                                     )
+                                else:
+                                    logger.debug(
+                                        f"Broad fallback available (top={_broad_top:.3f}) but discarded "
+                                        f"— current results stronger (raw={_top_score_raw:.3f})"
+                                    )
                         except Exception as _fallback_exc:
                             logger.warning(f"Broad fallback search failed (non-fatal): {_fallback_exc}")
                 # ------ end fallback ------
@@ -701,7 +705,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             or r["metadata"].get("source", "Unknown")
                         ),
                         "page": r["metadata"].get("page", "?"),
-                        "score": round(r.get("score", 0), 3),
+                        "score": round(r.get("combined_score", r.get("score", 0)), 3),
                         "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
                         "domain": r["metadata"].get("domain", ""),
                     }
@@ -1016,6 +1020,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                                 f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
                                 f"broad top score {_broad_top:.2f} used instead"
                             )
+                        else:
+                            logger.debug(
+                                f"Broad fallback available (top={_broad_top:.3f}) but discarded "
+                                f"— current results stronger (raw={_top_score_raw:.3f})"
+                            )
                 except Exception as fallback_exc:
                     logger.warning(f"Broad fallback search failed (non-fatal): {fallback_exc}")
         # ------ end fallback ------
@@ -1075,7 +1084,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 {
                     "source": r.get("source") or r["metadata"].get("original_name") or r["metadata"].get("source", "Unknown"),
                     "page": r["metadata"].get("page", "?"),
-                    "score": round(r.get("score", 0), 3),
+                    "score": round(r.get("combined_score", r.get("score", 0)), 3),
                     "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
                     "domain": r["metadata"].get("domain", ""),
                 }
