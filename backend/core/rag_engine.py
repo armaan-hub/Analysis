@@ -442,6 +442,9 @@ class RAGEngine:
             meta["domain"] = domain
             # GraphRAG enrichment fields
             meta.setdefault("section", "")
+            # Section fallback: if heading extractor found no headings, use filename stem
+            if not meta.get("section"):
+                meta["section"] = Path(original_name).stem
             meta["word_count"] = int(raw.get("word_count") or len(text.split()))
             meta["total_chunks"] = len(chunks)
             meta["chunk_index"] = i
@@ -451,6 +454,24 @@ class RAGEngine:
             meta["entities"] = ",".join(n for n, _ in entities[:20])
             entity_lists.append(entities)
             metadatas.append(meta)
+
+        # Filter out boilerplate/cover-page chunks (no content and no entities)
+        _orig_count = len(ids)
+        _keep_mask = [
+            not (meta.get("word_count", 999) < 20 and not meta.get("entities", ""))
+            for meta in metadatas
+        ]
+        if not all(_keep_mask):
+            ids          = [v for v, k in zip(ids, _keep_mask) if k]
+            embeddings   = [v for v, k in zip(embeddings, _keep_mask) if k]
+            texts        = [v for v, k in zip(texts, _keep_mask) if k]
+            metadatas    = [v for v, k in zip(metadatas, _keep_mask) if k]
+            entity_lists = [v for v, k in zip(entity_lists, _keep_mask) if k]
+            logger.debug(
+                f"Skipped {_orig_count - len(ids)} boilerplate chunks for {original_name}"
+            )
+        if not ids:
+            return 0
 
         self.collection.upsert(
             ids=ids,
