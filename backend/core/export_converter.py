@@ -12,6 +12,36 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def _strip_inline_md(text: str) -> str:
+    """Strip inline markdown markers so plain-text contexts (Excel cells, etc.) are clean."""
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    return text
+
+
+def _add_formatted_runs(paragraph, text: str, default_bold: bool = False) -> None:
+    """Parse **bold**, *italic*, and `code` inline markers and add formatted runs to a
+    python-docx paragraph. Falls back to plain text for everything else."""
+    # Split on the three marker patterns (longest first so ** isn't confused with *)
+    parts = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)', text)
+    for part in parts:
+        if part.startswith('**') and part.endswith('**') and len(part) > 4:
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+        elif part.startswith('*') and part.endswith('*') and len(part) > 2:
+            run = paragraph.add_run(part[1:-1])
+            run.italic = True
+        elif part.startswith('`') and part.endswith('`') and len(part) > 2:
+            run = paragraph.add_run(part[1:-1])
+            run.font.name = 'Courier New'
+        else:
+            run = paragraph.add_run(part)
+        if default_bold:
+            run.bold = True
+
+
 def _parse_markdown_tables(text: str) -> list[list[list[str]]]:
     """Extract all markdown tables from text."""
     tables = []
@@ -55,18 +85,13 @@ def to_word(markdown_text: str) -> bytes:
     while i < len(lines):
         line = lines[i]
 
-        if line.startswith("# ") and not line.startswith("## "):
-            doc.add_heading(line[2:].strip(), level=1)
-            i += 1
-            continue
-
-        if line.startswith("## ") and not line.startswith("### "):
-            doc.add_heading(line[3:].strip(), level=2)
-            i += 1
-            continue
-
-        if line.startswith("### "):
-            doc.add_heading(line[4:].strip(), level=3)
+        # Match heading levels: ^#{1,6}\s
+        hdr_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+        if hdr_match:
+            hash_count = len(hdr_match.group(1))
+            heading_text = hdr_match.group(2).strip()
+            level = min(hash_count, 3)  # python-docx only supports levels 1-3
+            doc.add_heading(heading_text, level=level)
             i += 1
             continue
 
@@ -94,23 +119,24 @@ def to_word(markdown_text: str) -> bytes:
                     for c_idx, cell_text in enumerate(row):
                         if c_idx < max_cols:
                             cell = table.rows[r_idx].cells[c_idx]
-                            cell.text = cell_text
-                            if r_idx == 0:
-                                for paragraph in cell.paragraphs:
-                                    for run in paragraph.runs:
-                                        run.bold = True
+                            # Clear the default empty paragraph and re-add with formatting
+                            para = cell.paragraphs[0]
+                            para.clear()
+                            _add_formatted_runs(para, cell_text, default_bold=(r_idx == 0))
 
                 doc.add_paragraph()
                 i = j
                 continue
 
         if stripped.startswith("- ") or stripped.startswith("* "):
-            doc.add_paragraph(stripped[2:], style="List Bullet")
+            p = doc.add_paragraph(style="List Bullet")
+            _add_formatted_runs(p, stripped[2:])
             i += 1
             continue
 
         if re.match(r"^\d+\.\s", stripped):
-            doc.add_paragraph(re.sub(r"^\d+\.\s", "", stripped), style="List Number")
+            p = doc.add_paragraph(style="List Number")
+            _add_formatted_runs(p, re.sub(r"^\d+\.\s", "", stripped))
             i += 1
             continue
 
@@ -119,13 +145,7 @@ def to_word(markdown_text: str) -> bytes:
             continue
 
         p = doc.add_paragraph()
-        parts = re.split(r"(\*\*[^*]+\*\*)", stripped)
-        for part in parts:
-            if part.startswith("**") and part.endswith("**"):
-                run = p.add_run(part[2:-2])
-                run.bold = True
-            else:
-                p.add_run(part)
+        _add_formatted_runs(p, stripped)
 
         i += 1
 
@@ -151,15 +171,19 @@ def _to_pdf_weasyprint(markdown_text: str) -> bytes:
     import markdown as md_lib
     from weasyprint import HTML, CSS
 
-    html_body = md_lib.markdown(markdown_text, extensions=["tables", "fenced_code"])
+    # Use full set of extensions: tables for GFM tables, extra for inline formatting, nl2br for line breaks
+    html_body = md_lib.markdown(markdown_text, extensions=["tables", "extra", "nl2br"])
     css = CSS(string="""
         @page { size: A4; margin: 2cm; }
         body { font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.6; }
         h1 { font-size: 16pt; margin-top: 20pt; }
         h2 { font-size: 13pt; margin-top: 14pt; }
+        h3 { font-size: 12pt; margin-top: 10pt; }
         table { border-collapse: collapse; width: 100%; margin: 10pt 0; }
         th, td { border: 1px solid #ccc; padding: 6pt 8pt; text-align: left; }
         th { background: #f0f0f0; font-weight: bold; }
+        strong { font-weight: bold; }
+        em { font-style: italic; }
     """)
     full_html = f"<html><body>{html_body}</body></html>"
     return HTML(string=full_html).write_pdf(stylesheets=[css])
@@ -182,16 +206,28 @@ def _to_pdf_reportlab(markdown_text: str) -> bytes:
         if not stripped:
             story.append(Spacer(1, 6))
             continue
-        if stripped.startswith("# "):
-            story.append(Paragraph(stripped[2:], styles["Heading1"]))
-        elif stripped.startswith("## "):
-            story.append(Paragraph(stripped[3:], styles["Heading2"]))
-        elif stripped.startswith("### "):
-            story.append(Paragraph(stripped[4:], styles["Heading3"]))
-        elif stripped.startswith("- ") or stripped.startswith("* "):
-            story.append(Paragraph(f"&bull; {stripped[2:]}", styles["Normal"]))
+        
+        # Match heading levels: ^#{1,6}\s
+        hdr_match = re.match(r'^(#{1,6})\s+(.+)$', stripped)
+        if hdr_match:
+            hash_count = len(hdr_match.group(1))
+            heading_text = hdr_match.group(2)
+            if hash_count == 1:
+                story.append(Paragraph(heading_text, styles["Heading1"]))
+            elif hash_count == 2:
+                story.append(Paragraph(heading_text, styles["Heading2"]))
+            else:
+                story.append(Paragraph(heading_text, styles["Heading3"]))
+            continue
+        
+        if stripped.startswith("- ") or stripped.startswith("* "):
+            bullet_text = _strip_inline_md(stripped[2:])
+            story.append(Paragraph(f"&bull; {bullet_text}", styles["Normal"]))
+        elif stripped.startswith("|"):
+            # Skip table rows — reportlab can't render markdown tables
+            continue
         else:
-            clean = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", stripped)
+            clean = _strip_inline_md(stripped)
             story.append(Paragraph(clean, styles["Normal"]))
 
     doc_rl.build(story)
@@ -234,7 +270,8 @@ def to_excel(markdown_text: str) -> bytes:
 
         for r_idx, row in enumerate(table_rows):
             for c_idx, cell_value in enumerate(row):
-                cell = ws.cell(row=r_idx + 1, column=c_idx + 1, value=cell_value)
+                clean_value = _strip_inline_md(cell_value)
+                cell = ws.cell(row=r_idx + 1, column=c_idx + 1, value=clean_value)
                 if r_idx == 0:
                     cell.font = header_font
                     cell.fill = header_fill
@@ -242,9 +279,9 @@ def to_excel(markdown_text: str) -> bytes:
 
                 if r_idx > 0:
                     try:
-                        numeric = float(cell_value.replace(",", "").replace("%", ""))
+                        numeric = float(clean_value.replace(",", "").replace("%", ""))
                         cell.value = numeric
-                        if "%" in cell_value:
+                        if "%" in clean_value:
                             cell.number_format = "0.00%"
                         else:
                             cell.number_format = "#,##0.00"

@@ -22,6 +22,9 @@ ANALYST_SYSTEM_PREFIX = (
 FORMATTING_SUFFIX = (
     "\n\nFormatting rules — follow these whenever the response benefits from structure:\n"
     "- Use ## for top-level sections and ### for sub-sections; never use # (h1).\n"
+    "- Each heading line must start with EXACTLY one run of # characters followed by a space "
+    "and the heading text. NEVER write two runs of # on the same line "
+    "(e.g. NEVER write '### ## Foo' or '#### ### Bar' — write '## Foo' or '### Bar' only).\n"
     "- Bold key terms, figures, and defined concepts with **double asterisks**.\n"
     "- Use bullet points (- item) for lists; indent sub-items with two spaces.\n"
     "- When data is comparative or tabular, present it as a Markdown table "

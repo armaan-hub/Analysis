@@ -3,7 +3,7 @@
 ## Project Overview
 
 Multi-platform AI chatbot for accounting and legal professionals.
-- **Backend**: Python + FastAPI — fully built, running at `http://localhost:8000`
+- **Backend**: Python + FastAPI — fully built, running at `http://localhost:8001`
 - **Frontend**: React + Vite + TypeScript — 30% complete, actively being built
 - **Desktop**: Electron — not started yet
 
@@ -32,12 +32,12 @@ Project_AccountingLegalChatbot/
 # Backend (Python)
 cd backend
 uv run python main.py
-# Docs at http://localhost:8000/docs
+# Docs at http://localhost:8001/docs
 
 # Frontend (React)
 cd frontend
 npm run dev
-# UI at http://localhost:5173
+# UI at http://localhost:5173  (strictPort=true — fails fast if port busy)
 ```
 
 ## Current Focus
@@ -66,7 +66,7 @@ Frontend UI components — build these in order:
 - Backend is complete — do not modify backend files unless explicitly asked
 - Frontend uses TypeScript — keep all types correct
 - Design system: glassmorphism, dark theme
-- API base URL for frontend: `http://localhost:8000`
+- API base URL for frontend: `http://localhost:8001`
 - Do not add features beyond what is asked
 - Do not add comments or docstrings to code you didn't change
 - Security: API keys live in `.env` only, never in source code
