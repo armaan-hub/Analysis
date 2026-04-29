@@ -20,7 +20,7 @@ class CouncilRequest(BaseModel):
 async def council_stream(req: CouncilRequest):
     """Stream a multi-expert council review via SSE."""
     try:
-        llm = get_llm_provider(req.provider, mode="analyst")
+        llm = get_llm_provider(req.provider, mode="fast")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

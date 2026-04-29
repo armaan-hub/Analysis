@@ -448,7 +448,7 @@ async def test_broad_fallback_not_used_when_broad_score_not_better(client):
 
 @pytest.mark.asyncio
 async def test_general_law_suppresses_low_score_finance_sources(client):
-    """When domain=general_law and all RAG results score < 0.72, sources must be suppressed.
+    """When domain=general_law and all RAG results have combined_score < 0.35, sources must be suppressed.
 
     This is the root cause of the 'Draft Wills' bug: the vector store only contains
     finance docs; VAT real-estate docs score ~0.65-0.69 on legal queries because of
@@ -456,11 +456,24 @@ async def test_general_law_suppresses_low_score_finance_sources(client):
     """
     from unittest.mock import AsyncMock, patch
 
-    # Simulate the actual bug: finance corpus returns VAT docs scoring ~0.69
+    # Simulate the actual bug: finance corpus returns VAT docs with combined_score below 0.35
     vat_false_positives = [
-        {"text": "Real estate VAT guide on residential properties.", "metadata": {"source": "Real Estate.pdf", "domain": "vat", "doc_id": "d1", "category": "finance", "page": 1}, "score": 0.694},
-        {"text": "UAE VAT real estate FAQ commercial property.", "metadata": {"source": "UAE-VAT-REAL-ESTATE-FAQ.pdf", "domain": "vat", "doc_id": "d2", "category": "finance", "page": 11}, "score": 0.671},
-        {"text": "VATP035 electronic devices criteria.", "metadata": {"source": "VATP035.pdf", "domain": "vat", "doc_id": "d3", "category": "finance", "page": 1}, "score": 0.659},
+        {
+            "id": "vat_chunk_1",
+            "text": "VAT on real estate transactions in UAE for residential properties.",
+            "score": 0.694,
+            "combined_score": 0.34,  # below 0.35 threshold → should be suppressed
+            "metadata": {"original_name": "UAE-VAT-REAL-ESTATE-FAQ.pdf", "domain": "vat", "category": "finance", "doc_id": "d1", "page": 11},
+            "source": "UAE-VAT-REAL-ESTATE-FAQ.pdf",
+        },
+        {
+            "id": "vat_chunk_2",
+            "text": "VATP035 electronic devices criteria under UAE VAT law.",
+            "score": 0.659,
+            "combined_score": 0.32,  # below 0.35 threshold → should be suppressed
+            "metadata": {"original_name": "VATP035.pdf", "domain": "vat", "category": "finance", "doc_id": "d3", "page": 1},
+            "source": "VATP035.pdf",
+        },
     ]
 
     payload = {
@@ -471,7 +484,7 @@ async def test_general_law_suppresses_low_score_finance_sources(client):
         "use_rag": True,
     }
 
-    with patch("api.chat.rag_engine.search", new=AsyncMock(return_value=vat_false_positives)):
+    with patch("api.chat._hybrid_retriever.retrieve", new=AsyncMock(return_value=vat_false_positives)):
         with patch("api.chat.classify_domain") as mock_classify:
             mock_classify.return_value = ClassifierResult(
                 domain=DomainLabel("general_law"),
@@ -483,7 +496,7 @@ async def test_general_law_suppresses_low_score_finance_sources(client):
     assert response.status_code == 200
     sources = response.json()["message"].get("sources") or []
     assert sources == [], (
-        f"Expected NO sources for general_law query with low-scoring finance docs (<0.72), "
+        f"Expected NO sources for general_law query with low-scoring finance docs (<0.35 combined_score), "
         f"got: {[s.get('source') for s in sources]}"
     )
 
@@ -543,7 +556,7 @@ async def test_ingest_stores_section_in_metadata():
         captured_meta.update({"metadatas": kwargs.get("metadatas", [])})
     engine.collection.upsert = MagicMock(side_effect=capture_upsert)
 
-    chunks = [{"text": "WILLS AND INHERITANCE\nEstates are distributed.", "metadata": {"page": 1, "chunk_index": 0, "section": "WILLS AND INHERITANCE", "word_count": 5, "total_chunks": 1}}]
+    chunks = [{"text": "WILLS AND INHERITANCE\nFederal Law No. 28 of 2005 on Personal Status in Dubai governs inheritance and estate distribution. Abu Dhabi courts apply this law to all residents.", "metadata": {"page": 1, "chunk_index": 0, "section": "WILLS AND INHERITANCE", "word_count": 30, "total_chunks": 1}}]
     await engine.ingest_chunks(chunks, "doc_test_section", original_name="Wills Law.pdf", category="law")
 
     assert captured_meta["metadatas"], "No metadatas captured"
@@ -581,3 +594,76 @@ async def test_ingest_stores_entities_in_metadata():
     assert isinstance(meta["entities"], str), f"entities must be str, got {type(meta['entities'])}"
     # Federal Decree-Law No. 28 should be extracted by UAE law regex
     assert len(meta["entities"]) > 0, "Expected non-empty entities for chunk with UAE law reference"
+
+
+@pytest.mark.asyncio
+async def test_general_law_threshold_boundary(client):
+    """Verify the 0.35 combined_score threshold boundary exactly.
+
+    - combined_score=0.39 (VAT false-positive, above threshold) → NOT suppressed
+    - combined_score=0.34 (noise, below threshold) → IS suppressed
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    # Result above threshold (0.39 >= 0.35) → should pass through
+    above_threshold = [
+        {
+            "id": "vat_chunk_above",
+            "text": "UAE VAT on real estate transactions for commercial properties in Dubai.",
+            "score": 0.694,
+            "combined_score": 0.39,  # above 0.35 → should NOT be suppressed
+            "metadata": {"original_name": "UAE-VAT-REAL-ESTATE-FAQ.pdf", "domain": "vat", "category": "finance", "doc_id": "d1", "page": 1},
+            "source": "UAE-VAT-REAL-ESTATE-FAQ.pdf",
+        }
+    ]
+
+    payload = {
+        "conversation_id": None,
+        "message": "What are UAE VAT rules for real estate?",
+        "mode": "fast",
+        "stream": False,
+        "use_rag": True,
+    }
+
+    with patch("api.chat._hybrid_retriever.retrieve", new=AsyncMock(return_value=above_threshold)):
+        with patch("api.chat.classify_domain") as mock_classify:
+            mock_classify.return_value = ClassifierResult(
+                domain=DomainLabel("general_law"),
+                confidence=0.90,
+                alternatives=[],
+            )
+            response = await client.post("/api/chat/send", json=payload)
+
+    assert response.status_code == 200
+    sources_above = response.json()["message"].get("sources") or []
+    assert sources_above != [], (
+        f"combined_score=0.39 is above 0.35 threshold and must NOT be suppressed, got empty sources"
+    )
+
+    # Result below threshold (0.34 < 0.35) → should be suppressed
+    below_threshold = [
+        {
+            "id": "vat_chunk_below",
+            "text": "UAE VAT on real estate transactions for commercial properties in Dubai.",
+            "score": 0.650,
+            "combined_score": 0.34,  # below 0.35 → should be suppressed
+            "metadata": {"original_name": "UAE-VAT-REAL-ESTATE-FAQ.pdf", "domain": "vat", "category": "finance", "doc_id": "d2", "page": 1},
+            "source": "UAE-VAT-REAL-ESTATE-FAQ.pdf",
+        }
+    ]
+
+    with patch("api.chat._hybrid_retriever.retrieve", new=AsyncMock(return_value=below_threshold)):
+        with patch("api.chat.classify_domain") as mock_classify:
+            mock_classify.return_value = ClassifierResult(
+                domain=DomainLabel("general_law"),
+                confidence=0.90,
+                alternatives=[],
+            )
+            response2 = await client.post("/api/chat/send", json=payload)
+
+    assert response2.status_code == 200
+    sources_below = response2.json()["message"].get("sources") or []
+    assert sources_below == [], (
+        f"combined_score=0.34 is below 0.35 threshold and must be suppressed, got: {[s.get('source') for s in sources_below]}"
+    )

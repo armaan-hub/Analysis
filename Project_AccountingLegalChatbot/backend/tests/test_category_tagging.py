@@ -96,7 +96,7 @@ async def test_ingest_chunks_stores_category():
     doc_id = f"test_doc_{uuid.uuid4()}"
     chunks = [
         DocumentChunk(
-            text=f"Test chunk {i} with legal content about contracts.",
+            text=f"In the matter of Federal Decree No. 37, the Ministry of Justice in Dubai has issued guidelines regarding inheritance and wills under UAE law. Chunk {i}.",
             metadata={"page": i, "source": "test.txt"}
         )
         for i in range(3)

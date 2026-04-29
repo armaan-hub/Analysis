@@ -121,6 +121,18 @@ if ((Get-Date) -ge $backendDeadline) {
 }
 
 Write-Log "[2/2] Starting frontend ..." Green
+# Kill any lingering node processes using port 5173 from a previous run
+$lingering = netstat -ano | Select-String ":5173\s" | ForEach-Object {
+    ($_ -split '\s+')[-1]
+} | Where-Object { $_ -match '^\d+$' } | Select-Object -Unique
+foreach ($pid in $lingering) {
+    try {
+        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+        Write-Log "  [CLEANUP] Killed lingering process $pid on port 5173" DarkGray
+    } catch {}
+}
+Start-Sleep -Milliseconds 500   # brief pause to let the port release
+
 $frontendJob   = New-FrontendJob $FRONTEND
 $frontendFails = 0
 $frontendStart = Get-Date
@@ -180,6 +192,14 @@ try {
             Write-Log "[RESTART $frontendFails/$MAX_CONSEC_FAILS] Frontend stopped (uptime: ${uptimeSec}s). Restarting in ${RESTART_DELAY}s..." Yellow
             Start-Sleep -Seconds $RESTART_DELAY
             Remove-Job -Job $frontendJob -Force -ErrorAction SilentlyContinue
+            # Kill any lingering node process on port 5173 before restarting
+            $lingering = netstat -ano | Select-String ":5173\s" | ForEach-Object {
+                ($_ -split '\s+')[-1]
+            } | Where-Object { $_ -match '^\d+$' } | Select-Object -Unique
+            foreach ($pid in $lingering) {
+                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Milliseconds 500
             $frontendJob   = New-FrontendJob $FRONTEND
             $frontendStart = Get-Date
             Write-Log "[OK] Frontend restarted." Green
@@ -200,7 +220,18 @@ finally {
     if ($frontendJob) {
         Stop-Job  -Job $frontendJob  -ErrorAction SilentlyContinue
         Remove-Job -Job $frontendJob -Force -ErrorAction SilentlyContinue
-        Write-Log "  [OK] Frontend stopped." DarkGray
+        Write-Log "  [OK] Frontend job stopped." DarkGray
+    }
+    # Kill any node process still holding port 5173 (child process from npm run dev
+    # is not always cleaned up when the PS job is stopped)
+    $remaining = netstat -ano | Select-String ":5173\s" | ForEach-Object {
+        ($_ -split '\s+')[-1]
+    } | Where-Object { $_ -match '^\d+$' } | Select-Object -Unique
+    foreach ($pid in $remaining) {
+        try {
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            Write-Log "  [OK] Killed Node process $pid on port 5173." DarkGray
+        } catch {}
     }
     Write-Log "Done." Green
 }

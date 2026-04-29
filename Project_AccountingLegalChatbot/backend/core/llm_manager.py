@@ -497,68 +497,89 @@ class NvidiaProvider(BaseLLMProvider):
         }
         payload = self._build_payload(messages, max_tokens, temperature, stream=True, reasoning_effort=reasoning_effort)
 
-        # For Gemma thinking mode: buffer until </thinking> before yielding
-        in_thinking = False
-        thinking_buf = ""
-
         has_images = self._messages_contain_images(messages)
         _timeout = httpx.Timeout(None) if has_images else self._STREAM_TIMEOUT
-        async with httpx.AsyncClient(timeout=_timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            ) as resp:
-                if resp.status_code >= 400:
-                    body = await resp.aread()
-                    err_text = body.decode("utf-8", errors="replace")[:400]
-                    raise httpx.HTTPStatusError(
-                        f"HTTP {resp.status_code}: {err_text}",
-                        request=resp.request,
-                        response=resp,
-                    )
-                async for line in resp.aiter_lines():
-                    if not line or not line.startswith("data: "):
-                        continue
-                    data_str = line[6:]  # strip "data: "
-                    if data_str.strip() == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data_str)
-                        delta = chunk["choices"][0].get("delta", {})
-                        content = delta.get("content", "")
-                        if not content:
-                            continue
 
-                        if not self._is_gemma:
-                            yield content
-                            continue
+        last_exc: Exception = RuntimeError("NVIDIA stream: provider unreachable")
+        for attempt in range(3):
+            if attempt > 0:
+                wait_s = 5 * (2 ** (attempt - 1))  # 5 s, then 10 s
+                logger.warning(
+                    "NVIDIA stream: 429 rate limit, retrying in %ds (attempt %d/3)…", wait_s, attempt + 1
+                )
+                await asyncio.sleep(wait_s)
 
-                        # Gemma: suppress <thinking>...</thinking> blocks in stream
-                        thinking_buf += content
-                        while True:
-                            if in_thinking:
-                                end = thinking_buf.find("</thinking>")
-                                if end == -1:
-                                    thinking_buf = ""  # still inside thinking block
-                                    break
-                                # Found end of thinking block
-                                in_thinking = False
-                                thinking_buf = thinking_buf[end + len("</thinking>"):].lstrip("\n")
-                            else:
-                                start = thinking_buf.find("<thinking>")
-                                if start == -1:
-                                    yield thinking_buf
-                                    thinking_buf = ""
-                                    break
-                                # Yield text before the thinking block
-                                if start > 0:
-                                    yield thinking_buf[:start]
-                                in_thinking = True
-                                thinking_buf = thinking_buf[start + len("<thinking>"):]
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        continue
+            # Per-attempt state for Gemma thinking-block suppression
+            in_thinking = False
+            thinking_buf = ""
+
+            try:
+                async with httpx.AsyncClient(timeout=_timeout) as client:
+                    async with client.stream(
+                        "POST",
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                    ) as resp:
+                        if resp.status_code >= 400:
+                            body = await resp.aread()
+                            err_text = body.decode("utf-8", errors="replace")[:400]
+                            exc = httpx.HTTPStatusError(
+                                f"HTTP {resp.status_code}: {err_text}",
+                                request=resp.request,
+                                response=resp,
+                            )
+                            if resp.status_code == 429 and attempt < 2:
+                                last_exc = exc
+                                continue  # retry outer loop
+                            raise exc
+
+                        async for line in resp.aiter_lines():
+                            if not line or not line.startswith("data: "):
+                                continue
+                            data_str = line[6:]  # strip "data: "
+                            if data_str.strip() == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(data_str)
+                                delta = chunk["choices"][0].get("delta", {})
+                                content = delta.get("content", "")
+                                if not content:
+                                    continue
+
+                                if not self._is_gemma:
+                                    yield content
+                                    continue
+
+                                # Gemma: suppress <thinking>...</thinking> blocks in stream
+                                thinking_buf += content
+                                while True:
+                                    if in_thinking:
+                                        end = thinking_buf.find("</thinking>")
+                                        if end == -1:
+                                            thinking_buf = ""  # still inside thinking block
+                                            break
+                                        in_thinking = False
+                                        thinking_buf = thinking_buf[end + len("</thinking>"):].lstrip("\n")
+                                    else:
+                                        start = thinking_buf.find("<thinking>")
+                                        if start == -1:
+                                            yield thinking_buf
+                                            thinking_buf = ""
+                                            break
+                                        if start > 0:
+                                            yield thinking_buf[:start]
+                                        in_thinking = True
+                                        thinking_buf = thinking_buf[start + len("<thinking>"):]
+                            except (json.JSONDecodeError, KeyError, IndexError):
+                                continue
+                return  # stream completed successfully
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                last_exc = exc
+                logger.warning("NVIDIA stream network error (attempt %d/3): %s", attempt + 1, exc)
+                if attempt >= 2:
+                    raise RuntimeError("NVIDIA provider unreachable after 3 attempts") from exc
+        raise last_exc
 
 
 # ═══════════════════════════════════════════════════════════════════

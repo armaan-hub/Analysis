@@ -207,6 +207,7 @@ async def test_doc_scoped_filter_still_works(client):
         "$and": [
             {"doc_id": {"$in": ["doc-123", "doc-456"]}},
             {"category": {"$in": ["law", "finance"]}},
+            {"domain": {"$in": ["vat"]}},
         ]
     }
     doc_id_filter_calls = [

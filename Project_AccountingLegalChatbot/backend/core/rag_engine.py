@@ -503,7 +503,7 @@ class RAGEngine:
         Path(graph_db_path_str).parent.mkdir(parents=True, exist_ok=True)
         asyncio.create_task(_index_entities(doc_id, texts, entity_lists, graph_db_path_str))
 
-        return len(chunks)
+        return len(ids)
 
     def get_stats(self) -> dict:
         """Return statistics about the vector store."""

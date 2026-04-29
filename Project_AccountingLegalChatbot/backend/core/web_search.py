@@ -1,30 +1,64 @@
 """
 Web search fallback — used when RAG has no relevant results.
-Uses DuckDuckGo (no API key required).
+Uses DuckDuckGo HTML endpoint via native async httpx (no primp, fully cancellable).
 """
 import asyncio
 import logging
-from typing import Optional
+import urllib.parse
+
+import httpx
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+_DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+_DDG_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 async def search_web(query: str, max_results: int = 5) -> list[dict]:
     """
-    Search the web for query. Returns list of dicts with keys:
-    title, href, body (snippet text).
+    Search the web for query using DuckDuckGo HTML endpoint.
+    Returns list of dicts with keys: title, href, body.
     Returns [] on any error — caller must handle gracefully.
+    Fully async — no thread executor, no primp, cancellable.
     """
     try:
-        from duckduckgo_search import DDGS
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=8.0, read=12.0, write=8.0, pool=5.0),
+            follow_redirects=True,
+        ) as client:
+            resp = await client.post(_DDG_HTML_URL, data={"q": query}, headers=_DDG_HEADERS)
+            resp.raise_for_status()
 
-        def _sync_search() -> list[dict]:
-            with DDGS() as ddgs:
-                return list(ddgs.text(query, max_results=max_results))
-
-        loop = asyncio.get_running_loop()
-        results = await loop.run_in_executor(None, _sync_search)
-        return results or []
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results: list[dict] = []
+        for div in soup.find_all("div", class_="result"):
+            link_tag = div.find("a", class_="result__a")
+            snippet_div = div.find("div", class_="result__snippet")
+            if not link_tag:
+                continue
+            raw_href = link_tag.get("href", "")
+            # DDG wraps URLs in redirect links: /l/?uddg=<encoded_url>&rut=...
+            if "uddg=" in raw_href:
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(raw_href).query)
+                href = qs.get("uddg", [raw_href])[0]
+            else:
+                href = raw_href
+            title = link_tag.get_text(strip=True)
+            body = snippet_div.get_text(strip=True) if snippet_div else ""
+            if href and title:
+                results.append({"title": title, "href": href, "body": body})
+            if len(results) >= max_results:
+                break
+        return results
     except Exception as exc:
         logger.warning(f"Web search failed for query '{query[:60]}': {exc}")
         return []
@@ -49,22 +83,26 @@ async def generate_sub_queries(query: str, max_queries: int = 6) -> list[str]:
     """Use LLM to generate diverse sub-queries from the original question."""
     try:
         from core.llm_manager import get_llm_provider
-        llm = get_llm_provider()
-        resp = await llm.chat(
-            [
-                {
-                    "role": "user",
-                    "content": (
-                        f"Generate {max_queries} distinct search queries to comprehensively research this topic: "
-                        f'"{query}"\n\n'
-                        "Return ONLY a JSON array of strings. No explanation. "
-                        "Each query should cover a different angle: regulations, examples, exceptions, "
-                        "recent updates, official guidance, penalties/compliance."
-                    ),
-                }
-            ],
-            temperature=0.3,
-            max_tokens=300,
+        # Use fast model — query generation needs speed, not depth
+        llm = get_llm_provider(mode="fast")
+        resp = await asyncio.wait_for(
+            llm.chat(
+                [
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Generate {max_queries} distinct search queries to comprehensively research this topic: "
+                            f'"{query}"\n\n'
+                            "Return ONLY a JSON array of strings. No explanation. "
+                            "Each query should cover a different angle: regulations, examples, exceptions, "
+                            "recent updates, official guidance, penalties/compliance."
+                        ),
+                    }
+                ],
+                temperature=0.3,
+                max_tokens=300,
+            ),
+            timeout=30.0,
         )
         import json as _json, re as _re
         raw = resp.content.strip()
@@ -74,6 +112,8 @@ async def generate_sub_queries(query: str, max_queries: int = 6) -> list[str]:
         if match:
             queries = _json.loads(match.group(0))
             return [str(q) for q in queries[:max_queries] if q]
+    except asyncio.TimeoutError:
+        logger.warning("Sub-query generation timed out — using fallback queries")
     except Exception as exc:
         logger.warning(f"Sub-query generation failed: {exc}")
     return [query, f"{query} UAE regulations", f"{query} FTA guidance"]
