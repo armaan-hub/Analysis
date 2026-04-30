@@ -10,6 +10,7 @@ import hashlib
 import logging
 import os
 import shutil
+import threading
 from pathlib import Path
 
 from config import settings
@@ -46,6 +47,21 @@ class DocumentProcessor:
         self._cv2_dependency_warning_emitted = False
         self._tesseract_cmd_checked = False
         self._tesseract_cmd: str | None = None
+        self._tesseract_lock = threading.Lock()
+        self._setup_tesseract_env()
+
+    def _setup_tesseract_env(self):
+        """Set process-global tesseract config once at init, not from threads."""
+        cmd = self._resolve_tesseract_cmd()
+        if cmd:
+            try:
+                import pytesseract
+                pytesseract.pytesseract.tesseract_cmd = cmd
+            except ImportError:
+                pass
+        tessdata = self._resolve_tessdata_dir()
+        if tessdata and os.path.exists(tessdata):
+            os.environ["TESSDATA_PREFIX"] = tessdata
 
     def _resolve_tessdata_dir(self) -> str | None:
         """Resolve a tessdata directory that can include additional OCR languages."""
@@ -69,35 +85,43 @@ class DocumentProcessor:
 
     def _resolve_tesseract_cmd(self) -> str | None:
         """Resolve tesseract executable path when it's not available on PATH."""
-        if self._tesseract_cmd_checked:
-            return self._tesseract_cmd
-
-        self._tesseract_cmd_checked = True
-        candidates = []
-
-        configured = settings.pdf_ocr_tesseract_cmd.strip()
-        if configured:
-            configured_path = Path(configured)
-            if configured_path.exists():
-                candidates.append(configured_path)
-
-        discovered = shutil.which("tesseract")
-        if discovered:
-            candidates.append(Path(discovered))
-
-        if os.name == "nt":
-            candidates.extend([
-                Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
-                Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
-                Path.home() / r"AppData\Local\Programs\Tesseract-OCR\tesseract.exe",
-            ])
-
-        for candidate in candidates:
-            if candidate.exists() and candidate.is_file():
-                self._tesseract_cmd = str(candidate)
+        with self._tesseract_lock:
+            if self._tesseract_cmd_checked:
                 return self._tesseract_cmd
 
-        return None
+            self._tesseract_cmd_checked = True
+            candidates = []
+
+            configured = settings.pdf_ocr_tesseract_cmd.strip()
+            if configured:
+                configured_path = Path(configured)
+                if configured_path.exists():
+                    candidates.append(configured_path)
+
+            discovered = shutil.which("tesseract")
+            if discovered:
+                candidates.append(Path(discovered))
+
+            if os.name == "nt":
+                candidates.extend([
+                    Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+                    Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
+                    Path.home() / r"AppData\Local\Programs\Tesseract-OCR\tesseract.exe",
+                ])
+
+            for candidate in candidates:
+                if candidate.exists() and candidate.is_file():
+                    self._tesseract_cmd = str(candidate)
+                    return self._tesseract_cmd
+
+            return None
+
+    def _emit_warning_once(self, flag_attr: str, msg: str) -> None:
+        """Emit a warning log message at most once, thread-safely."""
+        with self._tesseract_lock:
+            if not getattr(self, flag_attr):
+                logger.warning(msg)
+                setattr(self, flag_attr, True)
 
     def get_file_type(self, filepath: str) -> str:
         """Determine file type from extension."""
@@ -135,8 +159,8 @@ class DocumentProcessor:
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
-        # Split into chunks
-        chunks = self._split_text(raw_text, filename, doc_id)
+        # Split into chunks (offloaded to thread — can be CPU-heavy for large docs)
+        chunks = await asyncio.to_thread(self._split_text, raw_text, filename, doc_id)
         logger.info(f"Document '{filename}' split into {len(chunks)} chunks")
         return chunks
 
@@ -190,20 +214,13 @@ class DocumentProcessor:
             import pytesseract
             from PIL import Image
         except Exception as exc:
-            if not self._ocr_dependency_warning_emitted:
-                logger.warning(f"PDF OCR fallback unavailable (install pytesseract + Pillow): {exc}")
-                self._ocr_dependency_warning_emitted = True
+            self._emit_warning_once(
+                "_ocr_dependency_warning_emitted",
+                f"PDF OCR fallback unavailable (install pytesseract + Pillow): {exc}",
+            )
             return ""
 
         try:
-            tesseract_cmd = self._resolve_tesseract_cmd()
-            if tesseract_cmd:
-                pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-
-            tessdata_dir = self._resolve_tessdata_dir()
-            if tessdata_dir:
-                os.environ["TESSDATA_PREFIX"] = tessdata_dir
-
             # Render at 300 DPI minimum for reliable OCR on scanned pages.
             dpi = max(settings.pdf_ocr_dpi, 300)
             zoom = dpi / 72.0
@@ -255,13 +272,12 @@ class DocumentProcessor:
                 processed: Image.Image = Image.fromarray(thresh)
 
             except Exception as cv2_exc:
-                if not self._cv2_dependency_warning_emitted:
-                    logger.warning(
-                        "Advanced OCR preprocessing unavailable "
-                        "(install opencv-python-headless + deskew + scikit-image); "
-                        f"falling back to basic grayscale pipeline: {cv2_exc}"
-                    )
-                    self._cv2_dependency_warning_emitted = True
+                self._emit_warning_once(
+                    "_cv2_dependency_warning_emitted",
+                    "Advanced OCR preprocessing unavailable "
+                    "(install opencv-python-headless + deskew + scikit-image); "
+                    f"falling back to basic grayscale pipeline: {cv2_exc}",
+                )
                 # Basic fallback: grayscale only.
                 processed = image.convert("L")
 
@@ -271,9 +287,7 @@ class DocumentProcessor:
                 config="--oem 1 --psm 6",
             )
         except Exception as exc:
-            if not self._ocr_runtime_warning_emitted:
-                logger.warning(f"PDF OCR fallback failed: {exc}")
-                self._ocr_runtime_warning_emitted = True
+            self._emit_warning_once("_ocr_runtime_warning_emitted", f"PDF OCR fallback failed: {exc}")
             logger.debug(f"OCR failed for {filename} page {page_num}", exc_info=True)
             return ""
 
@@ -303,19 +317,21 @@ class DocumentProcessor:
         wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
         sheets = []
 
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            rows = []
-            for row in ws.iter_rows(values_only=True):
-                cell_values = [str(v) if v is not None else "" for v in row]
-                row_text = " | ".join(cell_values).strip()
-                if row_text.replace("|", "").strip():
-                    rows.append(row_text)
-            if rows:
-                sheet_text = f"Sheet: {sheet_name}\n" + "\n".join(rows)
-                sheets.append({"text": sheet_text, "page": sheet_name})
+        try:
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                rows = []
+                for row in ws.iter_rows(values_only=True):
+                    cell_values = [str(v) if v is not None else "" for v in row]
+                    row_text = " | ".join(cell_values).strip()
+                    if row_text.replace("|", "").strip():
+                        rows.append(row_text)
+                if rows:
+                    sheet_text = f"Sheet: {sheet_name}\n" + "\n".join(rows)
+                    sheets.append({"text": sheet_text, "page": sheet_name})
+        finally:
+            wb.close()
 
-        wb.close()
         return sheets
 
     def _extract_text(self, filepath: str) -> list[dict]:
