@@ -103,7 +103,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
       if (source.page && source.page !== '?') params.set('page', String(source.page));
       API.get(`/api/documents/source-content?${params.toString()}`)
         .then(r => { if (!cancelled) setFullTexts(prev => ({ ...prev, [key]: r.data.text as string })); })
-        .catch(() => { if (!cancelled) setFullTexts(prev => ({ ...prev, [key]: source.excerpt ?? '' })); });
+        .catch((err) => { if (!cancelled) setFullTexts(prev => ({ ...prev, [key]: source.excerpt ?? '' })); console.error('Failed to load source text:', err); });
     });
     return () => { cancelled = true; };
   }, [sources, isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,10 +133,10 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
       a.download = displayName.replace(/\.[^.]+$/, '') + '_source.docx';
       a.click();
       URL.revokeObjectURL(url);
-    } catch { /* silent */ }
+    } catch (err) { console.error('Export failed:', err); }
   };
 
-  const handleExcelDownload = async (text: string, displayName: string) => {
+  const handleExcelDownload= async (text: string, displayName: string) => {
     try {
       const resp = await API.post('/api/documents/export-source-xlsx', { text, filename: displayName }, { responseType: 'blob' });
       const url = URL.createObjectURL(resp.data as Blob);
@@ -145,7 +145,7 @@ export function SourcePeeker({ sources, isOpen: isOpenProp, highlightedSource, o
       a.download = displayName.replace(/\.[^.]+$/, '') + '_source.xlsx';
       a.click();
       URL.revokeObjectURL(url);
-    } catch { /* silent */ }
+    } catch (err) { console.error('Export failed:', err); }
   };
 
   return (

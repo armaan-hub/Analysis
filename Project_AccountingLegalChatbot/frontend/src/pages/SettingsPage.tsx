@@ -103,7 +103,8 @@ export default function SettingsPage() {
     setModels([]);
     try {
       const r = await API.get(`/api/settings/providers/${selectedProvider}/models`);
-      const list: string[] = (r.data as Array<{ id: string }>).map(m => m.id);
+      const rawData = Array.isArray(r.data) ? r.data : [];
+      const list: string[] = rawData.map((m: { id: string }) => m.id);
       setModels(list);
       if (list.length === 0) setModelsError('No models returned from provider.');
     } catch (e) {

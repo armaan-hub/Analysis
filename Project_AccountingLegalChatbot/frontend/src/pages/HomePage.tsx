@@ -31,7 +31,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
       .then(r => {
         const convos = r.data ?? [];
         setNotebooks(convos
-          .map((c: any) => ({
+          .map((c: { id: string; title: string; updated_at: string; mode?: string; source_count?: number; domain?: string }) => ({
             id: c.id,
             title: c.title || 'Untitled Notebook',
             updated_at: c.updated_at || new Date().toISOString(),
@@ -40,7 +40,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
             mode: c.mode,
           })));
       })
-      .catch(() => {});
+      .catch((err) => console.error('Failed to load conversations:', err));
   }, []);
 
   const handleOpen = (id: string) => navigate(`/notebook/${id}`);
@@ -86,13 +86,13 @@ export default function HomePage({ onNewChat }: HomePageProps) {
         await Promise.all([...selectedIds].map(id => API.delete(`/api/chat/conversations/${id}`)));
         setNotebooks(prev => prev.filter(n => !selectedIds.has(n.id)));
         exitSelectionMode();
-      } catch { /* ignore */ }
+      } catch (err) { console.error('Operation failed:', err); }
       setDeleteTarget(null);
     } else if (deleteTarget) {
       try {
         await API.delete(`/api/chat/conversations/${deleteTarget}`);
         setNotebooks(prev => prev.filter(n => n.id !== deleteTarget));
-      } catch { /* ignore */ }
+      } catch (err) { console.error('Operation failed:', err); }
       setDeleteTarget(null);
     }
   };

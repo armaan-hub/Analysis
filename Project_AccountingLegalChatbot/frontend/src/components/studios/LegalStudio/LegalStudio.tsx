@@ -117,6 +117,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
   const persistSourcesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(false);
   const lastResearchQuery = useRef<string>('');
+  const answerAppendedRef = useRef(false);
 
   const council = useCouncil();
   const [councilOpen, setCouncilOpen] = useState(false);
@@ -188,10 +189,14 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       try {
         const res = await API.post('/api/documents/upload', fd);
         const doc = res.data.document ?? res.data;
+        if (!doc?.id) {
+          console.error('Upload response missing document id', res.data);
+          return;
+        }
         setDocs(prev => prev.map(d =>
           d.id === tempId ? {
-            id: doc.id, filename: doc.original_name ?? doc.filename,
-            source: doc.source ?? doc.filename, status: 'ready',
+            id: doc.id, filename: doc.original_name ?? doc.filename ?? 'Unknown',
+            source: doc.source ?? doc.filename ?? 'Unknown', status: 'ready' as const,
             summary: doc.summary, key_terms: doc.key_terms,
             file_size: doc.file_size,
           } : d
@@ -530,11 +535,15 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
         try {
           const res = await API.post('/api/documents/upload', fd);
           const doc = res.data.document ?? res.data;
+          if (!doc?.id) {
+            console.error('Upload response missing document id', res.data);
+            return;
+          }
           setDocs(prev => [...prev, {
-            id: doc.id, filename: doc.original_name ?? doc.filename,
-            source: doc.source ?? doc.filename, status: 'ready',
-            summary: doc.summary, key_terms: doc.key_terms,
-            file_size: doc.file_size,
+            id: doc.id,
+            filename: doc.original_name ?? doc.filename ?? 'Unknown',
+            source: doc.source ?? doc.filename ?? 'Unknown',
+            status: 'ready' as const,
           }]);
           setSelectedDocIds(prev => [...prev, doc.id]);
         } catch (err) { console.error('Document upload failed:', err); /* upload error - continue with chat */ }
@@ -577,6 +586,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
     if (mode === 'deep_research') {
       setLoading(false);
       lastResearchQuery.current = text;
+      answerAppendedRef.current = false;
       try {
         await runDeepResearch(text, selectedDocIds);
       } catch (err) {
@@ -782,7 +792,8 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
 
   // Append deep-research answer as research message when it arrives
   useEffect(() => {
-    if (!answer) return;
+    if (!answer || answerAppendedRef.current) return;
+    answerAppendedRef.current = true;
     setMessages(prev => [...prev, {
       role: 'research' as const,
       id: crypto.randomUUID(),
@@ -792,7 +803,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       sources: answer.sources.map(s => ({ source: s.filename, page: s.page ?? '', score: 0, excerpt: '' })),
       time: fmtTime(),
     }]);
-  }, [answer, steps]);
+  }, [answer]); // steps intentionally omitted — snapshot taken once when answer arrives
 
   // --- Render ---
   const centerContent = (
