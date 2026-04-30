@@ -4,6 +4,7 @@ Uses DuckDuckGo HTML endpoint via native async httpx (no primp, fully cancellabl
 """
 import asyncio
 import logging
+import re
 import urllib.parse
 
 import httpx
@@ -22,10 +23,46 @@ _DDG_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+_SUSPICIOUS_URL_PATTERNS = [
+    r"bit\.ly|tinyurl|goo\.gl|short\.link",  # URL shorteners
+    r"pinterest|instagram|facebook|twitter\.com(?!/)",  # Social media
+    r"youtube|reddit|medium",  # Content platforms
+    r"wikipedia(?!\.org)",  # Wikipedia forks
+    r"\.tk|\.ml|\.ga|\.cf$",  # Free domains
+    r"404|error|not.*found",  # Error pages
+]
+
+
+async def _is_valid_url(url: str, timeout: float = 3.0) -> bool:
+    """
+    Check if URL is reachable and not a redirect/error page.
+    Returns False for suspicious patterns, 404s, redirects to error pages.
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+
+    # Check for suspicious patterns
+    for pattern in _SUSPICIOUS_URL_PATTERNS:
+        if re.search(pattern, url, re.IGNORECASE):
+            return False
+
+    # Verify URL is reachable
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.0, read=timeout)) as client:
+            resp = await client.head(url, follow_redirects=False, allow_redirects=False)
+            # Accept 2xx, 3xx (redirects are normal), but reject 4xx, 5xx
+            return 200 <= resp.status_code < 400
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        return False
+    except Exception as e:
+        logger.debug(f"URL validation error for {url}: {e}")
+        return False
+
 
 async def search_web(query: str, max_results: int = 5) -> list[dict]:
     """
     Search the web for query using DuckDuckGo HTML endpoint.
+    Validates URLs — rejects suspicious patterns and unreachable links.
     Returns list of dicts with keys: title, href, body.
     Returns [] on any error — caller must handle gracefully.
     Fully async — no thread executor, no primp, cancellable.
@@ -39,7 +76,7 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
             resp.raise_for_status()
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        results: list[dict] = []
+        candidates: list[dict] = []
         for div in soup.find_all("div", class_="result"):
             link_tag = div.find("a", class_="result__a")
             snippet_div = div.find("div", class_="result__snippet")
@@ -55,9 +92,24 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
             title = link_tag.get_text(strip=True)
             body = snippet_div.get_text(strip=True) if snippet_div else ""
             if href and title:
-                results.append({"title": title, "href": href, "body": body})
-            if len(results) >= max_results:
-                break
+                candidates.append({"title": title, "href": href, "body": body})
+
+        # Validate URLs in parallel; keep only valid ones
+        validation_tasks = [_is_valid_url(c["href"]) for c in candidates]
+        validities = await asyncio.gather(*validation_tasks, return_exceptions=True)
+
+        results: list[dict] = []
+        for candidate, is_valid in zip(candidates, validities):
+            if is_valid is True:
+                results.append(candidate)
+                if len(results) >= max_results:
+                    break
+
+        if len(results) < len(candidates):
+            logger.debug(
+                f"Web search: {len(candidates)} results found, "
+                f"{len(results)} passed URL validation for query '{query[:60]}'"
+            )
         return results
     except Exception as exc:
         logger.warning(f"Web search failed for query '{query[:60]}': {exc}")
