@@ -57,7 +57,7 @@ class DocumentProcessor:
             try:
                 import pytesseract
                 pytesseract.pytesseract.tesseract_cmd = cmd
-            except ImportError:
+            except (ImportError, AttributeError):
                 pass
         tessdata = self._resolve_tessdata_dir()
         if tessdata and os.path.exists(tessdata):
