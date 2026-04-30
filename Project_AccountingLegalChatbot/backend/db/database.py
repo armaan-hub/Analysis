@@ -19,11 +19,13 @@ engine = create_async_engine(
 )
 
 # Enable WAL mode on every new connection so concurrent reads don't block writes
-from sqlalchemy import event
-@event.listens_for(engine.sync_engine, "connect")
-def _set_wal_mode(dbapi_conn, _):
-    dbapi_conn.execute("PRAGMA journal_mode=WAL")
-    dbapi_conn.execute("PRAGMA busy_timeout=30000")
+# Only applies to SQLite — PRAGMAs are not valid for other databases
+if "sqlite" in str(engine.url):
+    from sqlalchemy import event
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_wal_mode(dbapi_conn, _):
+        dbapi_conn.execute("PRAGMA journal_mode=WAL")
+        dbapi_conn.execute("PRAGMA busy_timeout=30000")
 
 async_session = async_sessionmaker(
     engine,
