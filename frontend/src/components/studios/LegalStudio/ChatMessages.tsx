@@ -100,7 +100,14 @@ function AIMessage({ msg, onSourceClick, resolve }: { msg: Message; onSourceClic
               )}
             </>
           )}
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(displayText)}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+              ),
+            }}
+          >{normalizeMarkdown(displayText)}</ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && isSubstantiveAnswer(msg.text || '', msg.sources) && (
           <SourcesChip sources={msg.sources} onSourceClick={onSourceClick} resolveName={resolve} />

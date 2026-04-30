@@ -46,8 +46,31 @@ def _parse_markdown_tables(text: str) -> list[list[list[str]]]:
     return tables
 
 
+def _strip_inline_md(text: str) -> str:
+    """Strip all inline markdown markers for plain-text contexts (Excel cells, etc.)."""
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    return text
+
+
 def _strip_markdown_bold(text: str) -> str:
     return re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+
+
+def _add_runs_with_bold(paragraph, text: str) -> None:
+    """Parse **bold** and *italic* markers into python-docx runs."""
+    parts = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)', text)
+    for part in parts:
+        if part.startswith('**') and part.endswith('**') and len(part) > 4:
+            paragraph.add_run(part[2:-2]).bold = True
+        elif part.startswith('*') and part.endswith('*') and len(part) > 2:
+            paragraph.add_run(part[1:-1]).italic = True
+        elif part.startswith('`') and part.endswith('`') and len(part) > 2:
+            paragraph.add_run(part[1:-1])
+        else:
+            paragraph.add_run(part)
 
 
 # ---------------------------------------------------------------------------
@@ -317,22 +340,25 @@ def to_branded_docx(content: str, sources: list[dict[str, Any]], query: str) -> 
                     for c_idx, cell_text in enumerate(row):
                         if c_idx < max_cols:
                             cell = table.rows[r_idx].cells[c_idx]
-                            cell.text = cell_text
+                            para = cell.paragraphs[0]
+                            para.clear()
+                            _add_runs_with_bold(para, _strip_inline_md(cell_text))
                             if r_idx == 0:
-                                for para in cell.paragraphs:
-                                    for r in para.runs:
-                                        r.bold = True
+                                for run in para.runs:
+                                    run.bold = True
                 doc.add_paragraph()
                 i = j
                 continue
 
         # Lists
         if stripped.startswith("- ") or stripped.startswith("* "):
-            doc.add_paragraph(stripped[2:], style="List Bullet")
+            p = doc.add_paragraph(style="List Bullet")
+            _add_runs_with_bold(p, stripped[2:])
             i += 1
             continue
         if re.match(r"^\d+\.\s", stripped):
-            doc.add_paragraph(re.sub(r"^\d+\.\s", "", stripped), style="List Number")
+            p = doc.add_paragraph(style="List Number")
+            _add_runs_with_bold(p, re.sub(r"^\d+\.\s", "", stripped))
             i += 1
             continue
 
@@ -415,13 +441,15 @@ def to_branded_xlsx(content: str, sources: list[dict[str, Any]], query: str) -> 
                 tli = table_line_indices[t_idx]
                 for li in range(tli - 1, max(tli - 10, -1), -1):
                     if lines[li].strip().startswith("#"):
-                        sheet_name = re.sub(r"^#+\s*", "", lines[li].strip())[:31]
+                        raw = re.sub(r"^#+\s*", "", lines[li].strip())
+                        sheet_name = _strip_inline_md(raw)[:31]
                         break
 
             ws = wb.create_sheet(title=sheet_name)
             for r_idx, row in enumerate(table_rows):
                 for c_idx, cell_value in enumerate(row):
-                    cell = ws.cell(row=r_idx + 1, column=c_idx + 1, value=cell_value)
+                    clean_value = _strip_inline_md(cell_value)
+                    cell = ws.cell(row=r_idx + 1, column=c_idx + 1, value=clean_value)
                     cell.alignment = wrap_align
                     if r_idx == 0:
                         cell.font = header_font
@@ -429,8 +457,8 @@ def to_branded_xlsx(content: str, sources: list[dict[str, Any]], query: str) -> 
                     else:
                         cell.font = body_font
                         try:
-                            numeric = float(cell_value.replace(",", "").replace("%", ""))
-                            if "%" in cell_value:
+                            numeric = float(clean_value.replace(",", "").replace("%", ""))
+                            if "%" in clean_value:
                                 cell.value = numeric / 100
                                 cell.number_format = "0.00%"
                             else:
@@ -455,7 +483,7 @@ def to_branded_xlsx(content: str, sources: list[dict[str, Any]], query: str) -> 
 
         row_num = 5
         for line in lines:
-            ws.cell(row=row_num, column=1, value=line)
+            ws.cell(row=row_num, column=1, value=_strip_inline_md(line))
             ws.cell(row=row_num, column=1).alignment = wrap_align
             row_num += 1
 

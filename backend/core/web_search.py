@@ -67,15 +67,17 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
 def build_web_context(results: list[dict]) -> str:
     """
     Format web search results into a context block for the LLM system prompt.
+    Sources are formatted as markdown links [Title](url) so the LLM can copy
+    them directly into its response as clickable hyperlinks.
     """
     if not results:
         return ""
     lines = ["The following information was found on the web:\n"]
     for i, r in enumerate(results, 1):
-        title = r.get("title", "")
-        url = r.get("href", "")
-        body = r.get("body", "")
-        lines.append(f"[Source {i}] {title}\nURL: {url}\n{body}\n")
+        title = r.get("title", "") or r.get("href", "")
+        url = r.get("href", "") or r.get("url", "")
+        body = r.get("body", "") or r.get("content", "")
+        lines.append(f"[Source {i}: {title}]({url})\n{body}\n")
     return "\n".join(lines)
 
 

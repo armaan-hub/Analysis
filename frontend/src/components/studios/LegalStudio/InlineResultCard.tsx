@@ -256,7 +256,14 @@ export function InlineResultCard({
       {/* ── Body: markdown content ─────────────────────────────────────── */}
       {content && !auditData && (
         <div className="report-markdown" style={{ fontSize: 13, color: 'var(--s-text-1)' }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+              ),
+            }}
+          >{content}</ReactMarkdown>
         </div>
       )}
 

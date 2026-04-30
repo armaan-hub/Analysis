@@ -114,7 +114,14 @@ export function ResearchBubble({ phases, report, sources, query, onSourceClick }
       {/* Final report — rendered as Markdown */}
       {report && (
         <div className="report-markdown" style={{ marginTop: 8 }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(report)}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+              ),
+            }}
+          >{normalizeMarkdown(report)}</ReactMarkdown>
         </div>
       )}
 

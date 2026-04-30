@@ -109,7 +109,9 @@ async def _synthesize(query: str, gathered: dict[str, str]) -> str:
     system = (
         "You are a UAE legal and financial research analyst. "
         "Synthesize the following research findings into a comprehensive, well-structured report. "
-        "Use headings and bullet points. Be thorough and cite specific details."
+        "Use headings and bullet points. Be thorough and cite specific details. "
+        "When citing web sources, use markdown hyperlinks in the format [Title](url) — "
+        "copy the exact URL from the source as provided."
     )
     user = f"Original query: {query}\n\nResearch findings:\n{context}"
     return await _llm(system, user, temperature=0.3, max_tokens=3000)

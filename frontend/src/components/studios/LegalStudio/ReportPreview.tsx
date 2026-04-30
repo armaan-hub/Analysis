@@ -51,7 +51,14 @@ export function ReportPreview({ reportType, format, content, loading, onBack, on
             Generating report…
           </div>
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+              ),
+            }}
+          >
             {content || 'No content generated yet.'}
           </ReactMarkdown>
         )}

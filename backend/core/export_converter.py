@@ -89,7 +89,7 @@ def to_word(markdown_text: str) -> bytes:
         hdr_match = re.match(r'^(#{1,6})\s+(.+)$', line)
         if hdr_match:
             hash_count = len(hdr_match.group(1))
-            heading_text = hdr_match.group(2).strip()
+            heading_text = _strip_inline_md(hdr_match.group(2).strip())
             level = min(hash_count, 3)  # python-docx only supports levels 1-3
             doc.add_heading(heading_text, level=level)
             i += 1
@@ -211,7 +211,7 @@ def _to_pdf_reportlab(markdown_text: str) -> bytes:
         hdr_match = re.match(r'^(#{1,6})\s+(.+)$', stripped)
         if hdr_match:
             hash_count = len(hdr_match.group(1))
-            heading_text = hdr_match.group(2)
+            heading_text = _strip_inline_md(hdr_match.group(2))
             if hash_count == 1:
                 story.append(Paragraph(heading_text, styles["Heading1"]))
             elif hash_count == 2:
@@ -261,7 +261,8 @@ def to_excel(markdown_text: str) -> bytes:
             tli = table_line_indices[t_idx]
             for li in range(tli - 1, max(tli - 10, -1), -1):
                 if lines[li].strip().startswith("#"):
-                    sheet_name = re.sub(r"^#+\s*", "", lines[li].strip())[:31]
+                    raw = re.sub(r"^#+\s*", "", lines[li].strip())
+                    sheet_name = _strip_inline_md(raw)[:31]
                     break
 
         ws = wb.create_sheet(title=sheet_name)

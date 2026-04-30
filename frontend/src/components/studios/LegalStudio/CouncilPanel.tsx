@@ -25,7 +25,14 @@ export function CouncilPanel({ experts, synthesis, running, error }: Props) {
             <strong>{name}</strong>{e?.status === 'thinking' && <em style={{ marginLeft: 8, color: '#718096' }}>thinking…</em>}
             {e?.status === 'final' && <span style={{ marginLeft: 8, color: '#276749', fontSize: 12 }}>✓</span>}
             <div className="report-markdown" style={{ marginTop: 8 }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(e?.content ?? '')}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                  ),
+                }}
+              >{normalizeMarkdown(e?.content ?? '')}</ReactMarkdown>
             </div>
           </div>
         );
@@ -34,7 +41,14 @@ export function CouncilPanel({ experts, synthesis, running, error }: Props) {
         <div style={{ borderTop: '2px solid #1a365d', paddingTop: 12 }}>
           <strong>Council Synthesis</strong>
           <div className="report-markdown" style={{ marginTop: 8 }}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(synthesis)}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                ),
+              }}
+            >{normalizeMarkdown(synthesis)}</ReactMarkdown>
           </div>
         </div>
       )}
