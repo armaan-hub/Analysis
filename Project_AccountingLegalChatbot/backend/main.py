@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
     
     # Start APScheduler
     _t = time.perf_counter()
-    from monitoring.scheduler import start_scheduler, scheduler
+    from monitoring.scheduler import start_scheduler, stop_scheduler
     start_scheduler()
     logger.info(f"[OK] Scheduler started ({time.perf_counter()-_t:.2f}s)")
 
@@ -85,7 +85,7 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Chatbot server shutting down...")
-    scheduler.shutdown()
+    stop_scheduler()
     stop_auto_sync()
 
 

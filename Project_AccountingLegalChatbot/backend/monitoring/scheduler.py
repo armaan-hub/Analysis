@@ -6,6 +6,7 @@ Fetches UAE regulatory sources, compares SHA-256 hashes, and creates Alerts on c
 import asyncio
 import hashlib
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 
@@ -59,6 +60,7 @@ DEFAULT_SOURCES = [
 
 
 _scheduler_running = False
+_start_lock = threading.Lock()
 
 
 def _sha256(text: str) -> str:
@@ -66,11 +68,11 @@ def _sha256(text: str) -> str:
 
 
 def _log_task_exception(task: asyncio.Task) -> None:
-    if not task.cancelled() and task.exception() is not None:
-        logger.error(
-            f"Background monitoring task failed: {task.exception()}",
-            exc_info=task.exception(),
-        )
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("Background monitoring task failed: %s", exc, exc_info=exc)
 
 
 async def seed_default_sources() -> int:
@@ -168,30 +170,44 @@ async def fetch_and_check_updates():
 def start_scheduler():
     """Start the APScheduler for periodic checks."""
     global _scheduler_running
-    if _scheduler_running:
-        logger.warning("Scheduler already running — ignoring duplicate start()")
-        return
-    _scheduler_running = True
-    interval = settings.monitor_interval_hours
-    scheduler.add_job(
-        fetch_and_check_updates,
-        trigger=IntervalTrigger(hours=interval),
-        id="monitoring_job",
-        replace_existing=True,
-    )
+    with _start_lock:
+        if _scheduler_running:
+            logger.warning("Scheduler already running — ignoring duplicate start()")
+            return
+        try:
+            interval = settings.monitor_interval_hours
+            scheduler.add_job(
+                fetch_and_check_updates,
+                trigger=IntervalTrigger(hours=interval),
+                id="monitoring_job",
+                replace_existing=True,
+            )
 
-    # FTA scraper: auto-download new UAE law PDFs at midnight daily
-    from core.pipeline.fta_scraper import scrape_and_ingest
-    scheduler.add_job(
-        scrape_and_ingest,
-        trigger=CronTrigger(hour=0, minute=0),
-        id="fta_scraper",
-        name="FTA PDF Scraper",
-        replace_existing=True,
-        misfire_grace_time=3600,
-        max_instances=1,    # prevent overlapping runs
-    )
-    logger.info("Scheduled FTA scraper: daily at midnight")
+            # FTA scraper: auto-download new UAE law PDFs at midnight daily
+            from core.pipeline.fta_scraper import scrape_and_ingest
+            scheduler.add_job(
+                scrape_and_ingest,
+                trigger=CronTrigger(hour=0, minute=0),
+                id="fta_scraper",
+                name="FTA PDF Scraper",
+                replace_existing=True,
+                misfire_grace_time=3600,
+                max_instances=1,
+            )
+            logger.info("Scheduled FTA scraper: daily at midnight")
 
-    scheduler.start()
+            scheduler.start()
+        except Exception:
+            logger.exception("Scheduler failed to start")
+            raise
+        _scheduler_running = True
     logger.info(f"Monitoring scheduler started (interval: {interval} hours)")
+
+
+def stop_scheduler() -> None:
+    """Shut down the APScheduler and reset the running flag."""
+    global _scheduler_running
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+    _scheduler_running = False
+    logger.info("Monitoring scheduler stopped.")
