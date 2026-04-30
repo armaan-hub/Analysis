@@ -64,8 +64,6 @@ class ModelInfo(BaseModel):
 def _escape_env_value(value: str) -> str:
     """Escape a value for safe writing to .env file."""
     value = value.strip().replace('\n', '').replace('\r', '')
-    # Escape $ to $$ so ${VAR} patterns are not interpolated on reload
-    value = value.replace('$', '$$')
     if any(c in value for c in (' ', '#', '"', "'", '\\', '=', '$')):
         value = '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
     return value
