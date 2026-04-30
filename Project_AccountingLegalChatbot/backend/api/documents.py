@@ -465,18 +465,22 @@ async def get_document_file(document_id: str, db: AsyncSession = Depends(get_db)
 
     base_dir = Path(settings.upload_dir).resolve()
     file_path = (base_dir / doc.filename).resolve()
-    if not str(file_path).startswith(str(base_dir)):
+    if not file_path.is_relative_to(base_dir):
         raise HTTPException(status_code=403, detail="Access denied")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found on disk")
 
+    safe_name = (
+        doc.original_name
+        .replace("\r", "")
+        .replace("\n", "")
+        .replace('"', '\\"')
+    )
     media_type, _ = mimetypes.guess_type(doc.filename)
     return FileResponse(
         path=str(file_path),
         media_type=media_type or "application/octet-stream",
-        headers={
-            "Content-Disposition": f'inline; filename="{doc.original_name}"'
-        },
+        headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
     )
 
 
