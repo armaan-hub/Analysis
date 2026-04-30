@@ -145,7 +145,7 @@ async def root():
 
     return {
         "app": "Accounting & Legal AI Chatbot",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "status": "running",
         "llm_provider": settings.llm_provider,
         "llm_model": settings.active_model,
