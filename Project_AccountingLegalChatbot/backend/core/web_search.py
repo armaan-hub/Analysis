@@ -26,11 +26,10 @@ _DDG_HEADERS = {
 
 _SUSPICIOUS_URL_PATTERNS = [
     r"bit\.ly|tinyurl|goo\.gl|short\.link",  # URL shorteners
-    r"pinterest|instagram|facebook|twitter\.com",  # Social media
-    r"youtube|reddit|medium",  # Content platforms
+    r"pinterest\.com|instagram\.com|facebook\.com|twitter\.com|(?:^|[./])x\.com|t\.co/",  # Social media (incl. X/t.co)
+    r"(?:youtube|reddit|medium)\.com",  # Content platforms — domain-scoped to avoid substring false positives
     r"wikipedia(?!\.org)",  # Wikipedia forks
     r"https?://[^/]*\.(tk|ml|ga|cf)([/?]|$)",  # Free TLDs — scoped to hostname only
-    r"404|error|not.*found",  # Error pages
 ]
 
 

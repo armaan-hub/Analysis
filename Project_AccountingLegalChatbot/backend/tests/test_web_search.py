@@ -110,3 +110,32 @@ def test_suspicious_patterns_allow_huggingface_ml():
         if re.search(pattern, hf_url, re.IGNORECASE):
             pytest.fail(f"HuggingFace .ml URL was incorrectly blocked by pattern: {pattern!r}")
 
+
+def test_suspicious_patterns_block_x_com():
+    """x.com (Twitter rebrand) URLs should be blocked."""
+    import re
+    x_url = "https://x.com/user/status/123456"
+    for pattern in _ws._SUSPICIOUS_URL_PATTERNS:
+        if re.search(pattern, x_url, re.IGNORECASE):
+            return
+    pytest.fail("x.com URL was not blocked by any pattern")
+
+
+def test_suspicious_patterns_allow_uae_error_path():
+    """UAE gov URLs with 'error' in path should NOT be blocked (removed 404/error pattern)."""
+    import re
+    gov_url = "https://tax.gov.ae/en/Pages/Error/page-not-found.aspx"
+    for pattern in _ws._SUSPICIOUS_URL_PATTERNS:
+        if re.search(pattern, gov_url, re.IGNORECASE):
+            pytest.fail(f"UAE gov error-path URL was incorrectly blocked by pattern: {pattern!r}")
+
+
+def test_suspicious_patterns_allow_medium_in_path():
+    """URLs with 'medium' in path (not medium.com) should NOT be blocked."""
+    import re
+    legal_url = "https://tax.gov.ae/mediumterm-plan.pdf"
+    for pattern in _ws._SUSPICIOUS_URL_PATTERNS:
+        if re.search(pattern, legal_url, re.IGNORECASE):
+            pytest.fail(f"Legitimate URL with 'medium' in path was incorrectly blocked: {pattern!r}")
+
+
