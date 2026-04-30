@@ -43,25 +43,27 @@ Write-Log "  Logs     : backend_server.log | frontend_server.log" White
 Write-Log "  Press Ctrl+C to stop both services." Yellow
 Write-Log ""
 
-# ── Port cleanup helper ───────────────────────────────────────────────────────
-function Stop-ViteProcesses {
-    # Kill any process holding Vite's port range (5173-5179) so the next start
-    # always gets 5173. Stop-Job kills the PS job wrapper but leaves node.exe alive.
+# ── Port cleanup helpers ──────────────────────────────────────────────────────
+function Stop-PortProcesses {
+    param([int[]]$Ports, [string]$Label = "port")
     $killed = 0
-    5173..5179 | ForEach-Object {
+    $Ports | ForEach-Object {
         $port = $_
         netstat -ano | Select-String ":${port}\s" | ForEach-Object {
             $parts = ($_ -split '\s+') | Where-Object { $_ -ne '' }
             $pid_ = $parts[-1]
             if ($pid_ -match '^\d+$') {
                 Stop-Process -Id ([int]$pid_) -Force -ErrorAction SilentlyContinue
-                Write-Log "  [CLEANUP] Killed process $pid_ on port $port" DarkGray
+                Write-Log "  [CLEANUP] Killed $Label process $pid_ on port $port" DarkGray
                 $killed++
             }
         }
     }
     if ($killed -gt 0) { Start-Sleep -Seconds 1 }   # give Windows time to release ports
 }
+
+function Stop-BackendProcesses { Stop-PortProcesses -Ports @(8001) -Label "backend" }
+function Stop-ViteProcesses    { Stop-PortProcesses -Ports (5173..5179) -Label "vite" }
 
 # ── Job factory functions ─────────────────────────────────────────────────────
 function New-BackendJob {
@@ -101,6 +103,7 @@ $STABLE_THRESHOLD = 30   # seconds of uptime that resets the crash counter
 
 # ── Initial launch ────────────────────────────────────────────────────────────
 Write-Log "[1/2] Starting backend ..."  Green
+Stop-BackendProcesses   # kill any stale uvicorn process from a previous run
 $backendJob    = New-BackendJob  $BACKEND $PYTHON
 $backendFails  = 0
 $backendStart  = Get-Date
@@ -185,6 +188,7 @@ try {
             Write-Log "[RESTART $backendFails/$MAX_CONSEC_FAILS] Backend stopped (uptime: ${uptimeSec}s). Restarting in ${RESTART_DELAY}s..." Yellow
             Start-Sleep -Seconds $RESTART_DELAY
             Remove-Job -Job $backendJob -Force -ErrorAction SilentlyContinue
+            Stop-BackendProcesses   # ensure old uvicorn released port 8001
             $backendJob   = New-BackendJob $BACKEND $PYTHON
             $backendStart = Get-Date
             Write-Log "[OK] Backend restarted." Green
