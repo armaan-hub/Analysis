@@ -5,13 +5,14 @@ Documents API – Upload, manage, and query indexed documents for RAG.
 import logging
 import hashlib
 import io
+import mimetypes
 import shutil
 import uuid
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -424,22 +425,40 @@ async def delete_document(doc_id: str, db: AsyncSession = Depends(get_db)):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Remove from DB first — commit before touching filesystem so a partial failure
-    # doesn't leave a ghost record pointing to a deleted file.
     upload_path = Path(settings.upload_dir) / doc.filename
-    await db.delete(doc)
-    await db.commit()
 
-    # Remove from vector store and disk (best-effort; orphaned files can be cleaned up separately)
+    # Delete from vector store first — if this fails, the DB record stays intact
     removed_chunks = await rag_engine.delete_document(doc_id)
+
+    # Delete from disk — if this fails, the DB record still stays intact
     if upload_path.exists():
         upload_path.unlink()
+
+    # Only now remove from DB and commit
+    await db.delete(doc)
+    await db.commit()
 
     return {
         "status": "deleted",
         "document_id": doc_id,
         "chunks_removed": removed_chunks,
     }
+
+
+@router.get("/{document_id}/file")
+async def get_document_file(document_id: str, db: AsyncSession = Depends(get_db)):
+    """Return the raw file bytes for a document (for preview)."""
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    file_path = Path(settings.upload_dir) / doc.filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    media_type, _ = mimetypes.guess_type(doc.filename)
+    return FileResponse(path=str(file_path), media_type=media_type or "application/octet-stream")
 
 
 @router.get("/stats")
