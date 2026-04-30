@@ -64,7 +64,9 @@ class ModelInfo(BaseModel):
 def _escape_env_value(value: str) -> str:
     """Escape a value for safe writing to .env file."""
     value = value.strip().replace('\n', '').replace('\r', '')
-    if any(c in value for c in (' ', '#', '"', "'", '\\', '=')):
+    # Escape $ to $$ so ${VAR} patterns are not interpolated on reload
+    value = value.replace('$', '$$')
+    if any(c in value for c in (' ', '#', '"', "'", '\\', '=', '$')):
         value = '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
     return value
 
@@ -290,6 +292,12 @@ async def fetch_provider_models(provider: str):
 @router.post("/providers/test", response_model=TestProviderResponse)
 async def test_provider(req: ProviderSwitchRequest):
     """Test a provider by sending a simple message."""
+    available = [p["name"] for p in list_available_providers()]
+    if req.provider not in available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider '{req.provider}'. Available: {available}",
+        )
     try:
         llm = get_llm_provider(req.provider)
         response = await llm.chat(
