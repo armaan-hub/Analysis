@@ -380,10 +380,11 @@ async def export_source_docx(req: ExportSourceRequest):
         buf = io.BytesIO()
         doc.save(buf)
         buf.seek(0)
+        safe_name = req.filename.replace("\r", "").replace("\n", "").replace('"', '\\"')
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f'attachment; filename="{req.filename}_source.docx"'},
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_source.docx"'},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -407,10 +408,11 @@ async def export_source_xlsx(req: ExportSourceRequest):
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
+        safe_name = req.filename.replace("\r", "").replace("\n", "").replace('"', '\\"')
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="{req.filename}_source.xlsx"'},
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}_source.xlsx"'},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

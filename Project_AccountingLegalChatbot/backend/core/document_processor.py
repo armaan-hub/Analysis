@@ -5,6 +5,7 @@ Each chunk includes text content and metadata (page number, source file, etc.)
 ready for embedding and indexing in the RAG vector store.
 """
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -124,13 +125,13 @@ class DocumentProcessor:
 
         # Extract raw text based on file type
         if file_type == ".pdf":
-            raw_text = self._extract_pdf(filepath)
+            raw_text = await asyncio.to_thread(self._extract_pdf, filepath)
         elif file_type == ".docx":
-            raw_text = self._extract_docx(filepath)
+            raw_text = await asyncio.to_thread(self._extract_docx, filepath)
         elif file_type in {".xlsx", ".xls"}:
-            raw_text = self._extract_excel(filepath)
+            raw_text = await asyncio.to_thread(self._extract_excel, filepath)
         elif file_type in {".txt", ".md", ".csv"}:
-            raw_text = self._extract_text(filepath)
+            raw_text = await asyncio.to_thread(self._extract_text, filepath)
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
