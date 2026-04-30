@@ -49,7 +49,7 @@ async def _is_valid_url(url: str, timeout: float = 3.0) -> bool:
     # Verify URL is reachable
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.0, read=timeout)) as client:
-            resp = await client.head(url, follow_redirects=False, allow_redirects=False)
+            resp = await client.head(url, follow_redirects=False)
             # Accept 2xx, 3xx (redirects are normal), but reject 4xx, 5xx
             return 200 <= resp.status_code < 400
     except (httpx.HTTPError, asyncio.TimeoutError):
@@ -75,24 +75,24 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
             resp = await client.post(_DDG_HTML_URL, data={"q": query}, headers=_DDG_HEADERS)
             resp.raise_for_status()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        candidates: list[dict] = []
-        for div in soup.find_all("div", class_="result"):
-            link_tag = div.find("a", class_="result__a")
-            snippet_div = div.find("div", class_="result__snippet")
-            if not link_tag:
-                continue
-            raw_href = link_tag.get("href", "")
-            # DDG wraps URLs in redirect links: /l/?uddg=<encoded_url>&rut=...
-            if "uddg=" in raw_href:
-                qs = urllib.parse.parse_qs(urllib.parse.urlparse(raw_href).query)
-                href = qs.get("uddg", [raw_href])[0]
-            else:
-                href = raw_href
-            title = link_tag.get_text(strip=True)
-            body = snippet_div.get_text(strip=True) if snippet_div else ""
-            if href and title:
-                candidates.append({"title": title, "href": href, "body": body})
+            soup = BeautifulSoup(resp.text, "html.parser")
+            candidates: list[dict] = []
+            for div in soup.find_all("div", class_="result"):
+                link_tag = div.find("a", class_="result__a")
+                snippet_div = div.find("div", class_="result__snippet")
+                if not link_tag:
+                    continue
+                raw_href = link_tag.get("href", "")
+                # DDG wraps URLs in redirect links: /l/?uddg=<encoded_url>&rut=...
+                if "uddg=" in raw_href:
+                    qs = urllib.parse.parse_qs(urllib.parse.urlparse(raw_href).query)
+                    href = qs.get("uddg", [raw_href])[0]
+                else:
+                    href = raw_href
+                title = link_tag.get_text(strip=True)
+                body = snippet_div.get_text(strip=True) if snippet_div else ""
+                if href and title:
+                    candidates.append({"title": title, "href": href, "body": body})
 
         # Validate URLs in parallel; keep only valid ones
         validation_tasks = [_is_valid_url(c["href"]) for c in candidates]
