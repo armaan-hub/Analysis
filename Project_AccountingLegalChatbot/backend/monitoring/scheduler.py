@@ -207,7 +207,8 @@ def start_scheduler():
 def stop_scheduler() -> None:
     """Shut down the APScheduler and reset the running flag."""
     global _scheduler_running
-    if scheduler.running:
-        scheduler.shutdown(wait=False)
-    _scheduler_running = False
+    with _start_lock:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+        _scheduler_running = False
     logger.info("Monitoring scheduler stopped.")
