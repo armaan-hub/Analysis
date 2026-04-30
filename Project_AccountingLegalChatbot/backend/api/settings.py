@@ -61,13 +61,21 @@ class ModelInfo(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────
 
+def _escape_env_value(value: str) -> str:
+    """Escape a value for safe writing to .env file."""
+    value = value.strip().replace('\n', '').replace('\r', '')
+    if any(c in value for c in (' ', '#', '"', "'", '\\', '=')):
+        value = '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    return value
+
+
 def _update_env_key(key: str, value: str) -> None:
     """Write or update a single key in the root .env file."""
     if not _ENV_PATH.exists():
         return
     text = _ENV_PATH.read_text(encoding="utf-8")
     pattern = re.compile(rf"^{re.escape(key)}\s*=.*$", re.MULTILINE)
-    new_line = f"{key}={value}"
+    new_line = f"{key}={_escape_env_value(value)}"
     if pattern.search(text):
         text = pattern.sub(new_line, text)
     else:
@@ -298,11 +306,9 @@ async def test_provider(req: ProviderSwitchRequest):
             message=response.content[:200],
         )
     except Exception as e:
-        return TestProviderResponse(
-            success=False,
-            provider=req.provider,
-            model="",
-            message=f"Error: {str(e)}",
+        raise HTTPException(
+            status_code=503,
+            detail=f"Provider test failed: {str(e)}",
         )
 
 
