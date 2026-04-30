@@ -3,6 +3,7 @@ APScheduler configuration for regulatory monitoring jobs.
 Fetches UAE regulatory sources, compares SHA-256 hashes, and creates Alerts on change.
 """
 
+import asyncio
 import hashlib
 import logging
 import uuid
@@ -57,8 +58,19 @@ DEFAULT_SOURCES = [
 ]
 
 
+_scheduler_running = False
+
+
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _log_task_exception(task: asyncio.Task) -> None:
+    if not task.cancelled() and task.exception() is not None:
+        logger.error(
+            f"Background monitoring task failed: {task.exception()}",
+            exc_info=task.exception(),
+        )
 
 
 async def seed_default_sources() -> int:
@@ -97,6 +109,7 @@ async def fetch_and_check_updates():
             for source in sources:
                 try:
                     resp = await client.get(source.url, headers={"User-Agent": "LegalAcctAI-Monitor/1.0"})
+                    resp.raise_for_status()
                     content_hash = _sha256(resp.text)
 
                     changed = (
@@ -122,8 +135,7 @@ async def fetch_and_check_updates():
                         # Push to WebSocket clients immediately
                         try:
                             from api.monitoring import broadcast_alert
-                            import asyncio as _asyncio
-                            _asyncio.create_task(broadcast_alert({
+                            _task = asyncio.create_task(broadcast_alert({
                                 "id": alert_id,
                                 "title": alert.title,
                                 "source_name": source.name,
@@ -132,6 +144,7 @@ async def fetch_and_check_updates():
                                 "is_read": False,
                                 "created_at": datetime.now(timezone.utc).isoformat(),
                             }))
+                            _task.add_done_callback(_log_task_exception)
                         except Exception as ws_exc:
                             logger.debug(f"WS broadcast skipped: {ws_exc}")
 
@@ -140,6 +153,10 @@ async def fetch_and_check_updates():
                     source.last_checked = datetime.now(timezone.utc)
                     await db.flush()
 
+                except httpx.HTTPStatusError as e:
+                    logger.warning(f"HTTP {e.response.status_code} fetching {source.url} — skipping")
+                except httpx.RequestError as e:
+                    logger.warning(f"Request failed for {source.url}: {e} — skipping")
                 except Exception as exc:
                     logger.warning(f"Failed to check {source.name}: {exc}")
 
@@ -150,6 +167,11 @@ async def fetch_and_check_updates():
 
 def start_scheduler():
     """Start the APScheduler for periodic checks."""
+    global _scheduler_running
+    if _scheduler_running:
+        logger.warning("Scheduler already running — ignoring duplicate start()")
+        return
+    _scheduler_running = True
     interval = settings.monitor_interval_hours
     scheduler.add_job(
         fetch_and_check_updates,
