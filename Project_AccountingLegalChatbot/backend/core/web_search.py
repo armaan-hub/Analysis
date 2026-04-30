@@ -3,6 +3,7 @@ Web search fallback — used when RAG has no relevant results.
 Uses DuckDuckGo HTML endpoint via native async httpx (no primp, fully cancellable).
 """
 import asyncio
+import json
 import logging
 import re
 import urllib.parse
@@ -28,7 +29,7 @@ _SUSPICIOUS_URL_PATTERNS = [
     r"pinterest|instagram|facebook|twitter\.com(?!/)",  # Social media
     r"youtube|reddit|medium",  # Content platforms
     r"wikipedia(?!\.org)",  # Wikipedia forks
-    r"\.tk|\.ml|\.ga|\.cf$",  # Free domains
+    r"\.(tk|ml|ga|cf)($|[/?])",  # Free TLDs — anchor to end of domain
     r"404|error|not.*found",  # Error pages
 ]
 
@@ -48,11 +49,11 @@ async def _is_valid_url(url: str, timeout: float = 3.0) -> bool:
 
     # Verify URL is reachable
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.0, read=timeout)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=3.0)) as client:
             resp = await client.head(url, follow_redirects=False)
             # Accept 2xx, 3xx (redirects are normal), but reject 4xx, 5xx
             return 200 <= resp.status_code < 400
-    except (httpx.HTTPError, asyncio.TimeoutError):
+    except httpx.HTTPError:
         return False
     except Exception as e:
         logger.debug(f"URL validation error for {url}: {e}")
@@ -156,13 +157,12 @@ async def generate_sub_queries(query: str, max_queries: int = 6) -> list[str]:
             ),
             timeout=30.0,
         )
-        import json as _json, re as _re
         raw = resp.content.strip()
-        raw = _re.sub(r"^```(?:json)?\s*", "", raw, flags=_re.MULTILINE)
-        raw = _re.sub(r"\s*```\s*$", "", raw, flags=_re.MULTILINE)
-        match = _re.search(r"\[.*\]", raw, _re.DOTALL)
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"\s*```\s*$", "", raw, flags=re.MULTILINE)
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
         if match:
-            queries = _json.loads(match.group(0))
+            queries = json.loads(match.group(0))
             return [str(q) for q in queries[:max_queries] if q]
     except asyncio.TimeoutError:
         logger.warning("Sub-query generation timed out — using fallback queries")
@@ -174,9 +174,8 @@ async def generate_sub_queries(query: str, max_queries: int = 6) -> list[str]:
 async def deep_search(query: str, max_queries: int = 6) -> list[dict]:
     """Extended multi-query web search. Generates sub-queries, runs in parallel, deduplicates."""
     sub_queries = await generate_sub_queries(query, max_queries)
-    import asyncio as _asyncio
     tasks = [search_web(q, max_results=5) for q in sub_queries]
-    all_results_nested = await _asyncio.gather(*tasks, return_exceptions=True)
+    all_results_nested = await asyncio.gather(*tasks, return_exceptions=True)
 
     seen_urls: set[str] = set()
     unique_results: list[dict] = []
