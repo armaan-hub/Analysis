@@ -20,7 +20,7 @@ engine = create_async_engine(
 
 # Enable WAL mode on every new connection so concurrent reads don't block writes
 # Only applies to SQLite — PRAGMAs are not valid for other databases
-if "sqlite" in str(engine.url):
+if engine.url.drivername.startswith("sqlite"):
     from sqlalchemy import event
     @event.listens_for(engine.sync_engine, "connect")
     def _set_wal_mode(dbapi_conn, _):
