@@ -31,7 +31,6 @@ export default function HomePage({ onNewChat }: HomePageProps) {
       .then(r => {
         const convos = r.data ?? [];
         setNotebooks(convos
-          .filter((c: any) => (c.message_count ?? 1) > 0)
           .map((c: any) => ({
             id: c.id,
             title: c.title || 'Untitled Notebook',

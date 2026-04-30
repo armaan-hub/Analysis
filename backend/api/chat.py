@@ -758,13 +758,19 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     web_results = await search_web(req.message, max_results=5)
                 if web_results:
                     web_context = build_web_context(web_results)
+                    _url_rule = (
+                        "CRITICAL URL RULE: Only include hyperlinks for URLs that are EXPLICITLY listed in the "
+                        "search results above. NEVER invent, guess, or reconstruct a URL from a company name. "
+                        "If a source does not have a URL in the results, mention the company name as plain text only — "
+                        "do NOT add a link. Use the exact URL string from the result, do not modify it."
+                    )
                     if is_research:
                         web_instruction = (
                             "IMPORTANT: You have comprehensive research results from multiple sources below. "
                             "Synthesize ALL sources into a well-structured response. "
                             "Use numbered sections with bold headings. "
                             "When citing sources, use markdown hyperlinks in the format [Title](url) — copy the exact URL from the source. "
-                            "Be thorough — the user asked for deep research.\n\n"
+                            f"Be thorough — the user asked for deep research.\n\n{_url_rule}\n\n"
                             + web_context
                         )
                     else:
@@ -772,7 +778,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             "IMPORTANT: Answer ONLY using the web search results provided below. "
                             "Do not add information from your training data. "
                             "When citing sources, use markdown hyperlinks in the format [Title](url) — copy the exact URL from each source. "
-                            "Take your time and be accurate.\n\n"
+                            f"Take your time and be accurate.\n\n{_url_rule}\n\n"
                             + web_context
                         )
                     _msgs[0] = {"role": "system", "content": _sys + "\n\n" + web_instruction}
@@ -1505,6 +1511,9 @@ async def deep_research_stream(req: DeepResearchRequest):
                 "web search results into a comprehensive, well-structured answer. Use Markdown with "
                 "## headings and bullet points. When citing web sources, use markdown hyperlinks in the "
                 "format [Title](url) — copy the exact URL from the source as provided. "
+                "CRITICAL URL RULE: Only include hyperlinks for URLs explicitly listed in the web results above. "
+                "NEVER invent, guess, or reconstruct a URL from a company name. If no URL was provided for a "
+                "company or source, mention it as plain text only — no link. "
                 "For document sources, cite as (Document Name, p.N)."
             )
             context_block = ""
