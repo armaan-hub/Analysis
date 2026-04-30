@@ -6,7 +6,6 @@ import logging
 import hashlib
 import io
 import mimetypes
-import shutil
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -427,16 +426,27 @@ async def delete_document(doc_id: str, db: AsyncSession = Depends(get_db)):
 
     upload_path = Path(settings.upload_dir) / doc.filename
 
-    # Delete from vector store first — if this fails, the DB record stays intact
-    removed_chunks = await rag_engine.delete_document(doc_id)
+    # Vector store — abort if this fails (chunks not deleted, DB safe)
+    try:
+        removed_chunks = await rag_engine.delete_document(doc_id)
+    except Exception as e:
+        logger.error(f"Vector store deletion failed for {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Vector store deletion failed: {str(e)}")
 
-    # Delete from disk — if this fails, the DB record still stays intact
-    if upload_path.exists():
-        upload_path.unlink()
+    # Disk — best-effort: orphaned file is recoverable; don't crash
+    try:
+        if upload_path.exists():
+            upload_path.unlink()
+    except OSError as e:
+        logger.warning(f"Could not delete file {upload_path}: {e} — disk cleanup skipped")
 
-    # Only now remove from DB and commit
+    # DB — last, only reaches here if vector cleanup succeeded
     await db.delete(doc)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        logger.error(f"DB commit failed for delete of {doc_id} after external cleanup: {e}")
+        raise HTTPException(status_code=500, detail="DB delete failed after external cleanup")
 
     return {
         "status": "deleted",
@@ -453,12 +463,21 @@ async def get_document_file(document_id: str, db: AsyncSession = Depends(get_db)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    file_path = Path(settings.upload_dir) / doc.filename
+    base_dir = Path(settings.upload_dir).resolve()
+    file_path = (base_dir / doc.filename).resolve()
+    if not str(file_path).startswith(str(base_dir)):
+        raise HTTPException(status_code=403, detail="Access denied")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found on disk")
 
     media_type, _ = mimetypes.guess_type(doc.filename)
-    return FileResponse(path=str(file_path), media_type=media_type or "application/octet-stream")
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{doc.original_name}"'
+        },
+    )
 
 
 @router.get("/stats")
