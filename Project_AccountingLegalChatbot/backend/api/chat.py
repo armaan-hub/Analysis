@@ -697,9 +697,20 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     req.message, _search_results, system_prompt=_sys
                 )
                 _msgs.append(_aug[0])
+
+                def _sanitize_rag_source(src: str) -> str:
+                    """Remove non-URL source strings that look like filenames."""
+                    if not src:
+                        return "Unknown"
+                    # If it looks like a URL (starts with http/s), return as-is
+                    if src.startswith(("http://", "https://")):
+                        return src
+                    # Otherwise return filename/metadata string (not a URL)
+                    return src
+
                 _sources = [
                     {
-                        "source": (
+                        "source": _sanitize_rag_source(
                             r.get("source")
                             or r["metadata"].get("original_name")
                             or r["metadata"].get("source", "Unknown")
@@ -1093,9 +1104,18 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 req.message, search_results, system_prompt=system_prompt
             )
             messages.append(augmented[0])  # system message with context
+
+            def _sanitize_rag_source(src: str) -> str:
+                """Remove non-URL source strings that look like filenames."""
+                if not src:
+                    return "Unknown"
+                if src.startswith(("http://", "https://")):
+                    return src
+                return src
+
             sources = [
                 {
-                    "source": r.get("source") or r["metadata"].get("original_name") or r["metadata"].get("source", "Unknown"),
+                    "source": _sanitize_rag_source(r.get("source") or r["metadata"].get("original_name") or r["metadata"].get("source", "Unknown")),
                     "page": r["metadata"].get("page", "?"),
                     "score": round(r.get("combined_score", r.get("score", 0)), 3),
                     "excerpt": r["text"][:200] + "..." if len(r["text"]) > 200 else r["text"],
