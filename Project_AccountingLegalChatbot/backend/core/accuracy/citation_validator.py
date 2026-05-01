@@ -81,6 +81,22 @@ def validate_citations(answer: str, chunks: list[dict]) -> str:
     return answer
 
 
+def strip_hallucinated_urls(answer: str, allowed_urls: set[str]) -> str:
+    """Replace markdown hyperlinks whose URLs are NOT in allowed_urls with plain text.
+
+    Keeps the link label so the answer remains readable; only removes the URL
+    when the LLM invented a link that was not in the supplied source list.
+    """
+    if not allowed_urls:
+        return answer
+
+    def _replace(m: re.Match) -> str:
+        label, url = m.group(1), m.group(2)
+        return m.group(0) if url in allowed_urls else label
+
+    return re.sub(r'\[([^\]]+)\]\((https?://[^)\s]+)\)', _replace, answer)
+
+
 def should_skip_llm(search_results: list, doc_scoped: bool) -> bool:
     """Return True when LLM should NOT be called.
 

@@ -839,8 +839,14 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 return
 
             # Citation validation
-            from core.accuracy.citation_validator import validate_citations
+            from core.accuracy.citation_validator import validate_citations, strip_hallucinated_urls
             full_response = validate_citations(full_response, _search_results)
+
+            # Strip any markdown hyperlinks whose URL was not in the supplied sources
+            if _sources:
+                _allowed_urls = {s.get("source", "") for s in _sources} | {s.get("href", "") for s in _sources}
+                _allowed_urls.discard("")
+                full_response = strip_hallucinated_urls(full_response, _allowed_urls)
 
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:
@@ -1170,8 +1176,14 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
 
     # Citation validation: outside LLM try, owns its own failure surface
-    from core.accuracy.citation_validator import validate_citations
+    from core.accuracy.citation_validator import validate_citations, strip_hallucinated_urls
     answer_content = validate_citations(response.content, search_results)
+
+    # Strip hallucinated hyperlinks not present in known sources
+    if sources:
+        _allowed_urls = {s.get("source", "") for s in sources} | {s.get("href", "") for s in sources}
+        _allowed_urls.discard("")
+        answer_content = strip_hallucinated_urls(answer_content, _allowed_urls)
 
     # Save assistant message
     assistant_msg = Message(

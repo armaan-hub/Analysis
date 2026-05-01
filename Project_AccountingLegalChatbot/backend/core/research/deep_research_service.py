@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from core.research.brave_search import brave_search
 from core.research.query_decomposer import decompose_query
+from core.web_search import _is_valid_url
 
 
 def _build_synthesis_prompt(question: str, web: list[dict], doc_chunks: list[dict]) -> str:
@@ -52,6 +53,14 @@ async def run_deep_research(
             web.extend(r)
 
         yield {"type": "step", "text": f"Found {len(web)} web results across {len(sub_queries)} searches"}
+
+        # Validate URLs — drop results with broken or suspicious links
+        valid_flags = await asyncio.gather(
+            *[_is_valid_url(r.get("url", "")) for r in web],
+            return_exceptions=True,
+        )
+        web = [r for r, ok in zip(web, valid_flags) if ok is True]
+        yield {"type": "step", "text": f"{len(web)} results passed URL validation"}
 
         yield {"type": "step", "text": "Searching your documents..."}
         doc_chunks = await rag.search(query, doc_ids=selected_doc_ids) if rag else []

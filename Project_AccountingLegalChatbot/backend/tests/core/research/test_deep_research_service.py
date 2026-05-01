@@ -27,7 +27,8 @@ async def test_run_deep_research_emits_expected_events(monkeypatch):
     fake_ingest = AsyncMock()
 
     with patch("core.research.deep_research_service.decompose_query", fake_decompose), \
-         patch("core.research.deep_research_service.brave_search", fake_search):
+         patch("core.research.deep_research_service.brave_search", fake_search), \
+         patch("core.research.deep_research_service._is_valid_url", AsyncMock(return_value=True)):
         async for ev in run_deep_research(
             query="orig", selected_doc_ids=["d1"],
             llm=fake_llm, rag=fake_rag, ingest=fake_ingest,
