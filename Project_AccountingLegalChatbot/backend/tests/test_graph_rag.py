@@ -109,6 +109,23 @@ def test_search_by_entities_scores_higher_for_more_matches(graph):
     assert scores.get("docZ_chunk_0", 0) > scores.get("docZ_chunk_1", 0)
 
 
+def test_search_by_entities_partial_match(graph):
+    """Graph RAG should find entities using partial substring matching."""
+    graph.store_entities("doc1", chunk_index=0,
+                         entities=[("INVOICING SERVICE PROVIDERS", "ORG")])
+    graph.store_entities("doc2", chunk_index=0, entities=[("Peppol Network", "ORG")])
+    graph.store_entities("doc3", chunk_index=0, entities=[("Tax Invoice", "ORG")])
+
+    results = graph.search_by_entities(["invoicing", "peppol", "invoice"])
+
+    chunk_ids = [r["chunk_id"] for r in results]
+    assert len(results) >= 2, f"Expected ≥2 partial matches, got {len(results)}: {results}"
+    assert any("doc1" in c for c in chunk_ids), \
+        "Should find INVOICING SERVICE PROVIDERS via 'invoicing'"
+    assert any("doc2" in c for c in chunk_ids), "Should find Peppol Network via 'peppol'"
+    assert any("doc3" in c for c in chunk_ids), "Should find Tax Invoice via 'invoice'"
+
+
 def test_search_by_entities_empty_list_returns_empty(graph):
     """Empty list and whitespace-only inputs return empty list."""
     assert graph.search_by_entities([]) == []

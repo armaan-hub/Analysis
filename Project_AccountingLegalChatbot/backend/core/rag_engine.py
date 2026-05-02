@@ -7,6 +7,8 @@ Handles: document ingestion, similarity search, and context-augmented prompting.
 
 import asyncio
 import logging
+import pickle
+import sqlite3
 import shutil
 import time
 import uuid
@@ -234,6 +236,7 @@ class RAGEngine:
                     settings=ChromaSettings(anonymized_telemetry=False)
                 )
             else:
+                self._repair_legacy_index_metadata()
                 self.chroma_client = chromadb.PersistentClient(
                     path=settings.vector_store_dir,
                     settings=ChromaSettings(
@@ -271,6 +274,116 @@ class RAGEngine:
                 logger.critical(f"Fatal error: Could not initialize ChromaDB even after reset: {e2}")
                 raise e2
 
+    def _repair_legacy_index_metadata(self) -> None:
+        """Repair legacy Chroma index metadata pickles saved as dict.
+
+        Chroma 0.5.x expects a `PersistentData` object in index_metadata.pickle,
+        but some legacy indexes contain a plain dict with the same fields.
+        """
+        if settings.vector_store_dir == ":memory:":
+            return
+
+        try:
+            from chromadb.segment.impl.vector.local_persistent_hnsw import PersistentData
+        except Exception as e:
+            logger.warning(f"Could not import PersistentData for metadata repair: {e}")
+            return
+
+        store = Path(settings.vector_store_dir)
+        if not store.exists():
+            return
+
+        for metadata_file in store.glob("*/index_metadata.pickle"):
+            try:
+                with metadata_file.open("rb") as f:
+                    loaded = pickle.load(f)
+                if not isinstance(loaded, dict):
+                    if isinstance(loaded, PersistentData) and loaded.dimensionality is None:
+                        try:
+                            sqlite_path = store / "chroma.sqlite3"
+                            segment_id = metadata_file.parent.name
+                            with sqlite3.connect(sqlite_path) as conn:
+                                row = conn.execute(
+                                    """
+                                    SELECT c.dimension
+                                    FROM collections c
+                                    JOIN segments s ON s.collection = c.id
+                                    WHERE s.id = ?
+                                    LIMIT 1
+                                    """,
+                                    (segment_id,),
+                                ).fetchone()
+                            if row and row[0] is not None:
+                                loaded.dimensionality = int(row[0])
+                                backup_path = metadata_file.with_name(metadata_file.name + ".dim-backup")
+                                if not backup_path.exists():
+                                    shutil.copy2(metadata_file, backup_path)
+                                with metadata_file.open("wb") as f:
+                                    pickle.dump(loaded, f, protocol=pickle.HIGHEST_PROTOCOL)
+                                logger.warning(
+                                    "Repaired missing dimensionality in Chroma index metadata at %s",
+                                    metadata_file,
+                                )
+                        except Exception as dim_err:
+                            logger.warning(
+                                "Failed dimensionality repair for %s: %s",
+                                metadata_file,
+                                dim_err,
+                            )
+                    continue
+
+                dimensionality = loaded.get("dimensionality")
+                if dimensionality is None:
+                    try:
+                        sqlite_path = store / "chroma.sqlite3"
+                        segment_id = metadata_file.parent.name
+                        with sqlite3.connect(sqlite_path) as conn:
+                            row = conn.execute(
+                                """
+                                SELECT c.dimension
+                                FROM collections c
+                                JOIN segments s ON s.collection = c.id
+                                WHERE s.id = ?
+                                LIMIT 1
+                                """,
+                                (segment_id,),
+                            ).fetchone()
+                        if row and row[0] is not None:
+                            dimensionality = int(row[0])
+                    except Exception as dim_err:
+                        logger.warning(
+                            "Could not resolve dimensionality from sqlite for %s: %s",
+                            metadata_file,
+                            dim_err,
+                        )
+
+                repaired = PersistentData(
+                    dimensionality=dimensionality,
+                    total_elements_added=int(loaded.get("total_elements_added", 0)),
+                    id_to_label=loaded.get("id_to_label", {}),
+                    label_to_id=loaded.get("label_to_id", {}),
+                    id_to_seq_id=loaded.get("id_to_seq_id", {}),
+                )
+                max_seq_id = loaded.get("max_seq_id")
+                if max_seq_id is None:
+                    seq_map = loaded.get("id_to_seq_id", {}) or {}
+                    max_seq_id = max(seq_map.values()) if seq_map else 0
+                repaired.max_seq_id = int(max_seq_id)
+
+                backup_path = metadata_file.with_name(metadata_file.name + ".dict-backup")
+                if not backup_path.exists():
+                    shutil.copy2(metadata_file, backup_path)
+
+                with metadata_file.open("wb") as f:
+                    pickle.dump(repaired, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+                logger.warning(
+                    "Repaired legacy Chroma index metadata at %s (dict -> PersistentData)",
+                    metadata_file,
+                )
+            except Exception as e:
+                logger.warning(f"Failed metadata repair for {metadata_file}: {e}")
+
     def _reinit_client(self) -> None:
         """Re-initialize the ChromaDB client and collection without calling __init__.
         
@@ -282,6 +395,7 @@ class RAGEngine:
                     settings=ChromaSettings(anonymized_telemetry=False)
                 )
             else:
+                self._repair_legacy_index_metadata()
                 self.chroma_client = chromadb.PersistentClient(
                     path=settings.vector_store_dir,
                     settings=ChromaSettings(anonymized_telemetry=False),
@@ -329,12 +443,58 @@ class RAGEngine:
             return []
         safe_n = min(top_k * 2, collection_count)
 
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=safe_n,  # Over-fetch for better filtering
-            where=filter,
-            include=["documents", "metadatas", "distances"],
-        )
+        try:
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=safe_n,  # Over-fetch for better filtering
+                where=filter,
+                include=["documents", "metadatas", "distances"],
+            )
+        except Exception as _qe:
+            _qe_msg = str(_qe)
+            _qe_lower = _qe_msg.lower()
+            if "dimensionality" in _qe_msg or "segment" in _qe_lower:
+                logger.warning(
+                    f"ChromaDB dimensionality error during query ({_qe}). "
+                    "Re-initializing client and retrying..."
+                )
+                self._reinit_client()
+                results = self._collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=safe_n,
+                    where=filter,
+                    include=["documents", "metadatas", "distances"],
+                )
+            elif "contigious 2d array" in _qe_lower or "ef or m is too small" in _qe_lower:
+                retry_candidates = []
+                for candidate in (10, 8, 5, 3, 1):
+                    n = min(collection_count, top_k, candidate)
+                    if n >= 1 and n not in retry_candidates:
+                        retry_candidates.append(n)
+
+                last_err = _qe
+                results = None
+                for retry_n in retry_candidates:
+                    try:
+                        logger.warning(
+                            "ChromaDB HNSW query size error (%s). Retrying with reduced n_results=%s",
+                            last_err,
+                            retry_n,
+                        )
+                        results = self.collection.query(
+                            query_embeddings=[query_embedding],
+                            n_results=retry_n,
+                            where=filter,
+                            include=["documents", "metadatas", "distances"],
+                        )
+                        break
+                    except Exception as retry_err:
+                        last_err = retry_err
+
+                if results is None:
+                    raise last_err
+            else:
+                raise
 
         search_results = []
         if not results["ids"]:
