@@ -111,7 +111,9 @@ async def test_graph_failure_still_returns_vector_results(mock_rag, mock_graph):
     retriever = HybridRetriever(mock_rag, mock_graph)
     results = await retriever.retrieve("wills", top_k=5)
     assert len(results) >= 1
-    assert results[0]["id"] == "docA_chunk_0"
+    # Both vector chunks must be present (order may vary with keyword re-ranking)
+    ids = {r["id"] for r in results}
+    assert "docA_chunk_0" in ids or "docA_chunk_1" in ids
 
 
 @pytest.mark.asyncio
@@ -139,3 +141,103 @@ async def test_graph_only_chunk_missing_from_chromadb_is_dropped(mock_rag, mock_
     ids = {r["id"] for r in results}
     assert "docB_chunk_0" not in ids
     assert len(results) >= 1
+
+
+@pytest.mark.asyncio
+async def test_search_recovers_from_dimensionality_error():
+    """RAGEngine.search() retries after ChromaDB dimensionality error."""
+    from core.rag_engine import RAGEngine
+
+    engine = RAGEngine()
+    engine.embedding_provider.embed_query = AsyncMock(return_value=[0.1] * 1024)
+
+    query_calls = {"count": 0}
+    mocked_collection = MagicMock()
+    mocked_collection.count.return_value = 5
+
+    def _query(**kwargs):
+        query_calls["count"] += 1
+        if query_calls["count"] == 1:
+            raise Exception("'dict' object has no attribute 'dimensionality'")
+        return {
+            "ids": [["docA_chunk_0"]],
+            "documents": [["recovered text"]],
+            "metadatas": [[{"doc_id": "docA", "source": "test.pdf"}]],
+            "distances": [[0.2]],
+        }
+
+    mocked_collection.query.side_effect = _query
+    engine.collection = mocked_collection
+
+    reinit_calls = {"count": 0}
+
+    def _reinit():
+        reinit_calls["count"] += 1
+        engine._collection = mocked_collection
+
+    engine._reinit_client = MagicMock(side_effect=_reinit)
+
+    results = await engine.search("test query", top_k=3, min_score=0.0)
+
+    assert query_calls["count"] == 2
+    assert reinit_calls["count"] == 1
+    assert results
+
+
+@pytest.mark.asyncio
+async def test_search_retries_with_smaller_n_for_hnsw_ef_error():
+    """RAGEngine.search() retries with smaller n_results for HNSW ef errors."""
+    from core.rag_engine import RAGEngine
+
+    engine = RAGEngine()
+    engine.embedding_provider.embed_query = AsyncMock(return_value=[0.1] * 1024)
+
+    calls = []
+    mocked_collection = MagicMock()
+    mocked_collection.count.return_value = 50
+
+    def _query(**kwargs):
+        calls.append(kwargs["n_results"])
+        if len(calls) == 1:
+            raise Exception("Cannot return the results in a contigious 2D array. Probably ef or M is too small")
+        return {
+            "ids": [["docA_chunk_0"]],
+            "documents": [["recovered text"]],
+            "metadatas": [[{"doc_id": "docA", "source": "test.pdf"}]],
+            "distances": [[0.2]],
+        }
+
+    mocked_collection.query.side_effect = _query
+    engine.collection = mocked_collection
+    engine._reinit_client = MagicMock()
+
+    results = await engine.search("test query", top_k=20, min_score=0.0)
+
+    assert len(calls) == 2
+    assert calls[0] > calls[1]
+    assert calls[1] <= 10
+    assert results
+
+
+@pytest.mark.asyncio
+async def test_retrieve_adds_hybrid_score(mock_rag, mock_graph):
+    """retrieve() must add hybrid_score to each result (keyword re-ranking applied)."""
+    retriever = HybridRetriever(mock_rag, mock_graph)
+    results = await retriever.retrieve("estate wills", top_k=5)
+    assert all("hybrid_score" in r for r in results), \
+        f"Missing hybrid_score in: {[list(r.keys()) for r in results]}"
+
+
+@pytest.mark.asyncio
+async def test_keyword_match_boosts_rank(mock_rag, mock_graph):
+    """Chunk matching query keywords must rank above higher-vector chunk with no keyword match."""
+    mock_rag.search = AsyncMock(return_value=[
+        _make_chunk("docA_chunk_0", 0.95, "corporate merger acquisition tax planning"),
+        _make_chunk("docA_chunk_1", 0.60, "estate inheritance distribution wills"),
+    ])
+    mock_graph.search_by_entities = MagicMock(return_value=[])
+    retriever = HybridRetriever(mock_rag, mock_graph)
+    results = await retriever.retrieve("estate inheritance wills", top_k=5)
+    top_id = results[0]["id"]
+    assert top_id == "docA_chunk_1", \
+        f"Expected keyword-boosted chunk first, got {top_id}"

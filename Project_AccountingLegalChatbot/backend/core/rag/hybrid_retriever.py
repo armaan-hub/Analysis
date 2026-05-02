@@ -16,6 +16,8 @@ import logging
 import re
 from typing import Any
 
+from core.search.hybrid_engine import blend_results
+
 logger = logging.getLogger(__name__)
 
 _VECTOR_WEIGHT = 0.6
@@ -119,7 +121,10 @@ class HybridRetriever:
                     }
 
         results = sorted(merged.values(), key=lambda x: x["combined_score"], reverse=True)
-        return results[:top_k]
+        # Keyword re-ranking: blend combined_score (vector+graph fusion) with keyword signal
+        blend_input = [{**r, "score": r["combined_score"]} for r in results]
+        blended = blend_results(query, blend_input)
+        return blended[:top_k]
 
     async def _vector_search(
         self, query: str, top_k: int, rag_filter: dict | None
