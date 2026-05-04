@@ -122,8 +122,14 @@ class HybridRetriever:
 
         results = sorted(merged.values(), key=lambda x: x["combined_score"], reverse=True)
         # Keyword re-ranking: blend combined_score (vector+graph fusion) with keyword signal
+        # Preserve original vector score before blending (blend_results overwrites "score")
+        for r in results:
+            r["vector_score"] = r.get("score", 0.0)
         blend_input = [{**r, "score": r["combined_score"]} for r in results]
         blended = blend_results(query, blend_input)
+        # Restore original vector score so chat.py can compare raw scores against broad fallback
+        for b in blended:
+            b["score"] = b.get("vector_score", b.get("score", 0.0))
         return blended[:top_k]
 
     async def _vector_search(
