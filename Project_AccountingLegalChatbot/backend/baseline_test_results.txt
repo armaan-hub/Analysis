@@ -1,0 +1,728 @@
+============================= test session starts ==============================
+collected 637 items
+
+tests/test_account_placement_engine.py ..........                        [  1%]
+tests/test_adaptive_token_budget.py ....................                 [  4%]
+tests/test_analyze_precise_columns.py .......s                           [  5%]
+tests/test_analyze_precise_fonts.py .......s                             [  7%]
+tests/test_analyze_precise_spacing.py .......s                           [  8%]
+tests/test_audit_flow.py .....                                           [  9%]
+tests/test_audit_formatter.py ...                                        [  9%]
+tests/test_audit_profiles.py .......................................     [ 15%]
+tests/test_audit_studio_chat.py ...                                      [ 16%]
+tests/test_audit_studio_generate.py .....                                [ 17%]
+tests/test_audit_studio_integration.py .                                 [ 17%]
+tests/test_audit_studio_versions.py ......                               [ 18%]
+tests/test_audit_template_model.py ........                              [ 19%]
+tests/test_auditor_agent.py ..                                           [ 19%]
+tests/test_auditor_endpoint.py ..                                        [ 20%]
+tests/test_auto_summary_hook.py .                                        [ 20%]
+tests/test_auto_sync.py ..........                                       [ 21%]
+tests/test_autoverifier_adjust.py ...                                    [ 22%]
+tests/test_autoverifier_hints.py .....                                   [ 23%]
+tests/test_autoverifier_pass.py .......                                  [ 24%]
+tests/test_batch_template_learner.py ..............                      [ 26%]
+tests/test_category_isolation.py ...                                     [ 26%]
+tests/test_category_tagging.py .......                                   [ 27%]
+tests/test_chat_endpoint_domain.py .....                                 [ 28%]
+tests/test_chat_memory.py ....                                           [ 29%]
+tests/test_chat_sources.py ..                                            [ 29%]
+tests/test_chat_title_generation.py ......                               [ 30%]
+tests/test_citation_validator.py ............                            [ 32%]
+tests/test_confidence_calibrator.py .........                            [ 33%]
+tests/test_deep_research_stream.py ..                                    [ 34%]
+tests/test_document_format_analyzer.py ........                          [ 35%]
+tests/test_document_section_extraction.py ..........                     [ 37%]
+tests/test_document_summarizer.py ...                                    [ 37%]
+tests/test_document_summary_columns.py .                                 [ 37%]
+tests/test_documents.py ....                                             [ 38%]
+tests/test_domain_classifier.py ......                                   [ 39%]
+tests/test_domain_classifier_accuracy.py s                               [ 39%]
+tests/test_entity_extraction_uae.py ............                         [ 41%]
+tests/test_export.py .....                                               [ 42%]
+tests/test_fast_learn_api.py ....                                        [ 42%]
+tests/test_fast_mode_streaming.py ...                                    [ 43%]
+tests/test_fingerprinter_gcc.py .........s                               [ 44%]
+tests/test_fingerprinter_unknown.py ...                                  [ 45%]
+tests/test_format_applier_template.py .......                            [ 46%]
+tests/test_fta_scraper.py .......                                        [ 47%]
+tests/test_fuzzy_domain.py ................                              [ 49%]
+tests/test_graph_rag.py .............                                    [ 51%]
+tests/test_health.py ......                                              [ 52%]
+tests/test_hybrid_engine.py ................                             [ 55%]
+tests/test_hybrid_retriever.py ............                              [ 57%]
+tests/test_legacy_domain_compat.py ............                          [ 59%]
+tests/test_manual_path_unchanged.py ....                                 [ 59%]
+tests/test_migrations.py ..                                              [ 60%]
+tests/test_model_routing.py ............                                 [ 62%]
+tests/test_multi_query_rag.py ...                                        [ 62%]
+tests/test_no_llm_guard.py ..                                            [ 62%]
+tests/test_prior_year_extractor.py .....s                                [ 63%]
+tests/test_prompt_router.py ......                                       [ 64%]
+tests/test_relevance_rag.py ..............F.....                         [ 67%]
+tests/test_report_intel.py ...                                           [ 68%]
+tests/test_research_endpoints.py ..                                      [ 68%]
+tests/test_research_job_model.py .                                       [ 68%]
+tests/test_research_orchestrator.py .....                                [ 69%]
+tests/test_save_research_to_sources.py .                                 [ 69%]
+tests/test_selected_doc_ids.py ..                                        [ 70%]
+tests/test_session_endpoint.py ..                                        [ 70%]
+tests/test_session_summary.py ..                                         [ 70%]
+tests/test_source_content.py ....                                        [ 71%]
+tests/test_structure_analyzer.py .....                                   [ 72%]
+tests/test_template_analyzer.py .s..s                                    [ 72%]
+tests/test_template_fine_tune.py ........                                [ 74%]
+tests/test_template_learner_cli.py ..........                            [ 75%]
+tests/test_template_preview_endpoints.py .....                           [ 76%]
+tests/test_template_renderer.py .....                                    [ 77%]
+tests/test_template_report_generator.py ...............                  [ 79%]
+tests/test_template_store.py ....                                        [ 80%]
+tests/test_template_verifier.py ........                                 [ 81%]
+tests/test_templates_api.py .......................                      [ 85%]
+tests/test_token_budget.py .....                                         [ 85%]
+tests/test_vat_hotel_apt_scenario.py ......................              [ 89%]
+tests/test_web_search.py ..............                                  [ 91%]
+tests/api/test_analyst_prompt.py ..                                      [ 91%]
+tests/api/test_chat_intent_routing.py .                                  [ 91%]
+tests/api/test_chat_web_ingestion.py F.                                  [ 92%]
+tests/api/test_conversation_mode.py ....                                 [ 92%]
+tests/api/test_council_endpoint.py ....                                  [ 93%]
+tests/api/test_notebook_sources.py ....                                  [ 94%]
+tests/api/test_reports_detect.py ..                                      [ 94%]
+tests/api/test_reports_generate_stream.py .                              [ 94%]
+tests/api/test_reports_stream.py ..                                      [ 94%]
+tests/api/test_research_sse.py .                                         [ 95%]
+tests/core/test_export_sources_links.py ..                               [ 95%]
+tests/core/test_ingest_text.py ...                                       [ 95%]
+tests/core/test_prompt_router.py ...                                     [ 96%]
+tests/core/chat/test_domain_fallback.py .                                [ 96%]
+tests/core/chat/test_intent_classifier.py .....                          [ 97%]
+tests/core/council/test_council_service.py ....                          [ 97%]
+tests/core/council/test_personas.py ...                                  [ 98%]
+tests/core/research/test_brave_search.py ..                              [ 98%]
+tests/core/research/test_deep_research_finally.py .                      [ 98%]
+tests/core/research/test_deep_research_service.py .                      [ 99%]
+tests/core/research/test_query_decomposer.py ....                        [ 99%]
+tests/db/test_migration_add_mode.py ..                                   [100%]
+
+=================================== FAILURES ===================================
+___________ test_broad_fallback_not_used_when_broad_score_not_better ___________
+tests/test_relevance_rag.py:445: in test_broad_fallback_not_used_when_broad_score_not_better
+    assert any("RealEstate" in name for name in source_names), \
+E   AssertionError: Domain result should be kept when broad search is not strictly better. Sources: ['BroadDoc.pdf']
+E   assert False
+E    +  where False = any(<generator object test_broad_fallback_not_used_when_broad_score_not_better.<locals>.<genexpr> at 0x133a0a810>)
+----------------------------- Captured stdout call -----------------------------
+22:43:02 | INFO     | core.llm_manager | LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+22:43:02 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:02 | INFO     | core.llm_manager | LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+22:43:02 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:02 | INFO     | api.chat | Broad fallback: domain-filtered top score 0.37 < 0.39, broad top score 0.62 used instead
+22:43:02 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:03 | INFO     | core.llm_manager | LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+22:43:03 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:03 | INFO     | httpx | HTTP Request: POST http://test/api/chat/send "HTTP/1.1 200 OK"
+------------------------------ Captured log call -------------------------------
+INFO     core.llm_manager:llm_manager.py:1110 LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     core.llm_manager:llm_manager.py:1110 LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     api.chat:chat.py:1043 Broad fallback: domain-filtered top score 0.37 < 0.39, broad top score 0.62 used instead
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     core.llm_manager:llm_manager.py:1110 LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/chat/send "HTTP/1.1 200 OK"
+______________________ test_chat_auto_ingests_web_results ______________________
+tests/api/test_chat_web_ingestion.py:47: in test_chat_auto_ingests_web_results
+    assert mock_ingest.called, "ingest_text should be called for web results"
+E   AssertionError: ingest_text should be called for web results
+E   assert False
+E    +  where False = <AsyncMock id='5174257584'>.called
+----------------------------- Captured stdout call -----------------------------
+22:43:15 | INFO     | core.llm_manager | LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:15 | WARNING  | core.chat.domain_classifier | Domain classifier failed, falling back to general_law: 'domain'
+22:43:15 | INFO     | core.llm_manager | LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:15 | INFO     | core.llm_manager | LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+22:43:15 | INFO     | httpx | HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+22:43:15 | INFO     | api.chat | Broad fallback: domain-filtered top score 0.00 < 0.39, broad top score 1.00 used instead
+22:43:15 | INFO     | api.chat | RAG returned 9 results for conversation 0a9e3d55-3b62-4f3e-982b-b9a42236bdb8
+22:43:15 | INFO     | httpx | HTTP Request: POST http://test/api/chat/send "HTTP/1.1 200 OK"
+------------------------------ Captured log call -------------------------------
+INFO     core.llm_manager:llm_manager.py:1110 LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING  core.chat.domain_classifier:domain_classifier.py:172 Domain classifier failed, falling back to general_law: 'domain'
+INFO     core.llm_manager:llm_manager.py:1110 LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     core.llm_manager:llm_manager.py:1110 LLM provider initialized: nvidia / mistralai/devstral-2-123b-instruct-2512 [fast mode, fast key]
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST https://integrate.api.nvidia.com/v1/embeddings "HTTP/1.1 200 OK"
+INFO     api.chat:chat.py:636 Broad fallback: domain-filtered top score 0.00 < 0.39, broad top score 1.00 used instead
+INFO     api.chat:chat.py:674 RAG returned 9 results for conversation 0a9e3d55-3b62-4f3e-982b-b9a42236bdb8
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/chat/send "HTTP/1.1 200 OK"
+=============================== warnings summary ===============================
+../../../chatbot_venv/lib/python3.14/site-packages/chromadb/telemetry/opentelemetry/__init__.py:127: 91 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/chromadb/telemetry/opentelemetry/__init__.py:127: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+../../../chatbot_venv/lib/python3.14/site-packages/requests/__init__.py:113
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (2.6.3) or chardet (7.4.3)/charset_normalizer (3.4.7) doesn't match a supported version!
+    warnings.warn(
+
+../../../chatbot_venv/lib/python3.14/site-packages/chromadb/types.py:144: 5 warnings
+tests/test_category_tagging.py: 30 warnings
+tests/test_documents.py: 6 warnings
+tests/test_relevance_rag.py: 6 warnings
+tests/test_source_content.py: 3 warnings
+tests/api/test_chat_web_ingestion.py: 10 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/chromadb/types.py:144: PydanticDeprecatedSince211: Accessing the 'model_fields' attribute on the instance is deprecated. Instead, you should access this attribute from the model class. Deprecated in Pydantic V2.11 to be removed in V3.0.
+    return self.model_fields  # pydantic 2.x
+
+<frozen importlib._bootstrap>:491
+<frozen importlib._bootstrap>:491
+  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:491
+<frozen importlib._bootstrap>:491
+  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+<frozen importlib._bootstrap>:491
+  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+../../../chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:169: 64126 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:169: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or inspect.isasyncgenfunction(obj)
+
+../../../chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:424: 637 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:424: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func)
+
+tests/test_account_placement_engine.py::test_template_match
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:976: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:732: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    _restore_event_loop_policy(asyncio.get_event_loop_policy()),
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:949: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    asyncio.set_event_loop_policy(new_loop_policy)
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:950: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:747: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    policy = asyncio.get_event_loop_policy()
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:793: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    policy = asyncio.get_event_loop_policy()
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:819: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    asyncio.set_event_loop_policy(previous_policy)
+
+tests/test_account_placement_engine.py: 9 warnings
+tests/test_audit_flow.py: 5 warnings
+tests/test_audit_profiles.py: 27 warnings
+tests/test_audit_studio_chat.py: 3 warnings
+tests/test_audit_studio_generate.py: 5 warnings
+tests/test_audit_studio_integration.py: 1 warning
+tests/test_audit_studio_versions.py: 6 warnings
+tests/test_audit_template_model.py: 2 warnings
+tests/test_auditor_agent.py: 2 warnings
+tests/test_auditor_endpoint.py: 2 warnings
+tests/test_auto_summary_hook.py: 1 warning
+tests/test_auto_sync.py: 2 warnings
+tests/test_category_isolation.py: 3 warnings
+tests/test_category_tagging.py: 7 warnings
+tests/test_chat_endpoint_domain.py: 5 warnings
+tests/test_chat_sources.py: 2 warnings
+tests/test_chat_title_generation.py: 6 warnings
+tests/test_document_format_analyzer.py: 8 warnings
+tests/test_document_summarizer.py: 3 warnings
+tests/test_document_summary_columns.py: 1 warning
+tests/test_documents.py: 3 warnings
+tests/test_domain_classifier.py: 3 warnings
+tests/test_fast_learn_api.py: 4 warnings
+tests/test_fast_mode_streaming.py: 3 warnings
+tests/test_fta_scraper.py: 4 warnings
+tests/test_health.py: 6 warnings
+tests/test_hybrid_retriever.py: 12 warnings
+tests/test_legacy_domain_compat.py: 12 warnings
+tests/test_manual_path_unchanged.py: 4 warnings
+tests/test_model_routing.py: 1 warning
+tests/test_multi_query_rag.py: 3 warnings
+tests/test_no_llm_guard.py: 2 warnings
+tests/test_prior_year_extractor.py: 2 warnings
+tests/test_relevance_rag.py: 17 warnings
+tests/test_research_endpoints.py: 2 warnings
+tests/test_research_job_model.py: 1 warning
+tests/test_research_orchestrator.py: 5 warnings
+tests/test_save_research_to_sources.py: 1 warning
+tests/test_selected_doc_ids.py: 2 warnings
+tests/test_session_endpoint.py: 2 warnings
+tests/test_session_summary.py: 2 warnings
+tests/test_source_content.py: 3 warnings
+tests/test_template_fine_tune.py: 8 warnings
+tests/test_template_preview_endpoints.py: 5 warnings
+tests/test_template_store.py: 4 warnings
+tests/test_templates_api.py: 23 warnings
+tests/test_vat_hotel_apt_scenario.py: 22 warnings
+tests/test_web_search.py: 9 warnings
+tests/api/test_chat_intent_routing.py: 1 warning
+tests/api/test_chat_web_ingestion.py: 2 warnings
+tests/api/test_conversation_mode.py: 4 warnings
+tests/api/test_council_endpoint.py: 4 warnings
+tests/api/test_notebook_sources.py: 4 warnings
+tests/api/test_research_sse.py: 1 warning
+tests/core/test_ingest_text.py: 3 warnings
+tests/core/chat/test_domain_fallback.py: 1 warning
+tests/core/chat/test_intent_classifier.py: 5 warnings
+tests/core/council/test_council_service.py: 4 warnings
+tests/core/research/test_brave_search.py: 2 warnings
+tests/core/research/test_deep_research_finally.py: 1 warning
+tests/core/research/test_deep_research_service.py: 1 warning
+tests/core/research/test_query_decomposer.py: 4 warnings
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:831: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    policy = asyncio.get_event_loop_policy()
+
+tests/test_category_isolation.py::test_category_filter_no_fallback_fast_mode
+tests/test_chat_title_generation.py::test_title_uses_background_tasks_not_create_task_streaming
+tests/test_fast_mode_streaming.py::test_streaming_yields_meta_before_chunks
+tests/test_fast_mode_streaming.py::test_streaming_meta_contains_correct_domain
+tests/test_fast_mode_streaming.py::test_streaming_meta_arrives_before_heavy_ops
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/starlette/responses.py:250: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    async for chunk in self.body_iterator:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/api/test_chat_intent_routing.py::test_intent_directive_is_appended
+  /Users/armaan/chatbot_venv/lib/python3.14/site-packages/fastapi/routing.py:328: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    return await dependant.call(**values)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_relevance_rag.py::test_broad_fallback_not_used_when_broad_score_not_better
+FAILED tests/api/test_chat_web_ingestion.py::test_chat_auto_ingests_web_results
+===== 2 failed, 627 passed, 8 skipped, 67041 warnings in 328.85s (0:05:28) =====
+<sys>:0: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+--- Logging error ---
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/logging/__init__.py", line 1154, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 1914, in call_exception_handler
+    self.default_exception_handler(context)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 1886, in default_exception_handler
+    logger.error('\n'.join(log_lines), exc_info=exc_info)
+Message: "Task was destroyed but it is pending!\ntask: <Task pending name='Task-370' coro=<RAGEngine.ingest_chunks.<locals>._index_entities() done, defined at /Users/armaan/chatbot_local/Project_AccountingLegalChatbot/backend/core/rag_engine.py:668> wait_for=<Future pending cb=[_chain_future.<locals>._call_check_cancel() at /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/futures.py:393, Task.task_wakeup()]>>"
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/logging/__init__.py", line 1154, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 1914, in call_exception_handler
+    self.default_exception_handler(context)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 1886, in default_exception_handler
+    logger.error('\n'.join(log_lines), exc_info=exc_info)
+Message: "Task was destroyed but it is pending!\ntask: <Task pending name='Task-927' coro=<RAGEngine.ingest_chunks.<locals>._index_entities() done, defined at /Users/armaan/chatbot_local/Project_AccountingLegalChatbot/backend/core/rag_engine.py:668> wait_for=<Future pending cb=[_chain_future.<locals>._call_check_cancel() at /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/futures.py:393, Task.task_wakeup()]>>"
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/logging/__init__.py", line 1154, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 1914, in call_exception_handler
+    self.default_exception_handler(context)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 1886, in default_exception_handler
+    logger.error('\n'.join(log_lines), exc_info=exc_info)
+Message: "Task was destroyed but it is pending!\ntask: <Task pending name='Task-929' coro=<RAGEngine.ingest_chunks.<locals>._index_entities() done, defined at /Users/armaan/chatbot_local/Project_AccountingLegalChatbot/backend/core/rag_engine.py:668> wait_for=<Future pending cb=[_chain_future.<locals>._call_check_cancel() at /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/futures.py:393, Task.task_wakeup()]>>"
+Arguments: ()

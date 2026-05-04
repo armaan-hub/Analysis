@@ -32,7 +32,7 @@ _FINANCE_TERMS = frozenset([
     # E-Invoicing / digital tax compliance
     "e-invoicing", "e-invoice", "invoicing", "invoice", "electronic invoice",
     "peppol", "fta", "federal tax authority", "tax invoice", "credit note",
-    "debit note", "clearance", "reporting model", "vat return",
+    "debit note", "clearance", "reporting model", "vat return", "vat-return",
 ])
 
 # ── UAE legal / inheritance keyword terms ────────────────────────────────────

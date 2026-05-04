@@ -1,0 +1,5 @@
+22:43:15 | WARNING  | core.chat.domain_classifier | Domain classifier failed, falling back to general_law: 'domain'
+WARNING  core.chat.domain_classifier:domain_classifier.py:172 Domain classifier failed, falling back to general_law: 'domain'
+FAILED tests/test_relevance_rag.py::test_broad_fallback_not_used_when_broad_score_not_better
+FAILED tests/api/test_chat_web_ingestion.py::test_chat_auto_ingests_web_results
+===== 2 failed, 627 passed, 8 skipped, 67041 warnings in 328.85s (0:05:28) =====

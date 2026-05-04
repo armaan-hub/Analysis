@@ -29,7 +29,8 @@ async def test_chat_auto_ingests_web_results(client):
     # Mock search_web in api.chat (where it is used)
     # Mock ingest_text in core.document_processor
     # Mock chat_stream so we get a real (non-empty) response without calling the LLM API
-    with patch("core.rag_engine.RAGEngine.search", return_value=[]), \
+    with patch("api.chat._hybrid_retriever.retrieve", AsyncMock(return_value=[])), \
+         patch("api.chat.rag_engine.search", new=AsyncMock(return_value=[])), \
          patch("api.chat.search_web", AsyncMock(return_value=fake_web_results)), \
          patch("core.document_processor.ingest_text", AsyncMock()) as mock_ingest, \
          patch("api.chat._generate_title", new=AsyncMock()), \
@@ -42,6 +43,11 @@ async def test_chat_auto_ingests_web_results(client):
         # Consume stream to ensure processing completes
         async for _ in resp.aiter_lines():
             pass
+
+        # Yield to the event loop so fire-and-forget create_task(ingest_text(...)) can run
+        import asyncio as _asyncio
+        await _asyncio.sleep(0)
+        await _asyncio.sleep(0)
 
         # Verify that ingest_text was called for the web result
         assert mock_ingest.called, "ingest_text should be called for web results"
