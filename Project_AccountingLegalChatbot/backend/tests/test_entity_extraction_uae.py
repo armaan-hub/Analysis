@@ -85,3 +85,28 @@ class TestDeduplication:
         text = " ".join([f"AED {i},000" for i in range(1, 60)])
         entities = _extract_entities(text)
         assert len(entities) <= 40, f"Must cap at 40, got {len(entities)}"
+
+
+class TestEInvoicingTerms:
+    """Graph entity extraction must capture e-invoicing domain terms."""
+
+    def test_einvoicing_term_extracted(self):
+        from core.rag.graph_rag import _extract_entities
+        entities = _extract_entities("The FTA requires e-invoicing via Peppol network.")
+        terms = {name.lower() for name, _ in entities}
+        assert any(t in terms for t in ("e-invoicing", "invoicing", "peppol", "fta")), \
+            f"Expected e-invoicing/peppol/fta entity, got: {terms}"
+
+    def test_peppol_term_extracted(self):
+        from core.rag.graph_rag import _extract_entities
+        entities = _extract_entities("Peppol service providers must register with FTA portal.")
+        terms = {name.lower() for name, _ in entities}
+        assert any(t in terms for t in ("peppol", "fta", "service provider")), \
+            f"Expected peppol/fta entity, got: {terms}"
+
+    def test_invoice_term_extracted(self):
+        from core.rag.graph_rag import _extract_entities
+        entities = _extract_entities("Electronic invoice must comply with VAT regulations.")
+        terms = {name.lower() for name, _ in entities}
+        assert any(t in terms for t in ("invoice", "e-invoice", "electronic invoice", "invoicing")), \
+            f"Expected invoice entity, got: {terms}"
