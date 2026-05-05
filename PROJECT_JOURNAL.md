@@ -21,6 +21,13 @@
 > ```
 > This journal file itself must be committed and pushed every time it is updated.
 
+### Rule 3 — All Project Files Go in Main Branch Folder
+> Any new project-related file created (scripts, configs, docs, tools) **must be placed in the Main Branch folder**:
+> ```
+> ~/Library/CloudStorage/OneDrive-TheEraCorporations/Study/Armaan/AI Class/Data Science Class/35. 11-Apr-2026 Agentic AI/Main Branch/
+> ```
+> Do NOT create project files only in `~/chatbot_local/` — always sync/create them in Main Branch folder so they are tracked in GitHub.
+
 ---
 
 ## 📦 Project Overview
