@@ -53,6 +53,183 @@ GRAPH_STORE_DIR=/Users/armaan/graph_store
 
 ---
 
+## 📚 Quick Links
+
+| Resource | Path / URL |
+|----------|-----------|
+| Full Project README | `Project_AccountingLegalChatbot/README.md` |
+| Developer Guide | `Project_AccountingLegalChatbot/DEVELOPER_GUIDE.md` |
+| Swagger UI (live) | http://localhost:8002/docs |
+| Health Check | http://localhost:8002/api/health |
+| Frontend | http://localhost:5173 |
+| Skills / AI Knowledge Base | `skills/accounting-legal-chatbot-rag.md` |
+| Design Specs | `Project_AccountingLegalChatbot/docs/superpowers/specs/` |
+
+---
+
+## 🚀 Quick Start (macOS)
+
+### Prerequisites
+- Python 3.11+, Node.js 20+
+- `.env` file in `Project_AccountingLegalChatbot/backend/` (see below)
+
+### 1. Clone & set up venv
+```bash
+git clone https://github.com/armaan-hub/Analysis.git ~/chatbot_local
+cd ~/chatbot_local/Project_AccountingLegalChatbot/backend
+python3.11 -m venv ~/chatbot_venv
+source ~/chatbot_venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Configure `.env`
+```bash
+cp backend/.env.example backend/.env
+# Edit backend/.env — minimum required keys:
+```
+```env
+LLM_PROVIDER=nvidia
+NVIDIA_API_KEY=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   # deep/main model
+NVIDIA_FAST_API_KEY=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   # fast mode
+VECTOR_STORE_DIR=./vector_store_v2
+DATABASE_URL=sqlite:///./data/chatbot.db
+```
+
+### 3. Start backend
+```bash
+cd ~/chatbot_local/Project_AccountingLegalChatbot/backend
+source ~/chatbot_venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+```
+
+### 4. Start frontend
+```bash
+cd ~/chatbot_local/Project_AccountingLegalChatbot/frontend
+npm install   # first time only
+npm run dev   # → http://localhost:5173
+```
+
+> ⚠️ **Important:** Always use `~/chatbot_venv/bin/python3` — system Python ships with ChromaDB 1.5.8 which is incompatible. Venv has 0.5.15.
+
+---
+
+## 🌿 Branch Strategy
+
+| Branch | Purpose | Status |
+|--------|---------|--------|
+| `main` | Production — all 3 branches merged here | ✅ Authoritative |
+| `v2` | Hybrid RAG experiments (Graph RAG + BM25) | Merged into main |
+| `deep-research` | Query decomposition + web search synthesis | Merged into main |
+
+**All active development happens on `main`.** Feature branches cut from `main`, PR back to `main`.
+
+---
+
+## 📂 Data Sources
+
+Documents placed in these watched directories are **auto-ingested** at backend startup and on file change:
+
+```
+backend/data_source_finance/   ← Finance docs: IFRS standards, UAE VAT, Corporate Tax, FTA guidance
+backend/data_source_law/       ← Legal docs: UAE Commercial Law, Labour Law, Regulatory updates
+```
+
+**Supported formats:** PDF (text + scanned OCR), DOCX, XLSX  
+**Domain tagging:** filenames determine domain filter applied during RAG search  
+**Manual upload:** via web UI or `POST /api/documents/upload`
+
+After adding new documents, restart the backend — ingestion runs automatically on startup.
+
+---
+
+## 🔌 API Reference
+
+Backend base URL: **http://localhost:8002**  
+Interactive docs: **http://localhost:8002/docs**
+
+### Chat
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/chat/send` | Send message; `stream=true` for SSE |
+| `GET` | `/api/chat/conversations` | List all conversations |
+| `GET` | `/api/chat/conversations/{id}` | Get conversation + messages |
+| `DELETE` | `/api/chat/conversations/{id}` | Delete conversation |
+
+### Documents
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/documents/upload` | Upload & index PDF/Word/Excel |
+| `GET` | `/api/documents/` | List indexed documents |
+| `DELETE` | `/api/documents/{id}` | Remove from index |
+
+### Reports
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/reports/generate/ifrs` | IFRS financial statement |
+| `POST` | `/api/reports/generate/vat` | UAE VAT return |
+| `POST` | `/api/reports/generate/corptax` | Corporate tax filing |
+
+### Settings / Health
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | `{"status":"ok"}` |
+| `GET` | `/api/settings/current` | Current LLM config |
+| `POST` | `/api/settings/providers/switch` | Switch LLM provider |
+
+### Chat Modes
+| Mode | Description |
+|------|-------------|
+| `fast` | Quick lookups — devstral-2-123b, higher top-k |
+| `deep` | Research synthesis — mistral-large-3-675b, query decomposition |
+| `council` | 4-expert panel (CA / CPA / CMA / Analyst) + synthesis |
+| `analyst` | Financial analyst persona |
+
+---
+
+## 🧪 Testing Guide
+
+```bash
+cd ~/chatbot_local/Project_AccountingLegalChatbot/backend
+source ~/chatbot_venv/bin/activate
+
+# Run all unit tests (no LLM keys needed)
+pytest tests/ -m "not integration" -q
+
+# With coverage
+pytest tests/ -m "not integration" --cov=. --cov-report=term-missing
+
+# Integration tests (requires live NVIDIA keys in .env)
+RUN_LLM_TESTS=1 pytest tests/ -m integration -v
+```
+
+**Current status (as of 2026-05-04):** `632 passed, 0 failed, 8 skipped`
+
+**Critical test files:**
+| Test File | What it tests |
+|-----------|--------------|
+| `tests/test_entity_extraction_uae.py` | Graph RAG entity extraction + e-invoicing terms |
+| `tests/api/test_chat_web_ingestion.py` | Web search auto-ingest + broad fallback logic |
+| `tests/test_hybrid_retriever.py` | Score preservation through blend_results |
+| `tests/api/test_chat.py` | Core chat API, RAG grounding, streaming |
+
+**After any `graph_rag.py` change** — must rebuild the graph:
+```bash
+~/chatbot_venv/bin/python3 ~/rebuild_graph.py   # ~2-3 min, produces ~111K entities
+```
+
+---
+
+## ⚠️ Known Issues
+
+| Issue | Severity | Status | Notes |
+|-------|----------|--------|-------|
+| ChromaDB HNSW `ef or M too small` error | Medium | Pre-existing, not blocking | Falls back to BM25 keyword search. Fix: re-ingest all docs with tuned HNSW params (`ef=100`, `M=16`) |
+| `_FINANCE_TERMS` / `_LEGAL_TERMS` must never overlap | — | Guard in place | `graph_rag.py` lines 50-52 raise `ValueError` at import if overlap found |
+| OneDrive path import delay | Low | Workaround in place | Use `~/chatbot_local/` clone, not OneDrive path |
+| Local Agentic AI `.git` corrupted object | Low | Known | Use `~/chatbot_local` for all git operations |
+
+---
+
 ## 🏁 Milestones
 
 ### Milestone 1 — Project Recovery (Laptop Loss)
@@ -146,7 +323,27 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 - `6fcc83f` — fix(retriever): preserve vector score before blend_results
 - `16e1aca` — fix(tests): tighten TestEInvoicingTerms + fix flaky web ingestion test
 
-**Outcome:** 632 tests passing (0 failing), all E2E endpoints verified, skill file created, all commits pushed.
+### 2026-05-05 — PROJECT_JOURNAL.md Completion & Review
+
+**Goal:** Verify PROJECT_JOURNAL.md covers entire project details; add all missing sections.
+
+**Gaps identified:**
+- Missing Quick Links to README, Swagger, DEVELOPER_GUIDE
+- No macOS Quick Start (README had Windows-only)
+- No Branch Strategy guide (main/v2/deep-research usage)
+- No Data Sources setup (data_source_finance / data_source_law)
+- No API endpoint reference in journal
+- No test execution commands
+- Known Issues not consolidated in one place
+
+**Changes made:**
+- `PROJECT_JOURNAL.md` — Added 7 new sections: Quick Links, Quick Start (macOS), Branch Strategy, Data Sources, API Reference, Testing Guide, Known Issues
+
+**Commits pushed to `origin/main`:**
+- `0d7b684` — docs: add PROJECT_JOURNAL.md (initial version)
+- Next commit: this completion update
+
+**Outcome:** Journal now covers full project onboarding + operational reference.
 
 ---
 
