@@ -16,7 +16,7 @@ import networkx as nx
 
 # ── Optional spaCy ───────────────────────────────────────────────────────────
 try:
-    import spacy as _spacy
+    import spacy as _spacy  # type: ignore[import]
     _nlp = _spacy.load("en_core_web_sm")
     _SPACY_AVAILABLE = True
 except (ImportError, OSError):
@@ -29,10 +29,6 @@ _FINANCE_TERMS = frozenset([
     "balance sheet", "income statement", "vat", "tax", "audit", "ifrs", "gaap",
     "amortisation", "depreciation", "provision", "asset",
     "equity", "dividend", "working capital", "free cash flow",
-    # E-Invoicing / digital tax compliance
-    "e-invoicing", "e-invoice", "invoicing", "invoice", "electronic invoice",
-    "peppol", "fta", "federal tax authority", "tax invoice", "credit note",
-    "debit note", "clearance", "reporting model", "vat return", "vat-return",
 ])
 
 # ── UAE legal / inheritance keyword terms ────────────────────────────────────
@@ -231,11 +227,9 @@ class GraphRAG:
         if not normalised:
             return []
 
-        conn = self._connect()
-
-        # Phase 1: exact match (high precision)
         placeholders = ",".join("?" * len(normalised))
-        exact_rows = conn.execute(
+        conn = self._connect()
+        rows = conn.execute(
             f"""
             SELECT doc_id, chunk_index, COUNT(DISTINCT LOWER(name)) AS match_count
             FROM entities
@@ -246,44 +240,12 @@ class GraphRAG:
             """,
             normalised + [top_k],
         ).fetchall()
-
-        # Phase 2: partial match (LIKE) to supplement exact hits
-        like_conditions = " OR ".join(["LOWER(name) LIKE ?" for _ in normalised])
-        partial_rows = conn.execute(
-            f"""
-            SELECT doc_id, chunk_index, COUNT(DISTINCT LOWER(name)) AS match_count
-            FROM entities
-            WHERE {like_conditions}
-            GROUP BY doc_id, chunk_index
-            ORDER BY match_count DESC
-            LIMIT ?
-            """,
-            [f"%{e}%" for e in normalised] + [top_k * 2],
-        ).fetchall()
-
         if self._conn is None:
             conn.close()
 
-        # Merge exact + partial, de-duplicate by (doc_id, chunk_index)
-        seen: set[tuple[str, int]] = set()
-        merged: list[tuple[str, int, int]] = []
-        for row in exact_rows:
-            key = (row[0], row[1])
-            if key not in seen:
-                seen.add(key)
-                merged.append(row)
-        for row in partial_rows:
-            key = (row[0], row[1])
-            if key not in seen:
-                seen.add(key)
-                merged.append(row)
-
-        merged.sort(key=lambda r: r[2], reverse=True)
-        merged = merged[:top_k]
-
         total = len(normalised)
         results = []
-        for doc_id, chunk_index, match_count in merged:
+        for doc_id, chunk_index, match_count in rows:
             results.append({
                 "chunk_id": f"{doc_id}_chunk_{chunk_index}",
                 "doc_id": doc_id,

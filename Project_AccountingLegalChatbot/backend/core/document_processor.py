@@ -55,7 +55,7 @@ class DocumentProcessor:
         cmd = self._resolve_tesseract_cmd()
         if cmd:
             try:
-                import pytesseract
+                import pytesseract  # type: ignore[import]
                 pytesseract.pytesseract.tesseract_cmd = cmd
             except (ImportError, AttributeError):
                 pass
@@ -211,7 +211,7 @@ class DocumentProcessor:
 
         try:
             import fitz  # PyMuPDF
-            import pytesseract
+            import pytesseract  # type: ignore[import]
             from PIL import Image
         except Exception as exc:
             self._emit_warning_once(
@@ -230,9 +230,9 @@ class DocumentProcessor:
 
             # ── Advanced preprocessing (cv2 + deskew + skimage) ──────────────
             try:
-                import cv2
+                import cv2  # type: ignore[import]
                 import numpy as np
-                from deskew import determine_skew
+                from deskew import determine_skew  # type: ignore[import]
                 from skimage.transform import rotate as sk_rotate
 
                 img_array = np.array(image.convert("RGB"))

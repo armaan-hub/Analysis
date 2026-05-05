@@ -96,7 +96,7 @@ def _extract_from_pdf(file_path: str) -> dict:
         # Extract tables
         try:
             tables = page.find_tables()
-            for table in tables:
+            for table in (tables or []):
                 extracted = table.extract()
                 if extracted and len(extracted) > 1:
                     cleaned = [[cell or "" for cell in row] for row in extracted]
@@ -163,7 +163,7 @@ def _ocr_extract_pdf(file_path: str, page_count: int) -> tuple:
 
     try:
         import fitz
-        import pytesseract
+        import pytesseract  # type: ignore[import]
         from PIL import Image
         import io as _io
 

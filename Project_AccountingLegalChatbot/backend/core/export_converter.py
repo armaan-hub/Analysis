@@ -169,7 +169,7 @@ def to_pdf(markdown_text: str) -> bytes:
 
 def _to_pdf_weasyprint(markdown_text: str) -> bytes:
     import markdown as md_lib
-    from weasyprint import HTML, CSS
+    from weasyprint import HTML, CSS  # type: ignore[import]
 
     # Use full set of extensions: tables for GFM tables, extra for inline formatting, nl2br for line breaks
     html_body = md_lib.markdown(markdown_text, extensions=["tables", "extra", "nl2br"])

@@ -22,7 +22,7 @@ _WATCH_DIRS: list[tuple[Path, str]] = [
 
 _DEBOUNCE_SECONDS = 10.0
 
-_observer: Observer | None = None
+_observer: Observer | None = None  # type: ignore[valid-type]
 _handlers: list[_PDFHandler] = []
 
 

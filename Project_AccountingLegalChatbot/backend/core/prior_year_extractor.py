@@ -158,7 +158,7 @@ async def _extract_via_vision(file_path: str) -> list[dict]:
     Only attempted if pdf2image (poppler) is available.
     """
     try:
-        from pdf2image import convert_from_path
+        from pdf2image import convert_from_path  # type: ignore[import]
         import base64
         import io
         from core.llm_manager import get_llm_provider
