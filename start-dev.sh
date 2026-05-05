@@ -2,11 +2,15 @@
 
 # Unified start script for backend and frontend
 # Usage: ./start-dev.sh [--backend-only|--frontend-only] [--no-health-check]
+#
+# Active code lives at ~/chatbot_local/ (local git clone separate from OneDrive)
+# Backend:  http://localhost:8002
+# Frontend: http://localhost:5173
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$PROJECT_ROOT/Project_AccountingLegalChatbot/backend"
-FRONTEND_DIR="$PROJECT_ROOT/Project_AccountingLegalChatbot/frontend"
-HEALTH_CHECK_SCRIPT="$PROJECT_ROOT/Project_AccountingLegalChatbot/scripts/health-check.sh"
+CHATBOT_ROOT="$HOME/chatbot_local/Project_AccountingLegalChatbot"
+BACKEND_DIR="$CHATBOT_ROOT/backend"
+FRONTEND_DIR="$CHATBOT_ROOT/frontend"
+VENV="$HOME/chatbot_venv"
 
 # Color codes
 GREEN='\033[0;32m'
@@ -57,36 +61,78 @@ cleanup() {
 echo -e "${BLUE}=== Accounting & Legal Chatbot Startup ===${NC}"
 echo ""
 
+# Validate directories exist
+if [ $START_BACKEND -eq 1 ] && [ ! -d "$BACKEND_DIR" ]; then
+    echo -e "\033[0;31m✗ Backend directory not found: $BACKEND_DIR\033[0m"
+    echo "  Make sure ~/chatbot_local is checked out from git@github.com:armaan-hub/Analysis.git"
+    exit 1
+fi
+if [ $START_FRONTEND -eq 1 ] && [ ! -d "$FRONTEND_DIR" ]; then
+    echo -e "\033[0;31m✗ Frontend directory not found: $FRONTEND_DIR\033[0m"
+    exit 1
+fi
+if [ $START_BACKEND -eq 1 ] && [ ! -d "$VENV" ]; then
+    echo -e "\033[0;31m✗ Python venv not found: $VENV\033[0m"
+    echo "  Run: python3 -m venv ~/chatbot_venv && ~/chatbot_venv/bin/pip install -r $BACKEND_DIR/requirements.txt"
+    exit 1
+fi
+
 # Start backend if requested
 if [ $START_BACKEND -eq 1 ]; then
     echo -e "${BLUE}Starting backend...${NC}"
+    # Kill any existing process on port 8002
+    lsof -ti :8002 | xargs -r kill -9 2>/dev/null || true
     cd "$BACKEND_DIR"
-    npm run start &
+    source "$VENV/bin/activate"
+    "$VENV/bin/uvicorn" main:app --host localhost --port 8002 --reload > /tmp/chatbot_backend.log 2>&1 &
     BACKEND_PID=$!
-    echo "Backend PID: $BACKEND_PID"
+    echo "Backend PID: $BACKEND_PID (log: /tmp/chatbot_backend.log)"
 fi
 
 # Start frontend if requested
 if [ $START_FRONTEND -eq 1 ]; then
     echo -e "${BLUE}Starting frontend...${NC}"
+    # Kill any existing process on port 5173
+    lsof -ti :5173 | xargs -r kill -9 2>/dev/null || true
     cd "$FRONTEND_DIR"
-    npm run start &
+    npm run dev > /tmp/chatbot_frontend.log 2>&1 &
     FRONTEND_PID=$!
-    echo "Frontend PID: $FRONTEND_PID"
+    echo "Frontend PID: $FRONTEND_PID (log: /tmp/chatbot_frontend.log)"
 fi
 
 echo ""
+echo -e "${BLUE}Waiting for services to start...${NC}"
+sleep 4
 
-# Wait briefly for services to start
-sleep 2
-
-# Run health checks if requested and both services were started
-if [ $RUN_HEALTH_CHECK -eq 1 ] && [ $START_BACKEND -eq 1 ] && [ $START_FRONTEND -eq 1 ]; then
-    echo -e "${BLUE}Running health checks...${NC}"
-    if [ -f "$HEALTH_CHECK_SCRIPT" ]; then
-        bash "$HEALTH_CHECK_SCRIPT" || true
+# Health check
+if [ $RUN_HEALTH_CHECK -eq 1 ] && [ $START_BACKEND -eq 1 ]; then
+    BACKEND_OK=0
+    for i in {1..10}; do
+        if curl -sf http://localhost:8002/health > /dev/null 2>&1; then
+            BACKEND_OK=1
+            break
+        fi
+        sleep 1
+    done
+    if [ $BACKEND_OK -eq 0 ]; then
+        echo -e "\033[0;31m✗ Backend health check failed — see /tmp/chatbot_backend.log\033[0m"
+        tail -20 /tmp/chatbot_backend.log
     fi
-    echo ""
+fi
+
+if [ $RUN_HEALTH_CHECK -eq 1 ] && [ $START_FRONTEND -eq 1 ]; then
+    FRONTEND_OK=0
+    for i in {1..10}; do
+        if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+            FRONTEND_OK=1
+            break
+        fi
+        sleep 1
+    done
+    if [ $FRONTEND_OK -eq 0 ]; then
+        echo -e "\033[0;31m✗ Frontend health check failed — see /tmp/chatbot_frontend.log\033[0m"
+        tail -10 /tmp/chatbot_frontend.log
+    fi
 fi
 
 # Show status
