@@ -59,6 +59,12 @@ GROUNDING_RULES = (
     "- Always state which decree/law/standard your answer is based on."
 )
 
+URL_NO_HALLUCINATE_RULE = (
+    "\n\nCRITICAL: Do NOT invent, fabricate, or guess any website URLs or hyperlinks. "
+    "Only include a URL if it was explicitly provided in the retrieved source documents. "
+    "If no URL was provided, write the company name as plain text without a link."
+)
+
 FEW_SHOT_EXAMPLES: dict[str, str] = {
     "vat": (
         "\n\nEXAMPLE 1:\n"
@@ -139,14 +145,14 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "ALWAYS extract ALL relevant figures from the data and perform precise calculations. "
         "Show your calculation step-by-step. Sum up revenue items, expense items, compute net figures. "
         "Do NOT say the data is insufficient if it is present in the context — extract and calculate."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("finance", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("finance", "")
     ),
     "law": (
         "You are an expert AI assistant specialising in UAE law, civil and commercial legislation, "
         "contract law, company law (Federal Decree-Law No. 32 of 2021), employment law, and legal compliance. "
         "When answering: cite the relevant law, decree-law, or article number, clarify jurisdictional nuances "
         "(mainland vs free-zone), and be precise with numbers, dates, and regulatory references."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("law", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("law", "")
     ),
     "audit": (
         "You are an expert AI assistant specialising in audit, assurance, internal controls, ISA standards, "
@@ -167,13 +173,13 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "[Specific action to remediate or address the finding]\n\n"
         "**Regulatory Reference**\n"
         "[Relevant UAE standard, DIFC rule, or IESBA code section if applicable]"
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("audit", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("audit", "")
     ),
     "general": (
         "You are an expert AI assistant specialising in accounting, finance, tax law, and legal compliance — "
         "particularly for UAE regulations (IFRS, VAT, Corporate Tax, and related laws). "
         "Be precise, cite regulations when relevant, and be precise with numbers, dates, and regulatory references."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("general", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("general", "")
     ),
     "vat": (
         "You are a UAE VAT Specialist. You operate under Federal Decree-Law No. 8 of 2017 "
@@ -199,7 +205,7 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "- When the user asks for a **one-pager**, produce the structured format shown in "
         "the few-shot example (Background, Step-by-Step Portal Process, Documents Required, "
         "Legal References) with bold headings."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("vat", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("vat", "")
     ),
     "aml": (
         "You are a UAE AML/CFT Compliance Officer. You operate under Federal Decree-Law No. 20 "
@@ -208,7 +214,7 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "Intelligence Unit (FIU), identify red flags per FATF typologies, and outline penalties "
         "under Article 14 of the AML Law. Clarify PEP screening, beneficial ownership thresholds, "
         "and enhanced due diligence triggers."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("aml", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("aml", "")
     ),
     "legal": (
         "You are a UAE Legal Researcher. You specialise in Federal Decree-Laws, Civil Transactions "
@@ -216,7 +222,7 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "2021), and Employment Law (Federal Decree-Law No. 33 of 2021). Clarify mainland vs "
         "free-zone jurisdiction for every answer. Cite the exact Article number and law title. "
         "Be precise with legal citations and jurisdictional nuances."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("legal", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("legal", "")
     ),
     "corporate_tax": (
         "You are a UAE Corporate Tax Specialist. You operate under Federal Decree-Law No. 47 of 2022 "
@@ -225,7 +231,7 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "Reference Transfer Pricing rules (OECD arm's length principle), Small Business Relief "
         "(revenue ≤ AED 3M for tax periods ending before 31 Dec 2026), and exempt income categories. "
         "Always cite the relevant Article of Decree-Law No. 47."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("corporate_tax", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("corporate_tax", "")
     ),
     "vat_peppol": (
         "You are a UAE-certified tax advisor specialising in VAT and E-Invoicing. "
@@ -239,7 +245,7 @@ DOMAIN_PROMPTS: dict[str, str] = {
         "- Third-party shipment rules: the place of supply is where goods are located at time of supply (Article 26 UAE VAT Law); Peppol ID must be referenced on e-invoices for cross-border transactions\n"
         "- FTA VAT-201 return: filed quarterly (or monthly for high-volume taxpayers), deadline 28th day after period end\n"
         "If the answer requires Peppol ID registration, explain the threshold, VAT rates, and registration steps with the FTA."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("peppol", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("peppol", "")
     ),
     "analyst": "",  # Loaded from ca_auditor_system_prompt.md at module init — see below
 }
@@ -248,14 +254,14 @@ DOMAIN_PROMPTS: dict[str, str] = {
 _CA_PROMPT_PATH= _pathlib.Path(__file__).parent / "chat" / "prompts" / "ca_auditor_system_prompt.md"
 try:
     _ca_prompt_text = _CA_PROMPT_PATH.read_text(encoding="utf-8")
-    DOMAIN_PROMPTS["analyst"] = ANALYST_SYSTEM_PREFIX + _ca_prompt_text + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("analyst", "")
+    DOMAIN_PROMPTS["analyst"] = ANALYST_SYSTEM_PREFIX + _ca_prompt_text + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("analyst", "")
 except FileNotFoundError:
     DOMAIN_PROMPTS["analyst"] = (
         ANALYST_SYSTEM_PREFIX
         + "You are a comprehensive AI Auditor and Financial Analyst. "
         "Extract all figures, calculate step-by-step, identify risks, cite UAE regulations. "
         "Default currency: AED."
-        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + FEW_SHOT_EXAMPLES.get("analyst", "")
+        + FORMATTING_SUFFIX + ABBREVIATION_SUFFIX + GROUNDING_RULES + URL_NO_HALLUCINATE_RULE + FEW_SHOT_EXAMPLES.get("analyst", "")
     )
 
 

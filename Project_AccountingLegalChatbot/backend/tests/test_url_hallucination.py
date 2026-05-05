@@ -1,0 +1,36 @@
+"""Tests for URL hallucination guard."""
+import pytest
+from backend.core.accuracy.citation_validator import strip_hallucinated_urls
+
+
+class TestStripHallucinatedUrls:
+    def test_empty_allowed_strips_all_hyperlinks(self):
+        """When no sources exist, ALL markdown links must be stripped."""
+        text = "Contact [Beta Consultants](https://betaconsultants.ae) for help."
+        result = strip_hallucinated_urls(text, set())
+        assert result == "Contact Beta Consultants for help."
+        assert "http" not in result
+
+    def test_empty_allowed_strips_multiple_links(self):
+        text = "See [Deloitte](https://deloitte.com) or [PwC](https://pwc.com)."
+        result = strip_hallucinated_urls(text, set())
+        assert "http" not in result
+        assert "Deloitte" in result
+        assert "PwC" in result
+
+    def test_allowed_url_is_kept(self):
+        allowed = {"https://realdoc.ae/source.pdf"}
+        text = "See [source](https://realdoc.ae/source.pdf) for details."
+        result = strip_hallucinated_urls(text, allowed)
+        assert "https://realdoc.ae/source.pdf" in result
+
+    def test_disallowed_url_stripped_when_allowed_set_nonempty(self):
+        allowed = {"https://realdoc.ae/source.pdf"}
+        text = "See [fake](https://invented.com) or [real](https://realdoc.ae/source.pdf)."
+        result = strip_hallucinated_urls(text, allowed)
+        assert "https://invented.com" not in result
+        assert "https://realdoc.ae/source.pdf" in result
+
+    def test_plain_text_unchanged(self):
+        result = strip_hallucinated_urls("No links here at all.", set())
+        assert result == "No links here at all."
