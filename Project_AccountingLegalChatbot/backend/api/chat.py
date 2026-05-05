@@ -562,6 +562,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             # ── 5. RAG search ─────────────────────────────────────────────────
             _rag_filter: dict | None = None
+            _base_filter: dict = {"category": {"$in": ["law", "finance"]}}
             _doc_scoped = False
             _search_results: list = []
             _sources: list = []
@@ -963,6 +964,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
         rag_filter = None
+        _base_filter: dict = {"category": {"$in": ["law", "finance"]}}
         if req.selected_doc_ids:
             if req.mode == "analyst":
                 # Analyst mode: search within selected docs only (client workbooks are valid here)

@@ -1,0 +1,16 @@
+{
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportAttributeAccessIssue": "none",
+    "reportGeneralTypeIssues": "none",
+    "reportArgumentType": "none",
+    "reportOperatorIssue": "none",
+    "reportReturnType": "none",
+    "reportCallIssue": "none",
+    "reportIndexIssue": "none",
+    "reportPossiblyUnbound": "none",
+    "reportAssignmentType": "none",
+    "reportOptionalMemberAccess": "none",
+    "reportOptionalSubscript": "none",
+    "reportOptionalCall": "none"
+  }
+}
