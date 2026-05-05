@@ -1071,7 +1071,7 @@ body {
 .chat-msg {
   display: flex;
   gap: 12px;
-  max-width: 720px;
+  width: 100%;
 }
 .chat-msg--user {
   align-self: flex-end;
@@ -1296,6 +1296,7 @@ body {
   background: transparent;
   border: none;
   padding: 0;
+  width: 100%;
 }
 .chat-thinking-toggle {
   display: flex;
