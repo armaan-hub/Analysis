@@ -59,13 +59,13 @@ def backfill(force: bool = False) -> None:
                 continue
 
             original_name = meta.get("original_name") or meta.get("source") or ""
-            domain = _infer_domain_from_name(original_name)
+            domain = _infer_domain_from_name(str(original_name))
             new_meta = {**meta, "domain": domain}
             update_ids.append(chunk_id)
             update_metas.append(new_meta)
 
         if update_ids:
-            col.update(ids=update_ids, metadatas=update_metas)
+            col.update(ids=update_ids, metadatas=update_metas)  # type: ignore[arg-type]
             updated += len(update_ids)
 
         processed += len(ids)

@@ -104,7 +104,7 @@ async def main() -> None:
             for m in current_metas:
                 updated = dict(m)
                 updated["category"] = category
-                updated["original_name"] = doc.original_name
+                updated["original_name"] = str(doc.original_name)
                 updated_metas.append(updated)
 
             try:
