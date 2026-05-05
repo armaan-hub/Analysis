@@ -467,3 +467,28 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 - 38 other files: clean
 
 **Outcome:** All 43 files now error-free. Smoke tests pass. Pushed to GitHub.
+
+---
+
+### Session: 2026-05-06 — Permanent Startup Fix (Backend + Frontend)
+
+**Goal:** Fix services not starting at http://localhost:8002 and http://localhost:5173 permanently.
+
+**Root cause discovered (systematic debugging):**
+1. `start-dev.sh` had WRONG directory paths — pointed to OneDrive git repo path (`$PROJECT_ROOT/Project_AccountingLegalChatbot/`) but the actual running code lives at `~/chatbot_local/Project_AccountingLegalChatbot/`
+2. The two repos are separate git clones of `armaan-hub/Analysis.git` on `main` branch — `~/chatbot_local/` is the active coding environment (avoids OneDrive slowness), OneDrive repo is for documentation/GitHub sync
+
+**Fixes applied:**
+- `start-dev.sh` (root): Updated `CHATBOT_ROOT` to `$HOME/chatbot_local/Project_AccountingLegalChatbot`, added directory/venv validation, replaced `npm run start` with direct `uvicorn` and `npm run dev` calls, added port-cleanup before startup, added inline health checks with error log tailing
+
+**Verification:** Both services confirmed running:
+- Backend `{"status":"ok"}` at http://localhost:8002/health ✅
+- Frontend responding at http://localhost:5173 ✅
+
+**Key facts about project layout:**
+- Active code: `~/chatbot_local/Project_AccountingLegalChatbot/`
+- Python venv: `~/chatbot_venv` (Python 3.14, all packages installed)
+- Backend .env: `~/chatbot_local/Project_AccountingLegalChatbot/.env` (config.py looks one level above `backend/`)
+- Logs written to: `/tmp/chatbot_backend.log` and `/tmp/chatbot_frontend.log`
+
+**To start services:** `./start-dev.sh` from the git repo root
