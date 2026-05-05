@@ -296,6 +296,14 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 
 ---
 
+### Milestone 5 — UI & Response Integrity Hardening
+*Reliability and UX improvements completed for chat output and citation safety.*
+
+- ✅ **Full-Width Chat Layout:** AI chat bubbles now render full available column width (user bubbles unchanged at max 75%).
+- ✅ **URL Hallucination Guard:** Markdown hyperlinks are now stripped when no allowed URLs exist, preventing fabricated URL links in Fast/RAG mode.
+
+---
+
 ## 📋 Chronological Session Log
 
 ### 2026-05-04 — Full Audit, Recovery & All Fixes
@@ -384,6 +392,38 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 **Outcome:** Both services running — http://localhost:8002 (backend) + http://localhost:5173 (frontend). Full stack E2E verified.
 
 ---
+
+### Session: 2026-05-05 — Chat Layout, URL Hallucination Guard, Missing Dependencies
+
+**Goals:** Fix AI chat responses capped at 720px, eliminate LLM URL hallucination in Fast/RAG mode, install 4 missing frontend packages, create living DEPENDENCIES.md.
+
+**Completed:**
+
+#### T1 — Chat Layout Full-Width (commits b519954, 581f049)
+- Removed `max-width: 720px` from `.chat-msg` → `width: 100%`
+- Added `flex: 1; min-width: 0` to `.chat-msg__body` so AI bubble width resolves against flex parent
+- Added `width: 100%` to `.chat-msg--ai .chat-msg__bubble`
+- AI messages now fill full available column width; user bubbles keep `max-width: 75%`
+- 3 CSS regression tests added
+
+#### T2 — URL Hallucination Guard (commits 3b43842, e77070b, f7aa48c)
+- `citation_validator.py`: when `allowed_urls` is empty, strips ALL markdown hyperlinks (was returning text unchanged — the root cause of hallucinated URLs passing through)
+- Both branches now use robust regex: `(?<!!)\[([^\]]+)\]\((https?://(?:[^\s()]+|\([^\s()]*\))+)\)` — handles parens-in-URL (e.g., `Tax_(UAE)`), preserves image links
+- `chat.py`: removed `if _sources:` guards from streaming AND non-streaming paths — strip always runs
+- `prompt_router.py`: added `URL_NO_HALLUCINATE_RULE` constant, appended to all 10 domain prompts
+- 9 tests
+
+#### T3 — Missing npm Packages (commit d8d2095)
+- Installed: `remark-math`, `rehype-katex`, `rehype-highlight`, `react-syntax-highlighter`, `@types/react-syntax-highlighter`
+- 4 import tests confirming packages load correctly
+
+#### T4 — DEPENDENCIES.md (commit 4e0a2ed)
+- Created `DEPENDENCIES.md` at repo root with 41 backend Python deps + 35 frontend npm deps
+- Update rule: "Whenever a new library is added to requirements.txt or package.json, this file MUST be updated and committed in the same PR/commit"
+
+**Also fixed (prior session, carried forward):**
+- `normalizeMarkdown.ts` missing utility created from test spec (12 tests)
+- `.gitignore` fixed: `lib/` → `/lib/` (was silently ignoring `frontend/src/lib/`)
 
 *Append new sessions below this line. Each entry: date, goal, decisions, changes, commits, outcome.*
 
