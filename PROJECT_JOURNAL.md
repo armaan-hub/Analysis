@@ -7,6 +7,29 @@
 
 ---
 
+### Session: 2026-05-05 — Folder Cleanup & Archive
+
+**Goal:** Reduce OneDrive `35. 11-Apr-2026 Agentic AI` folder from ~6GB to ~850MB by archiving redundant files.
+
+**What was archived (into `archive_backup_2026-05-05.zip`, 2.5GB):**
+- `Project_AccountingLegalChatbot/` (3.1GB) — canonical copy is in git at `~/chatbot_local`
+- `25. 21-Mar-2026/` (1.4GB) — superseded March 2026 session
+- `desktop/` (576MB) — orphaned `node_modules`, no source code
+- `frontend/` (269MB) — stale standalone frontend + `node_modules`
+- `backend/`, `vector_store/`, `vector_store_v2/`, `src/` — stale root-level duplicates
+- Log files (`frontend_server.log`, `backend_server.log`, `run_project.log`)
+- Caches/temp: `.pytest_cache/`, `.vs/`, `.claude/`, `.code-review-graph/`, `conv_id.txt`
+
+**What was kept:**
+- `Main Branch/` — working project snapshot
+- `data_source_finance/` (403MB) + `data_source_law/` (124MB) — irreplaceable RAG documents
+- `PROJECT_JOURNAL.md`, `.env`, `skills/`, `brain/`, `Gemini_Sessions/`, `Testing data/`
+- Setup scripts, git infrastructure, `docs/`
+
+**Result:** Folder reduced from ~6GB to ~850MB. ZIP backup at `archive_backup_2026-05-05.zip`.
+
+**Tools used:** Brainstorming skill → Writing Plans skill → Subagent-Driven Development (GPT-5.3-Codex + Claude Opus 4.7)
+
 ## ⚙️ Workflow Rules (ALWAYS ENFORCED)
 
 ### Rule 1 — Planning & Brainstorming
