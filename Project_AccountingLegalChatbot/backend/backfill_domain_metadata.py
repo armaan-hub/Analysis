@@ -47,8 +47,8 @@ def backfill(force: bool = False) -> None:
             offset=offset,
             include=["metadatas"],
         )
-        ids = batch["ids"]
-        metadatas = batch["metadatas"]
+        ids = batch["ids"] or []
+        metadatas = batch["metadatas"] or []
 
         update_ids: list[str] = []
         update_metas: list[dict] = []
@@ -78,7 +78,7 @@ def backfill(force: bool = False) -> None:
     print("\nDomain distribution after backfill:")
     sample = col.get(limit=10000, include=["metadatas"])
     from collections import Counter
-    domains = Counter(m.get("domain", "MISSING") for m in sample["metadatas"])
+    domains = Counter(m.get("domain", "MISSING") for m in (sample["metadatas"] or []))
     for domain, count in sorted(domains.items(), key=lambda x: -x[1]):
         print(f"  {domain}: {count}")
 

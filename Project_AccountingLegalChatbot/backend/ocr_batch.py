@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 # ── OCR dependency check ──────────────────────────────────────────────────────
 try:
-    from pdf2image import convert_from_path
-    import pytesseract
-    from PIL import Image
+    from pdf2image import convert_from_path  # type: ignore[import-not-found]
+    import pytesseract  # type: ignore[import-not-found]
+    from PIL import Image  # type: ignore[import-not-found]
 except ImportError as e:
     logger.error(
         f"Missing dependency: {e}\n"
@@ -136,8 +136,6 @@ async def reingest():
         # bulk_ingest exposes an async ingest function
         if hasattr(bulk_ingest, "main"):
             await bulk_ingest.main()
-        elif hasattr(bulk_ingest, "ingest_documents"):
-            await bulk_ingest.ingest_documents()
         else:
             logger.info("bulk_ingest has no callable async entry point — run it manually:")
             logger.info("  python bulk_ingest.py")

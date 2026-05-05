@@ -62,14 +62,14 @@ async def main() -> None:
             # but chunks from old uploads still exist with old doc_ids
             try:
                 existing = rag_engine.collection.get(
-                    where={"original_name": doc.original_name},
+                    where={"original_name": str(doc.original_name)},
                     include=["metadatas"],
                 )
                 # Fallback: old chunks ingested before the fix have no original_name metadata.
                 # Try finding them by doc_id instead.
                 if not existing or not existing["ids"]:
                     existing = rag_engine.collection.get(
-                        where={"doc_id": doc.id},
+                        where={"doc_id": str(doc.id)},
                         include=["metadatas"],
                     )
             except Exception as exc:
@@ -82,8 +82,8 @@ async def main() -> None:
                 totals["no_chunks"] += 1
                 continue
 
-            chunk_ids = existing["ids"]
-            current_metas = existing["metadatas"]
+            chunk_ids = existing["ids"] or []
+            current_metas = existing["metadatas"] or []
 
             # Check if already correctly tagged (both category AND original_name must match)
             # IMPORTANT: require at least one chunk AND all chunks must match

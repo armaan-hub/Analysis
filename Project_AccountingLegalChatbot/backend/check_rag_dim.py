@@ -7,8 +7,9 @@ async def check_dim():
     try:
         # Get one embedding to check its length
         results = rag_engine.collection.get(include=["embeddings"], limit=1)
-        if results["embeddings"]:
-            dim = len(results["embeddings"][0])
+        embeddings = results["embeddings"]
+        if embeddings is not None and len(embeddings) > 0:
+            dim = len(embeddings[0])
             print(f"Embedding dimensionality: {dim}")
         else:
             print("No embeddings found in store.")

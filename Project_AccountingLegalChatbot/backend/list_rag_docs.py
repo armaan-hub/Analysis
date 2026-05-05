@@ -6,7 +6,7 @@ async def list_docs():
     try:
         # ChromaDB doesn't have a simple 'list documents' but we can get all metadatas
         results = rag_engine.collection.get(include=["metadatas"])
-        metas = results["metadatas"]
+        metas = results["metadatas"] or []
         doc_names = set()
         for m in metas:
             doc_names.add(m.get("original_name") or m.get("source", "Unknown"))

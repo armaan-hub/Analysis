@@ -28,7 +28,7 @@ for col in cols:
     cats = {}
     srcs = set()
     
-    for m in r['metadatas']:
+    for m in (r['metadatas'] or []):
         d = m.get('domain', '?')
         c = m.get('category', '?')
         s = m.get('source', '?')

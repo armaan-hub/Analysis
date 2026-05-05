@@ -71,8 +71,8 @@ async def main() -> None:
             
             try:
                 # Clear old chunks for this doc first if any exist
-                await rag_engine.delete_document(doc.id)
-                count = await rag_engine.ingest_chunks(chunks, doc.id)
+                await rag_engine.delete_document(str(doc.id))
+                count = await rag_engine.ingest_chunks(chunks, str(doc.id))
                 doc.chunk_count = count
                 await db.commit()
                 print(f"  OK: Indexed as '{original_name}' with {count} chunks.")
