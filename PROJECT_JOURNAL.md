@@ -516,3 +516,43 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 **Result:** Zero Pylance errors or hints in all open VS Code files. All imports verified: `ALL OK`.
 
 **Services status:** Backend ✅ http://localhost:8002 | Frontend ✅ http://localhost:5173
+
+---
+
+### Session: 2026-05-06 — Startup Script, UX Improvements & DB Cleanup
+
+**Goal:** Single-command startup with Cloudflare tunnels, Select All UX, bulk test-data cleanup.
+
+**Files created/modified:**
+- `~/chatbot_local/start-app.sh` (**NEW**) — one command starts everything
+- `~/chatbot_local/Project_AccountingLegalChatbot/frontend/src/pages/HomePage.tsx` — Select All UX
+- `start-app.sh` (repo root copy)
+
+**What was done:**
+
+1. **Created `start-app.sh`** — single command that:
+   - Kills stale processes on :8002 and :5173
+   - Starts uvicorn backend (waits for `/health` before proceeding)
+   - Starts Cloudflare quick tunnel for backend, extracts the HTTPS URL
+   - Auto-patches `frontend/.env` `VITE_API_BASE_URL` with new Cloudflare backend URL
+   - Starts Vite frontend dev server
+   - Starts Cloudflare quick tunnel for frontend
+   - Prints all 4 URLs (local + internet) in a summary box
+   - Ctrl+C cleanly stops all 4 processes
+   - **Usage:** `~/chatbot_local/start-app.sh`
+
+2. **Deleted 281 test conversations** directly from SQLite (`data/chatbot.db`) — titles: t, t2, t3, t4. 122 real conversations remain.
+
+3. **Select All UX on HomePage:**
+   - Added `handleSelectAll()` function — selects all currently filtered notebooks
+   - When selection mode is ON: shows live counter "X selected" (or "Tap to select" when 0) and a "Select All" button
+   - Delete (N) button appears when at least 1 is selected
+   - Full multi-select → bulk delete flow confirmed working
+
+4. **Cloudflare quick tunnels** (context):
+   - Free, no account, no auth — `cloudflared tunnel --url http://localhost:PORT`
+   - URLs change on every restart → start-app.sh handles auto-patching .env
+   - Works on macOS, Linux, Windows (install cloudflared via brew/apt/winget)
+   - First visit on any new device shows Cloudflare disclaimer page — click through once
+
+**Pushed to:** `armaan-hub/Analysis` main branch ✅
