@@ -347,6 +347,44 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 
 ---
 
+### 2026-05-05 — Frontend Startup Fix (Full Stack Verified)
+
+**Goal:** Get frontend running reliably at http://localhost:5173, connected to backend at http://localhost:8002.
+
+**Root causes identified:**
+1. Backend was running on system Python 3.14 with ChromaDB **1.5.8** (incompatible) instead of venv ChromaDB 0.5.15
+2. `node_modules` was empty in `chatbot_local` clone — `npm install` never ran after git clone
+3. No `frontend/.env` file — `api-config.ts` defaulted to port 8001, backend runs on 8002
+4. No macOS startup script (Windows `run_project.ps1` existed but not usable on Mac)
+
+**Decisions made:**
+1. Tasks dispatched as 3 parallel subagents (GPT-5.3-Codex Wave 1) + 2 parallel (Wave 2)
+2. E2E verified with Claude Opus 4.7 — noted that RAG sources for e-invoicing query pull from RAKEZ business lists (pre-existing data gap, not a code bug)
+3. `frontend/.env` is gitignored — must be created locally on every new clone
+
+**Changes made:**
+- Backend restarted with `~/chatbot_venv/bin/python3` (ChromaDB 0.5.15) on port 8002
+- `npm install` run in `frontend/` → 340 modules, Vite 8.0.8
+- `frontend/.env` created locally: `VITE_API_BASE_URL=http://localhost:8002`
+- `frontend/.env.example` updated: port corrected from 8000 → 8002
+- `run_project.sh` created: macOS launcher for both backend + frontend
+
+**E2E test results (2026-05-05):**
+- Health: ✅ `{"status":"ok"}`
+- E-Invoicing query: ✅ 15 sources, Peppol/FTA mentioned in response, streaming SSE working
+- CORS: ✅ `access-control-allow-origin: *`
+- Frontend: ✅ HTTP 200, title `Legal & Accounting AI Studio`, 8 assets
+
+**Known data gap (pre-existing):** RAG retrieval for e-invoicing returns RAKEZ business activity lists (scores 0.28–0.51) rather than dedicated e-invoicing documents. LLM generates correct answer from its own knowledge. Fix: ingest FTA e-invoicing PDF documents into `data_source_finance/`.
+
+**Commits pushed to `origin/main`:**
+- `d423c0b` — fix(frontend): correct VITE_API_BASE_URL default port to 8002
+- `e300181` — feat(scripts): add macOS run_project.sh launcher
+
+**Outcome:** Both services running — http://localhost:8002 (backend) + http://localhost:5173 (frontend). Full stack E2E verified.
+
+---
+
 *Append new sessions below this line. Each entry: date, goal, decisions, changes, commits, outcome.*
 
 ---
