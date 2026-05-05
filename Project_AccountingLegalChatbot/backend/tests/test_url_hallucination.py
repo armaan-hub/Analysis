@@ -49,3 +49,19 @@ class TestStripHallucinatedUrls:
         # Image link must survive — should not become "!logo"
         assert "![logo]" in result or "logo" in result
         assert result != "Here is an image: !logo"
+
+
+    def test_url_with_parentheses_nonempty_set(self):
+        """Parens-in-URL bug must not occur on the non-empty allowed_urls path."""
+        allowed = {"https://legit.ae/doc.pdf"}
+        text = "See [Tax](https://en.wikipedia.org/wiki/Tax_(UAE)) for info."
+        result = strip_hallucinated_urls(text, allowed)
+        assert result == "See Tax for info."
+        assert ")" not in result.rstrip(".")  # no stray paren
+
+    def test_image_links_not_mangled_nonempty_set(self):
+        """Image links must be preserved on the non-empty allowed_urls path."""
+        allowed = {"https://legit.ae/doc.pdf"}
+        text = "Image: ![logo](https://example.com/logo.png)"
+        result = strip_hallucinated_urls(text, allowed)
+        assert "!logo" not in result

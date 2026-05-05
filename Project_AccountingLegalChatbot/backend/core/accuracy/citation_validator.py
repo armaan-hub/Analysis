@@ -94,7 +94,7 @@ def strip_hallucinated_urls(answer: str, allowed_urls: set[str]) -> str:
         label, url = m.group(1), m.group(2)
         return m.group(0) if url in allowed_urls else label
 
-    return re.sub(r'\[([^\]]+)\]\((https?://[^)\s]+)\)', _replace, answer)
+    return re.sub(r'(?<!!)\[([^\]]+)\]\((https?://(?:[^\s()]+|\([^\s()]*\))+)\)', _replace, answer)
 
 
 def should_skip_llm(search_results: list, doc_scoped: bool) -> bool:
