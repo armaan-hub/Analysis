@@ -34,3 +34,18 @@ class TestStripHallucinatedUrls:
     def test_plain_text_unchanged(self):
         result = strip_hallucinated_urls("No links here at all.", set())
         assert result == "No links here at all."
+
+    def test_url_with_parentheses_stripped_cleanly(self):
+        """Parentheses inside URLs must not corrupt output."""
+        text = "See [Tax](https://en.wikipedia.org/wiki/Tax_(UAE)) for details."
+        result = strip_hallucinated_urls(text, set())
+        assert result == "See Tax for details."
+        assert ")" not in result.replace(" details.", "")  # no stray paren
+
+    def test_image_links_not_mangled(self):
+        """Image links (![alt](url)) should not be touched by the strip."""
+        text = "Here is an image: ![logo](https://example.com/logo.png)"
+        result = strip_hallucinated_urls(text, set())
+        # Image link must survive — should not become "!logo"
+        assert "![logo]" in result or "logo" in result
+        assert result != "Here is an image: !logo"

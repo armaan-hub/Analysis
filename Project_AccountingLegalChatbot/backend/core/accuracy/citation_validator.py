@@ -88,7 +88,7 @@ def strip_hallucinated_urls(answer: str, allowed_urls: set[str]) -> str:
     when the LLM invented a link that was not in the supplied source list.
     """
     if not allowed_urls:
-        return re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', answer)
+        return re.sub(r'(?<!!)\[([^\]]+)\]\((https?://(?:[^\s()]+|\([^\s()]*\))+)\)', r'\1', answer)
 
     def _replace(m: re.Match) -> str:
         label, url = m.group(1), m.group(2)
