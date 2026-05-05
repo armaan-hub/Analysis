@@ -54,8 +54,8 @@ async def main() -> None:
 
             # Update Document record
             content = txt_path.read_text(encoding="utf-8")
-            doc.status = "indexed"
-            doc.error_message = None
+            doc.status = "indexed"  # type: ignore[assignment]
+            doc.error_message = None  # type: ignore[assignment]
             
             # Index into RAG using the correct DocumentChunk class
             chunks = [DocumentChunk(
@@ -73,7 +73,7 @@ async def main() -> None:
                 # Clear old chunks for this doc first if any exist
                 await rag_engine.delete_document(str(doc.id))
                 count = await rag_engine.ingest_chunks(chunks, str(doc.id))
-                doc.chunk_count = count
+                doc.chunk_count = count  # type: ignore[assignment]
                 await db.commit()
                 print(f"  OK: Indexed as '{original_name}' with {count} chunks.")
             except Exception as e:

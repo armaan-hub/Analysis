@@ -82,7 +82,7 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
                 snippet_div = div.find("div", class_="result__snippet")
                 if not link_tag:
                     continue
-                raw_href = link_tag.get("href", "")
+                raw_href = str(link_tag.get("href", ""))
                 # DDG wraps URLs in redirect links: /l/?uddg=<encoded_url>&rut=...
                 if "uddg=" in raw_href:
                     qs = urllib.parse.parse_qs(urllib.parse.urlparse(raw_href).query)
@@ -181,7 +181,7 @@ async def deep_search(query: str, max_queries: int = 6) -> list[dict]:
     for batch in all_results_nested:
         if isinstance(batch, Exception):
             continue
-        for result in batch:
+        for result in batch:  # type: ignore[union-attr]
             url = result.get("href", "")
             if url and url not in seen_urls:
                 seen_urls.add(url)

@@ -12,5 +12,6 @@
     "reportOptionalMemberAccess": "none",
     "reportOptionalSubscript": "none",
     "reportOptionalCall": "none"
-  }
+  },
+  "python.analysis.typeCheckingMode": "basic"
 }

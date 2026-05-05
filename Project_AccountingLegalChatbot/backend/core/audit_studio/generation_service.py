@@ -44,12 +44,16 @@ async def _run(job_id: str) -> None:
         output_path = await _dispatch(job_id)
         async with AsyncSessionLocal() as s:
             row = await s.get(GeneratedOutput, job_id)
+            if row is None:
+                return
             row.status = "ready"
             row.output_path = output_path
             await s.commit()
     except Exception as e:  # noqa: BLE001
         async with AsyncSessionLocal() as s:
             row = await s.get(GeneratedOutput, job_id)
+            if row is None:
+                return
             row.status = "failed"
             row.error_message = str(e)
             await s.commit()
@@ -59,6 +63,8 @@ async def _dispatch(job_id: str) -> str:
     """Route to the appropriate generator. Returns file path."""
     async with AsyncSessionLocal() as s:
         row = await s.get(GeneratedOutput, job_id)
+    if row is None:
+        raise ValueError(f"GeneratedOutput job {job_id!r} not found in database")
     return await _generate_by_type(row.profile_id, row.output_type, row.template_id, job_id)
 
 
