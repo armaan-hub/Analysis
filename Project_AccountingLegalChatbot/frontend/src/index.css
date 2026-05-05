@@ -1100,7 +1100,7 @@ body {
   border-color: var(--s-border);
 }
 .chat-msg--user .chat-msg__avatar-dot { background: var(--s-text-2); }
-.chat-msg__body { display: flex; flex-direction: column; gap: 8px; }
+.chat-msg__body { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
 .chat-msg__bubble {
   font-family: var(--s-font-ui);
   font-size: 14px;

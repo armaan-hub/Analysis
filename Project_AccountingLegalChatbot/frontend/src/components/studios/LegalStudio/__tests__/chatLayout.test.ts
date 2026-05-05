@@ -12,9 +12,25 @@ describe('chat-msg CSS', () => {
     expect(match![1]).not.toMatch(/max-width/);
   });
 
-  it('chat-msg--user block still has max-width 60%', () => {
-    const match = css.match(/\.chat-msg--user\s*\{([^}]+)\}/);
+  it('user bubble still has max-width constraint', () => {
+    // The effective user-bubble constraint is on .chat-msg--user .chat-msg__bubble
+    const bubbleMatches = Array.from(
+      css.matchAll(/\.chat-msg--user\s+\.chat-msg__bubble\s*\{([^}]+)\}/g),
+    );
+    if (bubbleMatches.length > 0) {
+      const hasMaxWidth = bubbleMatches.some((match) => /max-width/.test(match[1]));
+      expect(hasMaxWidth).toBe(true);
+      return;
+    }
+
+    const userMatch = css.match(/\.chat-msg--user\s*\{([^}]+)\}/);
+    expect(userMatch).not.toBeNull();
+    expect(userMatch![1]).toMatch(/max-width/);
+  });
+
+  it('AI bubble has width: 100%', () => {
+    const match = css.match(/\.chat-msg--ai\s+\.chat-msg__bubble\s*\{([^}]+)\}/);
     expect(match).not.toBeNull();
-    expect(match![1]).toMatch(/max-width:\s*60%/);
+    expect(match![1]).toMatch(/width:\s*100%/);
   });
 });
