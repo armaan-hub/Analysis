@@ -598,6 +598,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
                 # ------ broad-search fallback ------
                 # Check if a domain filter WAS applied and results are weak
+                _broad_fallback_used = False
                 _domain_filter_applied = (
                     _rag_filter is not None
                     and (
@@ -634,6 +635,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                                 _broad_top = max((r.get("score", 0) for r in _broad_results), default=0.0)
                                 if _broad_top > _top_score_raw:
                                     _search_results = _broad_results
+                                    _broad_fallback_used = True
                                     logger.info(
                                         f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
                                         f"broad top score {_broad_top:.2f} used instead"
@@ -654,7 +656,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 # general_law/general are intentionally absent from that map and are
                 # handled by _GENERAL_LAW_MIN_RELEVANCE_SCORE below.
                 _queried_doc_domains = set(_DOMAIN_TO_DOC_DOMAINS.get(_cls.domain.value, []))
-                if _domain_filter_applied and _queried_doc_domains and _search_results:
+                if _domain_filter_applied and _broad_fallback_used and _queried_doc_domains and _search_results:
                     _domain_matching = [
                         r for r in _search_results
                         if r.get("metadata", {}).get("domain") in _queried_doc_domains
@@ -1035,6 +1037,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
         # ------ broad-search fallback ------
         # Check if a domain filter WAS applied and results are weak
+        _broad_fallback_used_ns = False
         _domain_filter_applied = (
             rag_filter is not None
             and (
@@ -1075,6 +1078,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                         _broad_top = max((r.get("score", 0) for r in _broad_results), default=0.0)
                         if _broad_top > _top_score_raw:
                             search_results = _broad_results
+                            _broad_fallback_used_ns = True
                             logger.info(
                                 f"Broad fallback: domain-filtered top score {_top_score:.2f} < {_BROAD_FALLBACK_THRESHOLD}, "
                                 f"broad top score {_broad_top:.2f} used instead"
@@ -1090,7 +1094,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
         # ------ cross-domain contamination guard ------
         _queried_doc_domains_ns = set(_DOMAIN_TO_DOC_DOMAINS.get(classifier_result.domain.value, []))
-        if _domain_filter_applied and _queried_doc_domains_ns and search_results:
+        if _domain_filter_applied and _broad_fallback_used_ns and _queried_doc_domains_ns and search_results:
             _domain_matching_ns = [
                 r for r in search_results
                 if r.get("metadata", {}).get("domain") in _queried_doc_domains_ns
