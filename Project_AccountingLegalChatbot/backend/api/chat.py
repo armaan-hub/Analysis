@@ -913,11 +913,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             # ── 11. Save assistant message ────────────────────────────────────
             try:
+                _stream_tokens = getattr(_llm, "_last_stream_tokens", 0) or 0
                 assistant_msg = Message(
                     conversation_id=conversation.id,
                     role="assistant",
                     content=full_response,
                     sources=_sources if _sources else None,
+                    tokens_used=_stream_tokens,
                 )
                 db.add(assistant_msg)
                 await db.flush()

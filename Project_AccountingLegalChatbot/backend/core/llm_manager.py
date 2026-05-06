@@ -388,6 +388,7 @@ class NvidiaProvider(BaseLLMProvider):
         self._is_gemma = "gemma" in model.lower()
         self._is_deepseek = "deepseek" in model.lower()
         self._thinking_enabled = thinking_enabled
+        self._last_stream_tokens: int = 0
 
     @staticmethod
     def _strip_thinking(text: str) -> str:
@@ -435,6 +436,8 @@ class NvidiaProvider(BaseLLMProvider):
         # Only enabled when _thinking_enabled=True (fast mode disables this to avoid timeouts)
         elif self._is_deepseek and self._thinking_enabled:
             payload["chat_template_kwargs"] = {"thinking": True}
+        if stream:
+            payload["stream_options"] = {"include_usage": True}
         return payload
 
     async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
@@ -501,6 +504,7 @@ class NvidiaProvider(BaseLLMProvider):
         raise RuntimeError(f"NVIDIA provider unreachable after 2 attempts — check API key and network") from last_exc
 
     async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        self._last_stream_tokens = 0
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -563,6 +567,9 @@ class NvidiaProvider(BaseLLMProvider):
                                 break
                             try:
                                 chunk = json.loads(data_str)
+                                if chunk.get("usage") and not chunk.get("choices", [{}])[0].get("delta", {}).get("content"):
+                                    usage = chunk["usage"]
+                                    self._last_stream_tokens = usage.get("total_tokens", 0)
                                 delta = chunk["choices"][0].get("delta", {})
                                 content = delta.get("content", "")
                                 if not content:
