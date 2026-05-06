@@ -228,7 +228,7 @@ def print_conversation_list(convs, title="CONVERSATIONS"):
     print()
 
 
-def print_full_conversation(conn, conv_id):
+def print_full_conversation(conn, conv_id, full: bool = False):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,))
     conv = cursor.fetchone()
@@ -267,7 +267,12 @@ def print_full_conversation(conn, conv_id):
         tokens = f"  {c('gray', str(msg['tokens_used']) + ' tokens')}" if msg["tokens_used"] else ""
         print(f"\n[{i}] {label}  {c('gray', ts)}{tokens}")
         print_separator("-")
-        print(msg["content"])
+        content = msg["content"] or ""
+        if not full and len(content) > 2000:
+            print(content[:2000])
+            print(c("gray", f"\n  … [{len(content) - 2000} more chars — use --full to see all]"))
+        else:
+            print(content)
 
         # Display sources if present
         raw_sources = msg["sources"]
@@ -292,6 +297,15 @@ def print_full_conversation(conn, conv_id):
                     if score is not None and score < _LOW_CONFIDENCE_DISPLAY_THRESHOLD:
                         score_str += c("yellow", "  ⚠️ low-confidence")
                     domain_str = f"  [{domain}]" if domain else ""
+                    conv_domain = conv["domain"] if conv["domain"] else ""
+                    _domain_mismatch = (
+                        domain
+                        and conv_domain
+                        and domain != conv_domain
+                        and conv_domain not in ("general_law", "general")
+                    )
+                    if _domain_mismatch:
+                        domain_str += c("red", "  ⚠️ wrong-domain")
                     print(c("gray", f"    {j}. {name}{domain_str}{score_str}"))
 
     print()
@@ -415,12 +429,17 @@ def interactive_menu(conn):
                         print_full_conversation(conn, results[int(pick) - 1]["id"])
 
         elif choice == "3":
-            val = input(c("bold", "  Enter conversation ID or list number: ")).strip()
+            # First show the recent conversations list so the user knows available numbers
+            convs = get_all_conversations(conn, limit=20)
+            print_conversation_list(convs, "RECENT CONVERSATIONS (20)")
+            val = input(c("bold", "  Enter number from list above, or paste a full conversation ID: ")).strip()
             if val.isdigit():
-                convs = get_all_conversations(conn, limit=int(val))
-                if convs:
-                    print_full_conversation(conn, convs[-1]["id"])
-            else:
+                idx = int(val)
+                if 1 <= idx <= len(convs):
+                    print_full_conversation(conn, convs[idx - 1]["id"])
+                else:
+                    print(c("yellow", f"  Number {idx} is out of range (1–{len(convs)})."))
+            elif val:
                 print_full_conversation(conn, val)
 
         elif choice == "4":
@@ -457,6 +476,10 @@ def main():
     parser.add_argument("--limit", type=int, default=20, help="Number of conversations to list (default: 20)")
     parser.add_argument("--mode", help="Filter by mode: fast, analyst, deep_research")
     parser.add_argument("--db", help="Override database path")
+    parser.add_argument(
+        "--full", action="store_true",
+        help="Show complete message content (no truncation)"
+    )
 
     args = parser.parse_args()
 
@@ -477,7 +500,7 @@ def main():
             print_conversation_list(results, f"SEARCH RESULTS: '{args.search}'")
 
         elif args.id:
-            print_full_conversation(conn, args.id)
+            print_full_conversation(conn, args.id, full=args.full)
 
         elif args.export:
             export_to_json(conn)
