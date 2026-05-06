@@ -656,10 +656,12 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 # general_law/general are intentionally absent from that map and are
                 # handled by _GENERAL_LAW_MIN_RELEVANCE_SCORE below.
                 _queried_doc_domains = set(_DOMAIN_TO_DOC_DOMAINS.get(_cls.domain.value, []))
+                _GENERAL_DOMAINS = {"general", "general_law", ""}
                 if _domain_filter_applied and _broad_fallback_used and _queried_doc_domains and _search_results:
                     _domain_matching = [
                         r for r in _search_results
                         if r.get("metadata", {}).get("domain") in _queried_doc_domains
+                        or r.get("metadata", {}).get("domain", "") in _GENERAL_DOMAINS
                     ]
                     if not _domain_matching:
                         logger.info(
@@ -913,7 +915,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             # ── 11. Save assistant message ────────────────────────────────────
             try:
-                _stream_tokens = getattr(_llm, "_last_stream_tokens", 0) or 0
+                _last_tokens = getattr(_llm, "_last_stream_tokens", None)
+                _stream_tokens = _last_tokens if isinstance(_last_tokens, int) else 0
                 assistant_msg = Message(
                     conversation_id=conversation.id,
                     role="assistant",
@@ -1096,10 +1099,12 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
         # ------ cross-domain contamination guard ------
         _queried_doc_domains_ns = set(_DOMAIN_TO_DOC_DOMAINS.get(classifier_result.domain.value, []))
+        _GENERAL_DOMAINS_NS = {"general", "general_law", ""}
         if _domain_filter_applied and _broad_fallback_used_ns and _queried_doc_domains_ns and search_results:
             _domain_matching_ns = [
                 r for r in search_results
                 if r.get("metadata", {}).get("domain") in _queried_doc_domains_ns
+                or r.get("metadata", {}).get("domain", "") in _GENERAL_DOMAINS_NS
             ]
             if not _domain_matching_ns:
                 logger.info(
