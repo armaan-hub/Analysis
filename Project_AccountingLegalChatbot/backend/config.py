@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     nvidia_model: str = "mistralai/mistral-large-3-675b-instruct-2512"  # general-purpose chat model
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_embed_model: str = "nvidia/nv-embedqa-e5-v5"
-    nvidia_fast_model: str = "mistralai/mistral-small-4-119b-2603"
+    nvidia_fast_model: str = "mistralai/devstral-2-123b-instruct-2512"
+    # Fallback when fast model is DEGRADED on NVIDIA NIM (automatic, no user action needed)
+    nvidia_fast_fallback_model: str = "mistralai/mistral-small-4-119b-2603"
     # Separate API key for fast mode (optional — falls back to nvidia_api_key if blank)
     nvidia_fast_api_key: str = ""
     # NVIDIA NIM Mistral models only support "high" and "none" for reasoning_effort

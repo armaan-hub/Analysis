@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,       // Fail fast if 5173 is busy (vs silently bumping to 5174/5175)
+    host: true,             // Expose on all interfaces so localtunnel/ngrok can forward
+    allowedHosts: true,     // Allow any tunnel host (Cloudflare, ngrok, localtunnel etc.)
   },
   test: {
     globals: true,

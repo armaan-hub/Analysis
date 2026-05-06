@@ -45,6 +45,7 @@ _CONTEXT_WINDOWS: dict[str, int] = {
     "deepseek-v3.2":        131_072,   # deepseek-ai/deepseek-v3.2 — 128K context
     "deepseek-v3.1":        131_072,   # deepseek-ai/deepseek-v3.1-terminus — 128K context
     "deepseek":              65_536,   # fallback for any deepseek model
+    "devstral":             131_072,   # mistralai/devstral — 128K context
 }
 _CONTEXT_WINDOW_FALLBACK: int = 8_192
 
@@ -470,6 +471,16 @@ class NvidiaProvider(BaseLLMProvider):
                             )
                             logger.warning(f"NVIDIA API {resp.status_code}, retrying (attempt {attempt+1}/2)…")
                             continue
+                        # Auto-fallback when model is DEGRADED on NVIDIA NIM
+                        if resp.status_code == 400 and "DEGRADED" in err_body.upper():
+                            fallback = getattr(settings, "nvidia_fast_fallback_model", "")
+                            if fallback and fallback != payload.get("model"):
+                                logger.warning(
+                                    "NVIDIA NIM: model %s is DEGRADED — falling back to %s",
+                                    payload["model"], fallback,
+                                )
+                                payload["model"] = fallback
+                                continue
                     resp.raise_for_status()
                     data = resp.json()
                 choice = data["choices"][0]
@@ -532,6 +543,16 @@ class NvidiaProvider(BaseLLMProvider):
                             if resp.status_code == 429 and attempt < 2:
                                 last_exc = exc
                                 continue  # retry outer loop
+                            # Auto-fallback when fast model is DEGRADED on NVIDIA NIM
+                            if resp.status_code == 400 and "DEGRADED" in err_text.upper():
+                                fallback = getattr(settings, "nvidia_fast_fallback_model", "")
+                                if fallback and fallback != payload.get("model"):
+                                    logger.warning(
+                                        "NVIDIA NIM: model %s is DEGRADED — falling back to %s",
+                                        payload["model"], fallback,
+                                    )
+                                    payload["model"] = fallback
+                                    continue  # retry with fallback model
                             raise exc
 
                         async for line in resp.aiter_lines():

@@ -80,6 +80,10 @@ export default function HomePage({ onNewChat }: HomePageProps) {
     setSelectedIds(new Set());
   };
 
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filtered.map(nb => nb.id)));
+  };
+
   const handleDeleteConfirm = async () => {
     if (deleteTarget === '__bulk__') {
       try {
@@ -287,6 +291,22 @@ export default function HomePage({ onNewChat }: HomePageProps) {
         >
           {selectionMode ? 'Cancel' : 'Select'}
         </button>
+
+        {/* Selection hint + Select All */}
+        {selectionMode && (
+          <>
+            <span style={{ fontSize: '12px', color: 'var(--s-text-2)', marginLeft: '4px', whiteSpace: 'nowrap' }}>
+              {selectedIds.size === 0 ? 'Tap to select' : `${selectedIds.size} selected`}
+            </span>
+            <button
+              type="button"
+              style={toolbarBtnStyle}
+              onClick={handleSelectAll}
+            >
+              Select All
+            </button>
+          </>
+        )}
 
         {/* Bulk delete */}
         {selectionMode && selectedIds.size > 0 && (

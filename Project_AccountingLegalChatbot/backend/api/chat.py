@@ -829,7 +829,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 if isinstance(stream_exc, _httpx.HTTPStatusError):
                     status = stream_exc.response.status_code
                     if status == 400:
-                        user_msg = "The AI could not process this request (request too large or invalid). Please try a shorter message."
+                        _err_body = raw.upper()
+                        if "DEGRADED" in _err_body:
+                            user_msg = "The AI model is temporarily unavailable (service degraded). Please try again in a few minutes."
+                        else:
+                            user_msg = "The AI could not process this request (request too large or invalid). Please try a shorter message."
                     elif status == 401:
                         user_msg = "AI API authentication failed. Please check your API key in Settings."
                     elif status == 429:
