@@ -29,6 +29,20 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 
 
+def _get_db_candidates() -> list:
+    """Return all candidate DB paths in priority order."""
+    candidates = []
+    env_path = os.environ.get("CHATBOT_DB_PATH")
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates += [
+        Path.home() / "chatbot_local" / "Project_AccountingLegalChatbot" / "backend" / "data" / "chatbot.db",
+        _SCRIPT_DIR / "backend" / "data" / "chatbot.db",
+        _SCRIPT_DIR.parent / "backend" / "data" / "chatbot.db",
+    ]
+    return candidates
+
+
 def _find_db_path() -> "Path | None":
     """Search well-known locations for the chatbot SQLite database.
 
@@ -40,19 +54,7 @@ def _find_db_path() -> "Path | None":
 
     Returns the first existing path, or None if none found.
     """
-    candidates = []
-
-    env_path = os.environ.get("CHATBOT_DB_PATH")
-    if env_path:
-        candidates.append(Path(env_path))
-
-    candidates += [
-        Path.home() / "chatbot_local" / "Project_AccountingLegalChatbot" / "backend" / "data" / "chatbot.db",
-        _SCRIPT_DIR / "backend" / "data" / "chatbot.db",
-        _SCRIPT_DIR.parent / "backend" / "data" / "chatbot.db",
-    ]
-
-    for candidate in candidates:
+    for candidate in _get_db_candidates():
         if candidate.exists():
             return candidate
     return None
@@ -82,15 +84,10 @@ _LOW_CONFIDENCE_DISPLAY_THRESHOLD: float = 0.65
 
 def get_connection():
     if not DB_PATH.exists():
-        print(c("red", f"[ERROR] Database not found. Searched paths:"))
-        env_path = os.environ.get("CHATBOT_DB_PATH")
-        if env_path:
-            print(c("red", f"  • CHATBOT_DB_PATH={env_path}"))
-        print(c("red", f"  • {Path.home() / 'chatbot_local' / 'Project_AccountingLegalChatbot' / 'backend' / 'data' / 'chatbot.db'}"))
-        print(c("red", f"  • {_SCRIPT_DIR / 'backend' / 'data' / 'chatbot.db'}"))
-        print(c("red", f"  • {_SCRIPT_DIR.parent / 'backend' / 'data' / 'chatbot.db'}"))
-        print(c("yellow", "  Make sure the backend has been started at least once,"))
-        print(c("yellow", "  or set CHATBOT_DB_PATH to the correct database file."))
+        print(c("red", "[ERROR] Database not found. Searched paths:"))
+        for p in _get_db_candidates():
+            print(c("red", f"  • {p}"))
+        print(c("yellow", "Set CHATBOT_DB_PATH env var to override."))
         sys.exit(1)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -303,6 +300,7 @@ def print_full_conversation(conn, conv_id, full: bool = False):
                         and conv_domain
                         and domain != conv_domain
                         and conv_domain not in ("general_law", "general")
+                        and domain not in ("general", "general_law")
                     )
                     if _domain_mismatch:
                         domain_str += c("red", "  ⚠️ wrong-domain")
@@ -388,7 +386,7 @@ def export_to_json(conn, output_path=None):
 
 # ── Interactive menu ──────────────────────────────────────────────────────────
 
-def interactive_menu(conn):
+def interactive_menu(conn, full: bool = False):
     while True:
         print()
         print(c("cyan", "+------------------------------------------+"))
@@ -416,7 +414,7 @@ def interactive_menu(conn):
             # Let user pick one to open
             pick = input(c("bold", "  Enter number to open (or Enter to skip): ")).strip()
             if pick.isdigit() and 1 <= int(pick) <= len(convs):
-                print_full_conversation(conn, convs[int(pick) - 1]["id"])
+                print_full_conversation(conn, convs[int(pick) - 1]["id"], full=full)
 
         elif choice == "2":
             query = input(c("bold", "  Search query: ")).strip()
@@ -426,7 +424,7 @@ def interactive_menu(conn):
                 if results:
                     pick = input(c("bold", "  Enter number to open (or Enter to skip): ")).strip()
                     if pick.isdigit() and 1 <= int(pick) <= len(results):
-                        print_full_conversation(conn, results[int(pick) - 1]["id"])
+                        print_full_conversation(conn, results[int(pick) - 1]["id"], full=full)
 
         elif choice == "3":
             # First show the recent conversations list so the user knows available numbers
@@ -436,11 +434,11 @@ def interactive_menu(conn):
             if val.isdigit():
                 idx = int(val)
                 if 1 <= idx <= len(convs):
-                    print_full_conversation(conn, convs[idx - 1]["id"])
+                    print_full_conversation(conn, convs[idx - 1]["id"], full=full)
                 else:
                     print(c("yellow", f"  Number {idx} is out of range (1–{len(convs)})."))
             elif val:
-                print_full_conversation(conn, val)
+                print_full_conversation(conn, val, full=full)
 
         elif choice == "4":
             print_stats(conn)
@@ -453,7 +451,7 @@ def interactive_menu(conn):
             if convs:
                 pick = input(c("bold", "  Enter number to open (or Enter to skip): ")).strip()
                 if pick.isdigit() and 1 <= int(pick) <= len(convs):
-                    print_full_conversation(conn, convs[int(pick) - 1]["id"])
+                    print_full_conversation(conn, convs[int(pick) - 1]["id"], full=full)
 
         elif choice == "6":
             export_to_json(conn)
@@ -510,7 +508,7 @@ def main():
 
         else:
             # Default: interactive menu
-            interactive_menu(conn)
+            interactive_menu(conn, full=args.full)
 
     finally:
         conn.close()
