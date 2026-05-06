@@ -563,3 +563,34 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
    - First visit on any new device shows Cloudflare disclaimer page — click through once
 
 **Pushed to:** `armaan-hub/Analysis` main branch ✅
+
+---
+
+### Session — 2026-05-07 | RAG Source Quality + Chat History Viewer + Streaming Tokens
+
+**Goal:** Fix 3 production bugs: (1) `chat_history_viewer.py` couldn't find DB, (2) wrong-domain RAG sources returned for domain-specific queries, (3) `tokens_used` always saved as 0 for streaming responses.
+
+**Pipeline:** brainstorming → design spec → writing-plans → subagent-driven-development (GPT-5.5 / Claude Opus 4.7 / GPT-5.3-Codex) → code-review loops → TDD → verification-before-completion.
+
+#### What Was Fixed
+
+**Tasks 1+2 — `chat_history_viewer.py` (GPT-5.5)**
+- Added `_get_db_candidates()` + `_find_db_path()` — tries 4 candidate paths to locate DB
+- Fixed option-3 UX, added `--full` flag, `⚠️ wrong-domain` source warning
+- 6 unit tests in `tests/viewer/test_chat_history_viewer.py`
+
+**Tasks 3+4 — Cross-domain RAG guard in `chat.py` (Claude Opus 4.7)**
+- Root cause: broad fallback injected ANY high-score doc regardless of domain (VAT docs for corporate_tax queries)
+- Added `_broad_fallback_used` flag; guard filters results to `_DOMAIN_TO_DOC_DOMAINS[queried_domain]`
+- `domain='general'`/`domain='general_law'` results exempt (valid for any query)
+- 5 guard tests in `tests/test_cross_domain_guard.py`
+
+**Task 5 — Streaming `tokens_used` in `llm_manager.py` + `chat.py` (GPT-5.3-Codex)**
+- Added `"stream_options": {"include_usage": True}` to `_build_payload()` when streaming
+- Capture final usage chunk into `self._last_stream_tokens`; save to `Message.tokens_used`
+- `isinstance(..., int)` type-guard prevents Mock objects leaking into SQLite in tests
+- 2 tests in `tests/test_streaming_token_tracking.py`
+
+**Results:** 655 passed, 8 skipped, 4 pre-existing failures, 0 new regressions
+
+**Commits:** `94ca1e79` → `2a4d63d5` (8 commits) pushed to `armaan-hub/Analysis` main ✅
