@@ -27,7 +27,38 @@ from pathlib import Path
 
 # ── Database path ─────────────────────────────────────────────────────────────
 _SCRIPT_DIR = Path(__file__).resolve().parent
-DB_PATH = _SCRIPT_DIR / "backend" / "data" / "chatbot.db"
+
+
+def _find_db_path() -> "Path | None":
+    """Search well-known locations for the chatbot SQLite database.
+
+    Search order:
+      1. CHATBOT_DB_PATH environment variable (explicit override)
+      2. ~/chatbot_local/Project_AccountingLegalChatbot/backend/data/chatbot.db
+      3. <script_dir>/backend/data/chatbot.db  (original relative path)
+      4. <script_dir>/../backend/data/chatbot.db  (alternate layout)
+
+    Returns the first existing path, or None if none found.
+    """
+    candidates = []
+
+    env_path = os.environ.get("CHATBOT_DB_PATH")
+    if env_path:
+        candidates.append(Path(env_path))
+
+    candidates += [
+        Path.home() / "chatbot_local" / "Project_AccountingLegalChatbot" / "backend" / "data" / "chatbot.db",
+        _SCRIPT_DIR / "backend" / "data" / "chatbot.db",
+        _SCRIPT_DIR.parent / "backend" / "data" / "chatbot.db",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+DB_PATH = _find_db_path() or (_SCRIPT_DIR / "backend" / "data" / "chatbot.db")
 
 COLORS = {
     "cyan":   "\033[96m",
@@ -51,8 +82,15 @@ _LOW_CONFIDENCE_DISPLAY_THRESHOLD: float = 0.65
 
 def get_connection():
     if not DB_PATH.exists():
-        print(c("red", f"[ERROR] Database not found at: {DB_PATH}"))
-        print(c("yellow", "        Make sure the backend has been started at least once."))
+        print(c("red", f"[ERROR] Database not found. Searched paths:"))
+        env_path = os.environ.get("CHATBOT_DB_PATH")
+        if env_path:
+            print(c("red", f"  • CHATBOT_DB_PATH={env_path}"))
+        print(c("red", f"  • {Path.home() / 'chatbot_local' / 'Project_AccountingLegalChatbot' / 'backend' / 'data' / 'chatbot.db'}"))
+        print(c("red", f"  • {_SCRIPT_DIR / 'backend' / 'data' / 'chatbot.db'}"))
+        print(c("red", f"  • {_SCRIPT_DIR.parent / 'backend' / 'data' / 'chatbot.db'}"))
+        print(c("yellow", "  Make sure the backend has been started at least once,"))
+        print(c("yellow", "  or set CHATBOT_DB_PATH to the correct database file."))
         sys.exit(1)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
