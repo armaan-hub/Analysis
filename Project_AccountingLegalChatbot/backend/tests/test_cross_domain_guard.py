@@ -110,6 +110,51 @@ async def test_cross_domain_partial_filter_non_streaming(client):
 
 
 @pytest.mark.asyncio
+async def test_cross_domain_partial_filter_streaming(client):
+    """Streaming: mixed corporate_tax + vat broad-fallback results → vat filtered, corp_tax kept."""
+    mock_llm = _make_llm_mock()
+    mixed_results = [_corp_tax_result(0.72), _vat_result(0.68)]
+
+    with (
+        patch("api.chat.classify_domain", new=AsyncMock(return_value=_make_classifier("corporate_tax"))),
+        patch("api.chat.get_llm_provider", return_value=mock_llm),
+        patch("api.chat._hybrid_retriever.retrieve", new=AsyncMock(return_value=[])),
+        patch("api.chat.rag_engine.search", new=AsyncMock(return_value=mixed_results)),
+        patch("api.chat.search_web", new=AsyncMock(return_value=[])),
+    ):
+        resp = await client.post(
+            "/api/chat/send",
+            json={"message": "corporate tax rates UAE", "stream": True, "use_rag": True},
+        )
+
+    assert resp.status_code == 200
+
+    # With partial filter: corporate_tax doc kept, vat doc dropped
+    # Streaming serializes sources as flat dicts with top-level "domain" key
+    for line in resp.text.split("\n"):
+        if line.startswith("data:"):
+            try:
+                data = json.loads(line[5:])
+                if data.get("type") == "sources":
+                    src_domains = {s.get("domain") for s in data.get("sources", [])}
+                    assert "vat" not in src_domains, f"VAT sources should have been filtered: {data['sources']}"
+                    assert "corporate_tax" in src_domains, f"corporate_tax sources should be kept: {data['sources']}"
+            except json.JSONDecodeError:
+                pass
+
+    # Verify LLM was called without VAT content in context
+    all_calls = list(mock_llm.chat_stream.call_args_list) + list(mock_llm.chat.call_args_list)
+    for call in all_calls:
+        args = call[0] if call[0] else []
+        kwargs = call[1] if call[1] else {}
+        messages = args[0] if args else kwargs.get("messages", [])
+        for msg in messages:
+            content = msg.get("content", "")
+            assert "VAT real estate" not in content, \
+                f"VAT content leaked into LLM messages: {content[:200]}"
+
+
+@pytest.mark.asyncio
 async def test_cross_domain_suppression_streaming(client):
     """Streaming: all-VAT broad-fallback results for corporate_tax query must be cleared."""
     mock_llm = _make_llm_mock()
