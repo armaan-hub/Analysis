@@ -647,6 +647,36 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             logger.warning(f"Broad fallback search failed (non-fatal): {_fallback_exc}")
                 # ------ end fallback ------
 
+                # ------ cross-domain contamination guard ------
+                # After broad fallback, if returned results belong to a different
+                # domain than the one queried (e.g., VAT docs for corporate_tax),
+                # suppress them. Applies to every domain in _DOMAIN_TO_DOC_DOMAINS.
+                # general_law/general are intentionally absent from that map and are
+                # handled by _GENERAL_LAW_MIN_RELEVANCE_SCORE below.
+                _queried_doc_domains = set(_DOMAIN_TO_DOC_DOMAINS.get(_cls.domain.value, []))
+                if _domain_filter_applied and _queried_doc_domains and _search_results:
+                    _domain_matching = [
+                        r for r in _search_results
+                        if r.get("metadata", {}).get("domain") in _queried_doc_domains
+                    ]
+                    if not _domain_matching:
+                        logger.info(
+                            "Cross-domain suppression (stream): cleared %d results "
+                            "(domains=%s) for %s query — none matched %s",
+                            len(_search_results),
+                            {r.get("metadata", {}).get("domain") for r in _search_results},
+                            _cls.domain.value,
+                            _queried_doc_domains,
+                        )
+                        _search_results = []
+                    elif len(_domain_matching) < len(_search_results):
+                        logger.info(
+                            "Cross-domain partial filter (stream): kept %d/%d results for %s",
+                            len(_domain_matching), len(_search_results), _cls.domain.value,
+                        )
+                        _search_results = _domain_matching
+                # ------ end cross-domain guard ------
+
                 # ------ general_law false-positive suppression ------
                 # When domain=general_law the filter has no domain clause, so finance-corpus
                 # docs (VAT real-estate, etc.) can score ~0.40-0.41 on legal queries simply
@@ -1057,6 +1087,31 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 except Exception as fallback_exc:
                     logger.warning(f"Broad fallback search failed (non-fatal): {fallback_exc}")
         # ------ end fallback ------
+
+        # ------ cross-domain contamination guard ------
+        _queried_doc_domains_ns = set(_DOMAIN_TO_DOC_DOMAINS.get(classifier_result.domain.value, []))
+        if _domain_filter_applied and _queried_doc_domains_ns and search_results:
+            _domain_matching_ns = [
+                r for r in search_results
+                if r.get("metadata", {}).get("domain") in _queried_doc_domains_ns
+            ]
+            if not _domain_matching_ns:
+                logger.info(
+                    "Cross-domain suppression (non-stream): cleared %d results "
+                    "(domains=%s) for %s query — none matched %s",
+                    len(search_results),
+                    {r.get("metadata", {}).get("domain") for r in search_results},
+                    classifier_result.domain.value,
+                    _queried_doc_domains_ns,
+                )
+                search_results = []
+            elif len(_domain_matching_ns) < len(search_results):
+                logger.info(
+                    "Cross-domain partial filter (non-stream): kept %d/%d results for %s",
+                    len(_domain_matching_ns), len(search_results), classifier_result.domain.value,
+                )
+                search_results = _domain_matching_ns
+        # ------ end cross-domain guard ------
 
         # ------ general_law false-positive suppression ------
         # Same logic as streaming path — see comment there for rationale.
