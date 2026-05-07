@@ -612,3 +612,80 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 **Result:** 0 failures (was 4), ≥655 passed, 8 skipped. Pushed to armaan-hub/Analysis main.
 
 **Process:** Full superpowers pipeline — systematic-debugging → writing-plans → parallel subagent dispatch (GPT-5.5 + Claude Opus 4.7) → spec + code-quality review → verification-before-completion.
+
+---
+
+### Session — 2026-05-07 (Session 3) | RAG Domain Classification Fix — Full Implementation
+
+**Goal:** Fix root-cause bug where `_infer_domain_from_name()` misclassified CT (Corporate Tax) Free Zone guides as `commercial`, causing CT queries to fall back to VAT documents. TDD-driven, 5-task implementation plan.
+
+**Pipeline:** systematic-debugging → design spec → writing-plans → TDD (test-first) → subagent-driven-development → verification-before-completion.
+
+#### What Was Accomplished
+
+**Task 1 — TDD test suite (commit `0cb6b225`)**
+- Wrote 30 tests in `tests/test_infer_domain_from_name.py` covering CT, VAT, commercial, free zone edge cases
+- 17 tests failing at creation — confirmed the bug exists in production code
+
+**Task 2 — Fix keyword misclassifications (commits `d4bac33e`, `842a0fb8`)**
+- Removed bare `"free zone"` from commercial keyword block (was the root cause)
+- Added 9 CT keywords: `"corporate tax"`, `"ct law"`, `"qualifying free zone"`, `"qfzp"`, `"qfzb"`, `"pillar two"`, `"global minimum"`, `"transfer pricing"`, `"ministerial decision"`
+- Added 10 VAT keywords: `"vat"`, `"tax invoice"`, `"input tax"`, `"output tax"`, `"zero-rated"`, `"exempt supply"`, `"reverse charge"`, `"tax group"`, `"designated zone"`, `"tax registration"`
+- Narrowed `"charit"` stem match to `"charities"` to avoid false positives on "charitable"
+- All 30 tests now pass
+
+**Task 3 — Harden cross-domain guard in `chat.py` (commits `ec188719`, `57facbe8`)**
+- Guard now fires when `_domain_filter_applied=True` (not only when broad fallback used)
+- Removed `_broad_fallback_used` from guard predicate (was the prior session's fix; now superseded)
+- Low-confidence path (`domain='general'`/`domain='general_law'`) preserved — docs exempt from guard
+- 3 new tests in `tests/test_cross_domain_guard.py`
+
+**Task 4 — `retag_domain.py` maintenance script (commits `f8af95f7` → `d0c01537`)**
+- Created `backend/retag_domain.py` — re-tags ChromaDB document metadata after re-ingestion
+- Uses `PersistentClient` directly; `--collection` flag to target named collection
+- 5 tests in `tests/test_retag_domain.py`
+
+**Refactor — Extract `_infer_domain_from_name` (commits `672257ce`, `950bbe69`, `38318233`)**
+- Extracted to `backend/core/domain_classifier.py` — pure function, no import-time side effects
+- Updated `rag_engine.py`, `chat.py`, `backfill_domain_metadata.py` to import from new module
+- Eliminates risk of `RAGEngine()` construction (DB evacuation) on test import
+
+#### Key Design Decisions
+
+- `_broad_fallback_used` removed from guard — it was the actual root bug from the previous session
+- `_domain_filter_applied` preserved — correctly guards low-confidence multi-domain queries
+- `_infer_domain_from_name` extracted to standalone module to prevent import-time side effects in tests
+
+#### Files Changed
+
+- `backend/core/domain_classifier.py` — NEW (pure classifier)
+- `backend/core/rag_engine.py` — replaced inline function with import
+- `backend/api/chat.py` — keyword fix import + unconditional cross-domain guard
+- `backend/retag_domain.py` — NEW maintenance script
+- `backend/tests/test_infer_domain_from_name.py` — NEW (30 tests)
+- `backend/tests/test_cross_domain_guard.py` — 3 new tests added
+- `backend/tests/test_retag_domain.py` — NEW (5 tests)
+- `backend/backfill_domain_metadata.py` — import fix
+
+**Results:** 697 passed, 8 skipped, 0 failures
+
+**Commits:** `0cb6b225` → `38318233` (11 commits) pushed to `armaan-hub/Analysis` main ✅
+
+---
+
+### Session: 2026-05-08 — General-Law False-Positive RAG Fix
+
+**Problem diagnosed:** "tell me about UAE law on late payment for rent" returned 15 VAT real-estate documents as RAG sources. Follow-up "fines and penalties" returned VATP035 Electronic Devices 5×. Root cause: `_GENERAL_LAW_MIN_RELEVANCE_SCORE = 0.35` used only an all-or-nothing top-score check. VAT docs scoring 0.418–0.441 passed through.
+
+**Fix applied:**
+- Added `_filter_general_law_results()` helper in `chat.py` with two-stage logic:
+  1. Strip finance-domain (vat/ct/ifrs/e-invoicing) results scoring below 0.55
+  2. Clear all remaining results if top score < 0.40 (floor raised from 0.35)
+- Both streaming and non-streaming RAG paths updated
+- Bug fix: `_domain()` helper reads `r["metadata"]["domain"]` correctly (was `r["domain"]`)
+
+**Tests:** 24 unit tests in `test_general_law_suppression.py` + Stage 1 integration test + regression test for metadata key lookup. Full suite: 720 passing.
+
+**Verified:** Q1 and Q2 return zero finance sources. VAT on-domain query unaffected.
+
+**Commits:** `5bf8e7fb` (TDD tests), `b4cb88bf` (implementation), `d2bf6483` (domain key fix), `51d21a06` (doc fixes)
