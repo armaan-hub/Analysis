@@ -689,3 +689,28 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 **Verified:** Q1 and Q2 return zero finance sources. VAT on-domain query unaffected.
 
 **Commits:** `5bf8e7fb` (TDD tests), `b4cb88bf` (implementation), `d2bf6483` (domain key fix), `51d21a06` (doc fixes)
+
+## Session: 2026-05-08 — UAE Tenancy Law RAG Ingestion
+
+**Problem:** Chatbot returned 0 sources and generic LLM answers for UAE tenancy law queries ("tell me about UAE law on late payment for rent and its fine"). Root cause: no tenancy law documents existed in the 13,509-chunk knowledge base — all content was finance/tax (VAT, CT, commercial).
+
+**Solution:**
+- Created 3 UAE tenancy law text files from official sources in `backend/data_source_law/`
+- Ingested via upload API (`POST /api/documents/upload`, studio=legal) → ChromaDB as `domain=general`
+- Tenancy docs found by `general_law` queries (no ChromaDB filter → searches all domains)
+- Added 9 TDD retrieval tests confirming correct indexing and content
+
+**Key Legal Content Added:**
+- Late payment of rent: No statutory fine; eviction after 30-day notice is primary remedy; contractual penalty ~5%/year enforceable if reasonable
+- Rent increase caps: 0–20% depending on difference from RERA Rental Index
+- Eviction procedure: Notary Public/registered post notice → 30-day cure → RDC filing
+- Law 33/2008 key changes: 12-month notice for expiry evictions, personal use lockout 1yr→2/3yrs, sale as new eviction ground
+
+**Files Changed:**
+- Created: `backend/data_source_law/Dubai-Law-26-2007-Landlord-Tenant-Tenancy.txt`
+- Created: `backend/data_source_law/Dubai-Law-33-2008-Tenancy-Amendment.txt`
+- Created: `backend/data_source_law/RERA-Decree-43-2013-Rent-Increase-Tenancy-Guide.txt`
+- Created: `backend/tests/test_tenancy_rag_retrieval.py` (9 tests)
+
+**ChromaDB:** 13,509 → 13,541 chunks (+32 tenancy law chunks, all domain=general)
+**Tests:** 729 passing (720 existing + 9 new tenancy tests)
