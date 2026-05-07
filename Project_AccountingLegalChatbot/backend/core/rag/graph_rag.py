@@ -29,6 +29,8 @@ _FINANCE_TERMS = frozenset([
     "balance sheet", "income statement", "vat", "tax", "audit", "ifrs", "gaap",
     "amortisation", "depreciation", "provision", "asset",
     "equity", "dividend", "working capital", "free cash flow",
+    # E-invoicing domain terms
+    "fta", "peppol", "e-invoicing", "electronic invoice", "invoice",
 ])
 
 # ── UAE legal / inheritance keyword terms ────────────────────────────────────
