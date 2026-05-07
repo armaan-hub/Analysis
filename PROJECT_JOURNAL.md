@@ -594,3 +594,21 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 **Results:** 655 passed, 8 skipped, 4 pre-existing failures, 0 new regressions
 
 **Commits:** `94ca1e79` → `2a4d63d5` (8 commits) pushed to `armaan-hub/Analysis` main ✅
+
+### 2026-05-07 Session 2 — Pre-existing Test Failures Fixed
+
+**Goal:** Fix 4 pre-existing test failures and sync GoogleDrive viewer copy.
+
+**Root causes identified:**
+- `_FINANCE_TERMS` missing e-invoicing domain terms ("fta", "peppol", "e-invoicing", "electronic invoice", "invoice")
+- `search_by_entities` used exact `IN` SQL matching — couldn't match "invoicing" against stored "INVOICING SERVICE PROVIDERS"
+- GoogleDrive `chat_history_viewer.py` was un-tracked old version (missing `_find_db_path()`)
+
+**Fixes:**
+- `graph_rag.py` (commit `39a4de4f`): Added 5 e-invoicing terms to `_FINANCE_TERMS` → fixes TestEInvoicingTerms (3 tests)
+- `graph_rag.py` (commit `1b37d389`): Rewrote `search_by_entities` to use per-term LIKE UNION sub-query → fixes `test_search_by_entities_partial_match`
+- `chat_history_viewer.py`: Copied updated chatbot_local version to GoogleDrive → fixes VS Code unused-import diagnostic
+
+**Result:** 0 failures (was 4), ≥655 passed, 8 skipped. Pushed to armaan-hub/Analysis main.
+
+**Process:** Full superpowers pipeline — systematic-debugging → writing-plans → parallel subagent dispatch (GPT-5.5 + Claude Opus 4.7) → spec + code-quality review → verification-before-completion.
