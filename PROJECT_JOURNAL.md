@@ -751,3 +751,25 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 **Commits pushed to `main`:**
 - `0e890453`: fix(tests): update test_token_budget to expect None for adaptive max tokens
 - `28188c02`: fix(lint): 65 unused imports/semicolons + feat(scripts): retag_vector_store.py
+
+---
+
+### Session — 2026-05-08 (Comprehensive Review Plan Evaluation & Completion)
+
+**Context:** Evaluated `2026-05-08-project-comprehensive-review.md` plan claims against codebase reality. Applied receiving-code-review principle: verify before implementing.
+
+**Plan Claims Verified and PUSHED BACK:**
+- Task 1 (DB URL fix): `config.py` already has `_resolve_path()` property validator (lines 111-120) that converts relative sqlite path to absolute using `Path(__file__).resolve().parent`. Change was redundant — pushed back, not implemented.
+- Task 3 (DB init): DB already healthy with 22 tables. Plan incorrectly stated port 8001 (actual: 8002). Skipped.
+- Task 4 (Run tests): 663 tests already passing. Skipped.
+
+**Actual Work Completed:**
+- Task 2 (Windows path cleanup): Replaced hardcoded `C:\Users\Armaan\OneDrive...` paths in `backend/bulk_ingest.py` with portable `Path(__file__).resolve().parent / "data_source_*"` — now works cross-platform.
+- Task 5 (Chat viewer): Verified `chat_history_viewer.py` works with `python3` — lists 20 conversations, stats, history display all functional.
+- Task 6 (Frontend): Running at `localhost:5173` ✅
+- Task 7 (Backend health): Running at `localhost:8002/health` → `{"status":"ok"}` ✅
+
+**Regression:** 663 passed, 8 skipped, 0 failed (no regressions)
+
+**Commits pushed to `main`:**
+- `467f1b5b`: fix: replace Windows OneDrive paths in bulk_ingest.py with portable relative paths
