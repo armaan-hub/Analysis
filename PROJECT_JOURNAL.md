@@ -773,3 +773,29 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 
 **Commits pushed to `main`:**
 - `467f1b5b`: fix: replace Windows OneDrive paths in bulk_ingest.py with portable relative paths
+
+---
+
+### Session — 2026-05-08 (SSE Error-Handling Bug Fix)
+
+**Context:** User reported "⚠️ No response received. Please try again." appearing in the LegalStudio chat when asking about a bounced rent cheque under Dubai law. Investigated root cause using brainstorming + receiving-code-review approach.
+
+**Bug Diagnosed:**
+`sendMessage` in `LegalStudio.tsx` had two conflicting error paths:
+1. SSE error event handler correctly showed specific error (e.g., "model degraded") but replaced `aiMsgId` with a new UUID
+2. Post-stream `if (!aiText)` guard looked for `aiMsgId` (now gone), couldn't find it, and appended the generic "No response received" message on top
+
+Backend was confirmed working correctly (streamed valid SSE responses including specific error events). The problem was purely frontend state management.
+
+**Fix Applied:**
+- Added `let hasError = false` alongside `aiText` declaration
+- Set `hasError = true` in SSE error event handler
+- Changed post-stream guard from `if (!aiText)` to `if (!aiText && !hasError)`
+- Result: specific backend error messages now shown to user; generic fallback only when stream had zero content AND no error event
+
+**Design Spec:** Saved to `Main Branch/docs/superpowers/specs/2026-05-08-sse-error-handling-fix-design.md`
+
+**Process:** brainstorming → receiving-code-review → dispatching-parallel-agents (verified SSE stream directly via Python urllib) → implementation → verification-before-completion
+
+**Commits pushed to `main`:**
+- `4caa8115`: fix: SSE error-handling bug in LegalStudio — show specific error instead of 'No response received'
