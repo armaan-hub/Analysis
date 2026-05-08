@@ -8,11 +8,34 @@ All providers expose the same interface: send a list of messages, get a response
 import asyncio
 import json
 import logging
+import time
 from typing import AsyncGenerator, Optional
 import httpx
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# ── DEGRADED circuit breaker ─────────────────────────────────────────────────
+# When a model returns DEGRADED, cache that state so subsequent calls within
+# the TTL skip the degraded model entirely and go straight to the fallback.
+_DEGRADED_CACHE: dict[str, float] = {}   # model -> epoch-seconds when marked
+_DEGRADED_TTL = 300                       # 5 minutes
+
+
+def _is_degraded(model: str) -> bool:
+    ts = _DEGRADED_CACHE.get(model, 0.0)
+    return (time.monotonic() - ts) < _DEGRADED_TTL
+
+
+def _mark_degraded(model: str) -> None:
+    if not _is_degraded(model):
+        logger.warning("Circuit breaker: %s is DEGRADED — bypassing for %ds", model, _DEGRADED_TTL)
+    _DEGRADED_CACHE[model] = time.monotonic()
+
+
+def _clear_degraded(model: str) -> None:
+    if _DEGRADED_CACHE.pop(model, None) is not None:
+        logger.info("Circuit breaker: %s recovered — removing DEGRADED flag", model)
 
 # ── Context window registry ──────────────────────────────────────────
 # Maps a model-name *substring* (lower-case) to total context window
@@ -79,8 +102,8 @@ class BaseLLMProvider:
 
     # Streaming: no read-timeout (TTFB for large models can be 60-90 s); connection still fails fast.
     _STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=10.0, pool=5.0)
-    # Non-streaming: generous read timeout for large-model completions.
-    _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+    # Non-streaming: 30 s is generous for small/medium models; avoids 120 s hangs on degraded models.
+    _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=5.0)
 
     def __init__(self, api_key: str, model: str, base_url: str = ""):
         self.api_key = api_key
@@ -455,6 +478,14 @@ class NvidiaProvider(BaseLLMProvider):
             if has_images
             else self._DEFAULT_TIMEOUT
         )
+
+        # Circuit breaker: if this model is known-DEGRADED, skip directly to fallback
+        fallback_model = getattr(settings, "nvidia_fast_fallback_model", "")
+        if _is_degraded(payload["model"]) and fallback_model and fallback_model != payload["model"]:
+            logger.info("Circuit breaker: skipping DEGRADED %s → using %s", payload["model"], fallback_model)
+            payload["model"] = fallback_model
+            payload.pop("reasoning_effort", None)
+
         for attempt in range(2):
             if attempt > 0:
                 await asyncio.sleep(2 ** attempt)  # 2s
@@ -478,14 +509,19 @@ class NvidiaProvider(BaseLLMProvider):
                         if resp.status_code == 400 and "DEGRADED" in err_body.upper():
                             fallback = getattr(settings, "nvidia_fast_fallback_model", "")
                             if fallback and fallback != payload.get("model"):
+                                _mark_degraded(payload["model"])
                                 logger.warning(
                                     "NVIDIA NIM: model %s is DEGRADED — falling back to %s",
                                     payload["model"], fallback,
                                 )
                                 payload["model"] = fallback
+                                # Fallback model may not support reasoning_effort — remove it
+                                payload.pop("reasoning_effort", None)
                                 continue
                     resp.raise_for_status()
                     data = resp.json()
+                # Successful response — clear any DEGRADED flag for this model
+                _clear_degraded(payload["model"])
                 choice = data["choices"][0]
                 usage = data.get("usage", {})
                 content = choice["message"]["content"] or ""
@@ -515,14 +551,23 @@ class NvidiaProvider(BaseLLMProvider):
         has_images = self._messages_contain_images(messages)
         _timeout = httpx.Timeout(None) if has_images else self._STREAM_TIMEOUT
 
+        # Circuit breaker: if this model is known-DEGRADED, skip directly to fallback
+        _fallback_model = getattr(settings, "nvidia_fast_fallback_model", "")
+        if _is_degraded(payload["model"]) and _fallback_model and _fallback_model != payload["model"]:
+            logger.info("Circuit breaker: skipping DEGRADED %s → using %s", payload["model"], _fallback_model)
+            payload["model"] = _fallback_model
+            payload.pop("reasoning_effort", None)
+
         last_exc: Exception = RuntimeError("NVIDIA stream: provider unreachable")
+        _skip_sleep = False  # set True after DEGRADED fallback to avoid rate-limit sleep
         for attempt in range(3):
-            if attempt > 0:
+            if attempt > 0 and not _skip_sleep:
                 wait_s = 5 * (2 ** (attempt - 1))  # 5 s, then 10 s
                 logger.warning(
                     "NVIDIA stream: 429 rate limit, retrying in %ds (attempt %d/3)…", wait_s, attempt + 1
                 )
                 await asyncio.sleep(wait_s)
+            _skip_sleep = False
 
             # Per-attempt state for Gemma thinking-block suppression
             in_thinking = False
@@ -551,11 +596,17 @@ class NvidiaProvider(BaseLLMProvider):
                             if resp.status_code == 400 and "DEGRADED" in err_text.upper():
                                 fallback = getattr(settings, "nvidia_fast_fallback_model", "")
                                 if fallback and fallback != payload.get("model"):
+                                    _mark_degraded(payload["model"])
                                     logger.warning(
                                         "NVIDIA NIM: model %s is DEGRADED — falling back to %s",
                                         payload["model"], fallback,
                                     )
                                     payload["model"] = fallback
+                                    # Fallback model may not support reasoning_effort — remove it
+                                    payload.pop("reasoning_effort", None)
+                                    # DEGRADED needs minimal delay (not rate-limit 5 s sleep)
+                                    await asyncio.sleep(0)
+                                    _skip_sleep = True
                                     continue  # retry with fallback model
                             raise exc
 
