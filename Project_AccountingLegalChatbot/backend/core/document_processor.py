@@ -43,8 +43,8 @@ class DocumentProcessor:
                 f"chunk_overlap ({_overlap}) must be less than chunk_size ({_size}). "
                 "Check CHUNK_OVERLAP and CHUNK_SIZE in your .env."
             )
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+        self.chunk_size = _size
+        self.chunk_overlap = _overlap
         self._ocr_dependency_warning_emitted = False
         self._ocr_runtime_warning_emitted = False
         self._cv2_dependency_warning_emitted = False

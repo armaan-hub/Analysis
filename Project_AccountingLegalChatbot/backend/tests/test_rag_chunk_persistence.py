@@ -136,3 +136,15 @@ async def test_embedding_fingerprint_format():
     parts = fp.split(":")
     assert len(parts) == 3, f"Expected 3 parts, got: {fp}"
     assert parts[2].isdigit(), f"Dimension must be integer, got: {parts[2]}"
+
+
+async def test_document_processor_default_chunk_size():
+    """DocumentProcessor() with no args uses provider-aware chunk size (not None)."""
+    import sys; sys.path.insert(0, ".")
+    from core.document_processor import DocumentProcessor
+    dp = DocumentProcessor()
+    assert dp.chunk_size is not None, "chunk_size must not be None"
+    assert isinstance(dp.chunk_size, int), f"Expected int, got {type(dp.chunk_size)}"
+    assert dp.chunk_size > 0
+    assert dp.chunk_overlap is not None, "chunk_overlap must not be None"
+    assert dp.chunk_overlap < dp.chunk_size
