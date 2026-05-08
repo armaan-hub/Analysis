@@ -746,3 +746,16 @@ async def reindex_status_endpoint(db: AsyncSession = Depends(get_db)):
         "documents_pending": count,
         "fingerprint": settings.embedding_fingerprint,
     }
+
+
+@router.get("/embedding-config", summary="Get current embedding configuration")
+async def get_embedding_config():
+    """Returns current embedding provider settings (read-only, set via .env)."""
+    return {
+        "provider": settings.embedding_provider,
+        "model": settings.embedding_model,
+        "chunk_size": settings.embedding_chunk_size,
+        "dimension": settings.embedding_dimension,
+        "fingerprint": settings.embedding_fingerprint,
+        "note": "To change provider, update EMBEDDING_PROVIDER in .env and restart.",
+    }
