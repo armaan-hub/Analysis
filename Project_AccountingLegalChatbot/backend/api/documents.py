@@ -563,7 +563,13 @@ async def scan_and_ingest_all(
         if not os.path.isdir(dir_path):
             logger.warning("Data source dir not found: %s", dir_path)
             continue
-        for fname in sorted(os.listdir(dir_path)):
+        # Walk recursively so subdirectories (e.g. data_source_finance/7. VAT Guides/) are included
+        all_files: list[tuple[str, str]] = []
+        for root, _dirs, files in os.walk(dir_path):
+            for f in sorted(files):
+                all_files.append((root, f))
+        all_files.sort(key=lambda x: x[1])  # sort by filename
+        for dir_root, fname in all_files:
             ext = Path(fname).suffix.lower()
             if ext not in _SUPPORTED_EXTS:
                 continue
@@ -572,7 +578,7 @@ async def scan_and_ingest_all(
             if skip_existing and fname in existing_names:
                 skipped += 1
                 continue
-            file_path = os.path.join(dir_path, fname)
+            file_path = os.path.join(dir_root, fname)
             try:
                 doc_id = str(uuid.uuid4())
                 chunks = await document_processor.process(file_path, doc_id=doc_id)
