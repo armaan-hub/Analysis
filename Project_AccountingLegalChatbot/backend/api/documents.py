@@ -6,6 +6,7 @@ import logging
 import hashlib
 import io
 import mimetypes
+import os
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -521,3 +522,158 @@ async def repair_zero_chunk_documents(db: AsyncSession = Depends(get_db)):
             fixed += 1
     await db.commit()
     return {"status": "ok", "documents_marked_for_reprocess": fixed}
+
+
+# ── Data source directories ───────────────────────────────────────────────────
+_DATA_SOURCES: dict[str, str] = {
+    "law": (
+        "/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com"
+        "/My Drive/Study/Armaan/AI Class/Data Science Class"
+        "/35. 11-Apr-2026 Agentic AI/data_source_law"
+    ),
+    "finance": (
+        "/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com"
+        "/My Drive/Study/Armaan/AI Class/Data Science Class"
+        "/35. 11-Apr-2026 Agentic AI/data_source_finance"
+    ),
+}
+_SUPPORTED_EXTS = {".pdf", ".docx", ".txt", ".doc"}
+
+
+async def scan_and_ingest_all(
+    db,
+    limit: int = 0,
+    skip_existing: bool = True,
+) -> dict:
+    """Scan data_source dirs and ingest any files not already in the DB.
+
+    Returns a summary dict: {ingested, skipped, errors, error_details}.
+    """
+    from sqlalchemy import select as sa_select
+
+    # Build set of already-ingested original_names
+    result = await db.execute(sa_select(Document.original_name))
+    existing_names: set[str] = {row[0] for row in result.fetchall()}
+
+    ingested = skipped = errors = 0
+    error_details: list[str] = []
+    count = 0
+
+    for category, dir_path in _DATA_SOURCES.items():
+        if not os.path.isdir(dir_path):
+            logger.warning("Data source dir not found: %s", dir_path)
+            continue
+        for fname in sorted(os.listdir(dir_path)):
+            ext = Path(fname).suffix.lower()
+            if ext not in _SUPPORTED_EXTS:
+                continue
+            if limit and count >= limit:
+                break
+            if skip_existing and fname in existing_names:
+                skipped += 1
+                continue
+            file_path = os.path.join(dir_path, fname)
+            try:
+                doc_id = str(uuid.uuid4())
+                chunks = await document_processor.process(file_path, doc_id=doc_id)
+                if not chunks:
+                    logger.warning("No chunks extracted from %s", fname)
+                    skipped += 1
+                    continue
+
+                file_size = os.path.getsize(file_path)
+                doc_obj = Document(
+                    id=doc_id,
+                    filename=fname,
+                    original_name=fname,
+                    file_type=ext.lstrip("."),
+                    file_size=file_size,
+                    chunk_count=len(chunks),
+                    status="indexed",
+                    metadata_json={"category": category},
+                )
+                db.add(doc_obj)
+                await db.flush()
+
+                await rag_engine.ingest_chunks(
+                    chunks,
+                    doc_id=doc_id,
+                    original_name=fname,
+                    category=category,
+                    db_session=db,
+                )
+                await db.commit()
+                ingested += 1
+                count += 1
+                logger.info("Ingested %s (%d chunks)", fname, len(chunks))
+
+            except Exception as exc:
+                logger.error("Failed to ingest %s: %s", fname, exc, exc_info=True)
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                errors += 1
+                error_details.append(f"{fname}: {exc}")
+
+    return {
+        "ingested": ingested,
+        "skipped": skipped,
+        "errors": errors,
+        "error_details": error_details[:10],
+    }
+
+
+async def reindex_all_from_db(db) -> dict:
+    """Re-embed all document_chunks rows into ChromaDB.
+
+    Uses document_chunks table as source of truth — no disk reads needed.
+    """
+    from db.models import DocumentChunk as DBDocumentChunk
+    from sqlalchemy import select as sa_select
+
+    doc_result = await db.execute(sa_select(Document))
+    docs = doc_result.scalars().all()
+
+    reindexed_chunks = 0
+    for doc in docs:
+        chunk_result = await db.execute(
+            sa_select(DBDocumentChunk)
+            .where(DBDocumentChunk.doc_id == doc.id)
+            .order_by(DBDocumentChunk.chunk_index)
+        )
+        chunks = chunk_result.scalars().all()
+        if not chunks:
+            continue
+
+        chunk_dicts = [
+            {
+                "id": f"{doc.id}-chunk-{c.chunk_index}",
+                "text": c.text,
+                "metadata": c.metadata_json if isinstance(c.metadata_json, dict) else {},
+            }
+            for c in chunks
+        ]
+
+        try:
+            await rag_engine.ingest_chunks(
+                chunk_dicts,
+                doc_id=doc.id,
+                original_name=doc.original_name,
+                category=chunk_dicts[0]["metadata"].get("category", "general"),
+            )
+            reindexed_chunks += len(chunk_dicts)
+        except Exception as exc:
+            logger.error("Failed to reindex doc %s (%s): %s", doc.id, doc.original_name, exc)
+
+    return {"reindexed_chunks": reindexed_chunks, "documents": len(docs)}
+
+
+@router.post("/scan-and-ingest", summary="Scan data_source dirs and ingest missing docs")
+async def scan_and_ingest_endpoint(db: AsyncSession = Depends(get_db)):
+    return await scan_and_ingest_all(db=db)
+
+
+@router.post("/reindex-all", summary="Re-embed all DB chunks into fresh ChromaDB")
+async def reindex_all_endpoint(db: AsyncSession = Depends(get_db)):
+    return await reindex_all_from_db(db=db)
