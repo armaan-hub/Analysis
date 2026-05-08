@@ -112,6 +112,11 @@ class DocumentChunk(Base):
     document = relationship("Document", back_populates="chunks")
 
 
+# Alias to avoid collision with core.document_processor.DocumentChunk (which is a dataclass).
+# Future tasks importing both should use: from db.models import DocumentChunk as DBDocumentChunk
+DocumentChunkORM = DocumentChunk
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Report Models
 # ═══════════════════════════════════════════════════════════════════

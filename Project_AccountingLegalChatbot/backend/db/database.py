@@ -28,6 +28,7 @@ if engine.url.drivername.startswith("sqlite"):
     def _set_wal_mode(dbapi_conn, _):
         dbapi_conn.execute("PRAGMA journal_mode=WAL")
         dbapi_conn.execute("PRAGMA busy_timeout=30000")
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
 
 async_session = async_sessionmaker(
     engine,
@@ -65,6 +66,10 @@ async def init_db():
         """))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_document_chunks_doc_id ON document_chunks (doc_id)"
+        ))
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS "
+            "ix_document_chunks_doc_chunk_unique ON document_chunks (doc_id, chunk_index)"
         ))
 
         for stmt in (
