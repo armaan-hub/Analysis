@@ -148,3 +148,92 @@ async def test_document_processor_default_chunk_size():
     assert dp.chunk_size > 0
     assert dp.chunk_overlap is not None, "chunk_overlap must not be None"
     assert dp.chunk_overlap < dp.chunk_size
+
+
+# ── Task 3 tests ─────────────────────────────────────────────────────────────
+
+async def test_ingest_chunks_persists_to_db(mem_db):
+    """ingest_chunks() with db_session saves raw text to document_chunks table."""
+    import sys; sys.path.insert(0, ".")
+    import os as _os
+    _os.environ["EMBEDDING_PROVIDER"] = "mock"
+
+    from importlib import reload
+    import config as cfg_mod; reload(cfg_mod)
+    import core.rag_engine as rag_mod; reload(rag_mod)
+    from core.rag_engine import RAGEngine
+    from db.models import DocumentChunk as DBDocumentChunk
+
+    engine_instance = RAGEngine()
+
+    # Insert parent document first
+    from db.models import Document as DBDocument
+    doc = DBDocument(
+        id="doc-rag-01",
+        filename="decree50.pdf",
+        original_name="DecreeLaw_50_2022_pdf.pdf",
+        file_type=".pdf",
+    )
+    mem_db.add(doc)
+    await mem_db.commit()
+
+    chunks = [
+        {"id": "c-rag-1", "text": "Federal Decree-Law No. 50 of 2022 on cheque crimes.",
+         "metadata": {"domain": "general", "category": "law"}},
+        {"id": "c-rag-2", "text": "Article 1: Issuing a cheque with insufficient funds.",
+         "metadata": {"domain": "general", "category": "law"}},
+    ]
+    await engine_instance.ingest_chunks(
+        chunks=chunks,
+        doc_id="doc-rag-01",
+        original_name="DecreeLaw_50_2022_pdf.pdf",
+        category="law",
+        db_session=mem_db,
+    )
+
+    result = await mem_db.execute(
+        select(DBDocumentChunk)
+        .where(DBDocumentChunk.doc_id == "doc-rag-01")
+        .order_by(DBDocumentChunk.chunk_index)
+    )
+    saved = result.scalars().all()
+    assert len(saved) == 2, f"Expected 2 chunks, got {len(saved)}"
+    assert saved[0].text == "Federal Decree-Law No. 50 of 2022 on cheque crimes."
+    assert saved[1].text == "Article 1: Issuing a cheque with insufficient funds."
+    assert saved[0].chunk_index == 0
+    assert saved[1].chunk_index == 1
+
+
+async def test_ingest_chunks_idempotent(mem_db):
+    """Re-calling ingest_chunks() for same doc replaces old chunks (no duplicates)."""
+    import sys; sys.path.insert(0, ".")
+    import os as _os
+    _os.environ["EMBEDDING_PROVIDER"] = "mock"
+
+    from importlib import reload
+    import config as cfg_mod; reload(cfg_mod)
+    import core.rag_engine as rag_mod; reload(rag_mod)
+    from core.rag_engine import RAGEngine
+    from db.models import DocumentChunk as DBDocumentChunk, Document as DBDocument
+
+    engine_instance = RAGEngine()
+
+    doc = DBDocument(id="doc-idem-01", filename="f.pdf", original_name="f.pdf", file_type=".pdf")
+    mem_db.add(doc)
+    await mem_db.commit()
+
+    for i in range(2):  # ingest twice
+        await engine_instance.ingest_chunks(
+            chunks=[{"id": f"chunk-idem-{i}", "text": f"Run {i}", "metadata": {}}],
+            doc_id="doc-idem-01",
+            original_name="f.pdf",
+            category="law",
+            db_session=mem_db,
+        )
+
+    result = await mem_db.execute(
+        select(DBDocumentChunk).where(DBDocumentChunk.doc_id == "doc-idem-01")
+    )
+    saved = result.scalars().all()
+    assert len(saved) == 1, f"Expected 1 chunk after idempotent re-ingest, got {len(saved)}"
+    assert saved[0].text == "Run 1"

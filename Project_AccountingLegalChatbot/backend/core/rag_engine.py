@@ -38,25 +38,49 @@ class OllamaEmbeddingProvider:
         self.model = model
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        results = []
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            for text in texts:
-                resp = await client.post(
-                    f"{self.base_url}/api/embeddings",
-                    json={"model": self.model, "prompt": text},
-                )
-                resp.raise_for_status()
-                results.append(resp.json()["embedding"])
-        return results
+        """Generate embeddings concurrently in batches (Ollama has no batch API)."""
+        _BATCH = 10
 
-    async def embed_query(self, query: str) -> list[float]:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async def _embed_one(client: httpx.AsyncClient, text: str) -> list[float]:
             resp = await client.post(
                 f"{self.base_url}/api/embeddings",
-                json={"model": self.model, "prompt": query},
+                json={"model": self.model, "prompt": text},
             )
             resp.raise_for_status()
             return resp.json()["embedding"]
+
+        try:
+            results: list[list[float]] = []
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                for i in range(0, len(texts), _BATCH):
+                    batch = texts[i : i + _BATCH]
+                    batch_results = await asyncio.gather(
+                        *[_embed_one(client, t) for t in batch]
+                    )
+                    results.extend(batch_results)
+            return results
+        except httpx.ConnectError as exc:
+            raise RuntimeError(
+                f"Cannot connect to Ollama at {self.base_url}. "
+                "Start Ollama with `ollama serve` or set EMBEDDING_PROVIDER=nvidia in .env."
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(
+                f"Ollama request failed (HTTP {exc.response.status_code}). "
+                f"Check model '{self.model}' is installed: `ollama pull {self.model}`."
+            ) from exc
+
+    async def embed_query(self, query: str) -> list[float]:
+        try:
+            results = await self.embed_texts([query])
+            return results[0]
+        except RuntimeError:
+            raise
+        except httpx.ConnectError as exc:
+            raise RuntimeError(
+                f"Cannot connect to Ollama at {self.base_url}. "
+                "Start Ollama with `ollama serve` or set EMBEDDING_PROVIDER=nvidia in .env."
+            ) from exc
 
 
 class EmbeddingProvider:
@@ -317,6 +341,8 @@ class RAGEngine:
                 logger.critical(f"Fatal error: Could not initialize ChromaDB even after reset: {e2}")
                 raise e2
 
+        self._needs_full_reindex: bool = False
+
     def _repair_legacy_index_metadata(self) -> None:
         """Repair legacy Chroma index metadata pickles saved as dict.
 
@@ -454,17 +480,36 @@ class RAGEngine:
 
     @property
     def collection(self):
-        """Robust collection access that attempts to recover from common segment errors."""
+        """Robust collection access with ChromaDB corruption recovery."""
         try:
-            # Try a simple operation to see if segments are valid
             self._collection.count()
             return self._collection
-        except (AttributeError, Exception) as e:
-            if "dimensionality" in str(e) or "segment" in str(e).lower():
-                logger.warning(f"ChromaDB segment error detected ({e}). Attempting to re-initialize client...")
-                self._reinit_client()
-                return self._collection
-            raise e
+        except Exception as e:
+            err_str = str(e).lower()
+            if any(kw in err_str for kw in (
+                "dimensionality", "segment", "u64", "blob",
+                "mismatched types", "backfill", "compactor",
+            )):
+                logger.warning(
+                    "ChromaDB collection corrupt (%s: %s). Rebuilding — "
+                    "call POST /api/documents/reindex-all to re-embed.",
+                    type(e).__name__, str(e)[:120],
+                )
+                try:
+                    import shutil as _shutil, time as _time
+                    from pathlib import Path as _Path
+                    _store = str(settings.vector_store_dir)
+                    _backup = _store + "_backup_" + str(int(_time.time()))
+                    if _Path(_store).exists():
+                        _shutil.move(_store, _backup)
+                        logger.info("Corrupted store backed up to: %s", _backup)
+                    self._reinit_client()
+                    self._needs_full_reindex = True
+                    return self._collection
+                except Exception as rebuild_err:
+                    logger.critical("Failed to rebuild ChromaDB: %s", rebuild_err)
+                    raise
+            raise
 
     @collection.setter
     def collection(self, value):
@@ -621,6 +666,7 @@ class RAGEngine:
         doc_id: str,
         original_name: str = "",
         category: str = "general",
+        db_session=None,          # AsyncSession — persist raw text to document_chunks
     ) -> int:
         """Embed and store document chunks in ChromaDB.
 
@@ -633,6 +679,32 @@ class RAGEngine:
         """
         if not chunks:
             return 0
+
+        # ── Persist raw chunk text to document_chunks (source of truth for re-embed) ──
+        if db_session is not None:
+            from db.models import DocumentChunk as DBDocumentChunk
+            from sqlalchemy import delete as sa_delete
+            # Delete existing chunks for this doc (idempotent re-ingest)
+            await db_session.execute(
+                sa_delete(DBDocumentChunk).where(DBDocumentChunk.doc_id == doc_id)
+            )
+            for idx, chunk in enumerate(chunks):
+                if hasattr(chunk, "text"):
+                    _text = chunk.text
+                    _meta = dict(chunk.metadata) if chunk.metadata else {}
+                    _cid = getattr(chunk, "id", f"{doc_id}_chunk_{idx}")
+                else:
+                    _text = chunk.get("text", "")
+                    _meta = chunk.get("metadata", {})
+                    _cid = chunk.get("id", f"{doc_id}_chunk_{idx}")
+                db_session.add(DBDocumentChunk(
+                    id=_cid,
+                    doc_id=doc_id,
+                    chunk_index=idx,
+                    text=_text,
+                    metadata_json=_meta,
+                ))
+            await db_session.flush()
 
         # Local import to avoid circular imports at module level
         from core.rag.graph_rag import GraphRAG as _GraphRAG, _extract_entities as _ner
