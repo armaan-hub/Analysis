@@ -290,7 +290,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - [ ] **Step 1: Push Main Branch fixes to GitHub**
 
 ```bash
-cd "/Users/armaan/Library/CloudStorage/OneDrive-TheEraCorporations/Study/Armaan/AI Class/Data Science Class/35. 11-Apr-2026 Agentic AI"
+cd .
 git push origin main
 ```
 

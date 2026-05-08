@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     # Seed account-mapping cache from bundled CSV (INSERT OR IGNORE — safe to re-run)
     _t = time.perf_counter()
     from core.agents.account_cache import seed_from_csv, cache_size
-    _csv = Path("data/account_grouping_labels.csv")
+    _csv = Path(__file__).parent / "data" / "account_grouping_labels.csv"
     if _csv.exists():
         _seeded = await seed_from_csv(_csv)
         logger.info(f"[OK] Account mapping cache: {_seeded} CSV rows processed, {await cache_size()} total entries ({time.perf_counter()-_t:.2f}s)")

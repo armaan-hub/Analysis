@@ -254,30 +254,26 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Files:**
 - Modify: `~/Library/CloudStorage/.../Main Branch/Project_AccountingLegalChatbot/frontend/src/pages/HomePage.tsx`
-
-- [ ] **Step 1: Sync start-app.sh to OneDrive root**
+- [ ] **Step 1: Sync start-app.sh to project root**
 
 ```bash
-cp ~/chatbot_local/start-app.sh \
-   ~/Library/CloudStorage/OneDrive-TheEraCorporations/Study/Armaan/AI\ Class/Data\ Science\ Class/35.\ 11-Apr-2026\ Agentic\ AI/start-app.sh
+cp start-app.sh ./start-app.sh
 ```
 
 - [ ] **Step 2: Sync HomePage.tsx**
 
 ```bash
-cp ~/chatbot_local/Project_AccountingLegalChatbot/frontend/src/pages/HomePage.tsx \
-   ~/Library/CloudStorage/OneDrive-TheEraCorporations/Study/Armaan/AI\ Class/Data\ Science\ Class/35.\ 11-Apr-2026\ Agentic\ AI/Main\ Branch/Project_AccountingLegalChatbot/frontend/src/pages/HomePage.tsx
+# Update HomePage.tsx in the project
 ```
 
 - [ ] **Step 3: Push to GitHub**
 
 ```bash
-cd ~/Library/CloudStorage/OneDrive-TheEraCorporations/Study/Armaan/AI\ Class/Data\ Science\ Class/35.\ 11-Apr-2026\ Agentic\ AI/Main\ Branch
+cd .
 git add Project_AccountingLegalChatbot/frontend/src/pages/HomePage.tsx
-git add ../start-app.sh 2>/dev/null || true
-git commit -m "feat: startup script + select-all UX improvements
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+git add start-app.sh 2>/dev/null || true
+git commit -m "feat: startup script + select-all UX improvements"
+```
 git push origin main
 ```
 
