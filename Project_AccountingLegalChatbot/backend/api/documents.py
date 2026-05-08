@@ -29,6 +29,52 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
 
+# ── Fingerprint helpers ───────────────────────────────────────────
+
+async def store_fingerprint_if_changed(db) -> bool:
+    """Check if embedding provider fingerprint changed; mark docs for reindex if so.
+
+    Returns True if fingerprint changed (reindex needed), False otherwise.
+    """
+    from sqlalchemy import text as sa_text, update as sa_update
+    from db.models import Document as DBDocument
+
+    current_fp = settings.embedding_fingerprint
+
+    result = await db.execute(
+        sa_text("SELECT value FROM user_settings WHERE key = 'embedding_fingerprint'")
+    )
+    row = result.fetchone()
+    stored_fp = row[0] if row else None
+
+    if stored_fp == current_fp:
+        return False  # No change
+
+    # Store new fingerprint
+    await db.execute(
+        sa_text(
+            "INSERT OR REPLACE INTO user_settings (key, value) "
+            "VALUES ('embedding_fingerprint', :fp)"
+        ),
+        {"fp": current_fp},
+    )
+
+    if stored_fp is not None:
+        # Fingerprint CHANGED — mark all docs for reindex
+        logger.warning(
+            "Embedding fingerprint changed: %s → %s. "
+            "All documents marked needs_reindex=True. "
+            "Call POST /api/documents/reindex-all to rebuild ChromaDB.",
+            stored_fp, current_fp,
+        )
+        await db.execute(
+            sa_update(DBDocument).values(needs_reindex=True)
+        )
+
+    await db.commit()
+    return stored_fp is not None  # True only if changed (not first write)
+
+
 # ── Response Schemas ──────────────────────────────────────────────
 
 class DocumentResponse(BaseModel):
@@ -683,3 +729,20 @@ async def scan_and_ingest_endpoint(db: AsyncSession = Depends(get_db)):
 @router.post("/reindex-all", summary="Re-embed all DB chunks into fresh ChromaDB")
 async def reindex_all_endpoint(db: AsyncSession = Depends(get_db)):
     return await reindex_all_from_db(db=db)
+
+
+@router.get("/reindex-status", summary="Check if re-embedding is needed")
+async def reindex_status_endpoint(db: AsyncSession = Depends(get_db)):
+    """Returns whether any documents need re-embedding due to provider change."""
+    from sqlalchemy import func
+    from db.models import Document as DBDocument
+
+    result = await db.execute(
+        select(func.count()).select_from(DBDocument).where(DBDocument.needs_reindex == True)
+    )
+    count = result.scalar() or 0
+    return {
+        "needs_reindex": count > 0,
+        "documents_pending": count,
+        "fingerprint": settings.embedding_fingerprint,
+    }

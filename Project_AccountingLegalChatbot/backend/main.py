@@ -67,6 +67,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"[OK] RAG Vector Store: {settings.vector_store_dir}")
     logger.info(f"[OK] Upload Directory: {settings.upload_dir}")
     logger.info(f"[OK] Server: http://{settings.host}:{settings.port}")
+
+    # Check embedding provider fingerprint at startup
+    _t = time.perf_counter()
+    from db.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as _fp_db:
+        from api.documents import store_fingerprint_if_changed
+        _fp_changed = await store_fingerprint_if_changed(db=_fp_db)
+    if _fp_changed:
+        logger.warning("[WARN] Embedding fingerprint changed — documents flagged for reindex")
+    else:
+        logger.info(f"[OK] Embedding fingerprint: {settings.embedding_fingerprint} ({time.perf_counter()-_t:.2f}s)")
     
     # Start APScheduler
     _t = time.perf_counter()

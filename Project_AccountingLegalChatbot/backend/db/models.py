@@ -81,6 +81,7 @@ class Document(Base):
     key_terms = Column(JSON, nullable=True)  # list of strings
     source = Column(String(50), nullable=True, default="upload")  # "upload" | "research"
     content_hash = Column(String(64), nullable=True, index=True)
+    needs_reindex = Column(Boolean, default=False, nullable=False, server_default="0")
 
     chunks = relationship(
         "DocumentChunk",
