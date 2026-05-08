@@ -34,10 +34,13 @@ class DocumentProcessor:
 
     SUPPORTED_TYPES = {".pdf", ".docx", ".xlsx", ".xls", ".txt", ".csv", ".md"}
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
-        if chunk_overlap >= chunk_size:
+    def __init__(self, chunk_size: int | None = None, chunk_overlap: int | None = None):
+        from config import settings as _s
+        _size = chunk_size if chunk_size is not None else _s.embedding_chunk_size
+        _overlap = chunk_overlap if chunk_overlap is not None else _s.embedding_chunk_overlap
+        if _overlap >= _size:
             raise ValueError(
-                f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size}). "
+                f"chunk_overlap ({_overlap}) must be less than chunk_size ({_size}). "
                 "Check CHUNK_OVERLAP and CHUNK_SIZE in your .env."
             )
         self.chunk_size = chunk_size

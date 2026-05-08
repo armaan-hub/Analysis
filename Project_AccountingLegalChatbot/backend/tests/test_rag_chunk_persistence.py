@@ -1,3 +1,4 @@
+import os
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import select, event, text
@@ -80,3 +81,58 @@ async def test_document_chunk_cascade_delete_db_level(mem_db):
     )
     count = result.scalar()
     assert count == 0, f"Expected 0 chunks after DB-level cascade delete, got {count}"
+
+
+# ── Task 2 tests ─────────────────────────────────────────────────────────────
+
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Requires local Ollama server",
+)
+async def test_ollama_embed_returns_vector():
+    """OllamaEmbeddingProvider returns a 768-dim vector."""
+    import sys; sys.path.insert(0, ".")
+    from core.rag_engine import OllamaEmbeddingProvider
+    provider = OllamaEmbeddingProvider(
+        base_url="http://localhost:11434",
+        model="nomic-embed-text",
+    )
+    vec = await provider.embed_query("cheque bounce rent Dubai law")
+    assert isinstance(vec, list)
+    assert len(vec) == 768
+    assert all(isinstance(v, float) for v in vec)
+
+
+async def test_provider_aware_chunk_size_nvidia():
+    """NVIDIA provider uses <=350 char chunk size."""
+    import os as _os
+    _os.environ["EMBEDDING_PROVIDER"] = "nvidia"
+    from importlib import reload
+    import config as cfg_module
+    reload(cfg_module)
+    from config import settings as s
+    assert s.embedding_chunk_size <= 350, f"Expected <=350, got {s.embedding_chunk_size}"
+
+
+async def test_provider_aware_chunk_size_ollama():
+    """Ollama provider uses >=1000 char chunk size."""
+    import os as _os
+    _os.environ["EMBEDDING_PROVIDER"] = "ollama"
+    from importlib import reload
+    import config as cfg_module
+    reload(cfg_module)
+    from config import settings as s
+    assert s.embedding_chunk_size >= 1000, f"Expected >=1000, got {s.embedding_chunk_size}"
+    _os.environ["EMBEDDING_PROVIDER"] = "nvidia"  # reset
+
+
+async def test_embedding_fingerprint_format():
+    """embedding_fingerprint is provider:model:dimension string."""
+    from importlib import reload
+    import config as cfg_module
+    reload(cfg_module)
+    from config import settings as s
+    fp = s.embedding_fingerprint
+    parts = fp.split(":")
+    assert len(parts) == 3, f"Expected 3 parts, got: {fp}"
+    assert parts[2].isdigit(), f"Dimension must be integer, got: {parts[2]}"

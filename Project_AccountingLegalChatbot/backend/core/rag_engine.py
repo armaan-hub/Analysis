@@ -24,6 +24,41 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
+class OllamaEmbeddingProvider:
+    """Ollama local embedding provider using nomic-embed-text.
+    No token limit, no API cost. 768-dimensional embeddings.
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434",
+        model: str = "nomic-embed-text",
+    ):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        results = []
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            for text in texts:
+                resp = await client.post(
+                    f"{self.base_url}/api/embeddings",
+                    json={"model": self.model, "prompt": text},
+                )
+                resp.raise_for_status()
+                results.append(resp.json()["embedding"])
+        return results
+
+    async def embed_query(self, query: str) -> list[float]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self.base_url}/api/embeddings",
+                json={"model": self.model, "prompt": query},
+            )
+            resp.raise_for_status()
+            return resp.json()["embedding"]
+
+
 class EmbeddingProvider:
     """Interface for text embedding models."""
 
@@ -32,12 +67,18 @@ class EmbeddingProvider:
         self.api_key = settings.nvidia_api_key
         self.model = settings.nvidia_embed_model
         self.base_url = settings.nvidia_base_url
+        self._ollama = OllamaEmbeddingProvider(
+            base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
+            model=settings.ollama_embed_model,
+        )
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts."""
         if self.provider == "mock":
             # Return a fake 1024-dim embedding for each text
             return [[0.1] * 1024 for _ in texts]
+        if self.provider == "ollama":
+            return await self._ollama.embed_texts(texts)
         if self.provider == "openai":
             return await self._embed_openai(texts)
         return await self._embed_nvidia(texts)
@@ -46,6 +87,8 @@ class EmbeddingProvider:
         """Generate embedding for a single query. Raises on failure (no retry)."""
         if self.provider == "mock":
             return [0.1] * 1024
+        if self.provider == "ollama":
+            return await self._ollama.embed_query(query)
         if self.provider == "openai":
             results = await self._embed_openai([query])
             return results[0]

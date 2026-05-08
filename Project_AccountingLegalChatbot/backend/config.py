@@ -6,7 +6,7 @@ Reads settings from .env file and exposes them as typed attributes.
 import os
 from pathlib import Path
 from typing import Literal, Optional
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -60,8 +60,39 @@ class Settings(BaseSettings):
     brave_search_api_key: str = ""
 
     # ── Embedding ────────────────────────────────────────────────────
-    embedding_provider: str = "nvidia"  # nvidia | openai
+    embedding_provider: str = "nvidia"  # nvidia | openai | ollama
     openai_embed_model: str = "text-embedding-3-small"  # 1536-dim, same as NIM
+    ollama_embed_model: str = "nomic-embed-text"
+
+    @computed_field
+    @property
+    def embedding_model(self) -> str:
+        _map = {
+            "nvidia": getattr(self, "nvidia_embed_model", "nvidia/nv-embedqa-e5-v5"),
+            "openai": getattr(self, "openai_embed_model", "text-embedding-3-small"),
+            "ollama": self.ollama_embed_model,
+        }
+        return _map.get(self.embedding_provider, _map["nvidia"])
+
+    @computed_field
+    @property
+    def embedding_chunk_size(self) -> int:
+        return {"nvidia": 350, "openai": 1200, "ollama": 1200}.get(self.embedding_provider, 350)
+
+    @computed_field
+    @property
+    def embedding_chunk_overlap(self) -> int:
+        return {"nvidia": 50, "openai": 150, "ollama": 150}.get(self.embedding_provider, 50)
+
+    @computed_field
+    @property
+    def embedding_dimension(self) -> int:
+        return {"nvidia": 1024, "openai": 1536, "ollama": 768}.get(self.embedding_provider, 1024)
+
+    @computed_field
+    @property
+    def embedding_fingerprint(self) -> str:
+        return f"{self.embedding_provider}:{self.embedding_model}:{self.embedding_dimension}"
 
     # ── Database ─────────────────────────────────────────────────────
     database_url: str = f"sqlite:///{Path(__file__).parent}/data/chatbot.db"
