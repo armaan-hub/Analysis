@@ -627,6 +627,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
       reader = response.body!.getReader();
 
       let aiText = '';
+      let hasError = false;
       let sources: Source[] = [];
       const decoder = new TextDecoder();
       // Buffer for incomplete SSE events — TCP chunks don't align with SSE boundaries,
@@ -695,6 +696,7 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
                 });
               }
             } else if (evt.type === 'error') {
+              hasError = true;
               const errMsg = evt.message ?? 'The AI encountered an error. Please try again.';
               setMessages(prev => {
                 const copy = prev.filter(m => m.id !== aiMsgId);
@@ -709,9 +711,9 @@ export function LegalStudio({ onConversationsChange, initialConversationId }: Le
           } catch { /* skip malformed event */ }
         }
       }
-      // If stream ended with no content (backend error or empty LLM response),
+      // If stream ended with no content and no specific error was received,
       // replace the blank message with a visible prompt to retry.
-      if (!aiText) {
+      if (!aiText && !hasError) {
         setMessages(prev => {
           const hasFilled = prev.find(m => m.id === aiMsgId && 'text' in m && m.text);
           if (hasFilled) return prev; // already updated by error handler
