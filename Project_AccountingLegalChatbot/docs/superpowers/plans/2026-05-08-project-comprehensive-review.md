@@ -17,9 +17,9 @@
 - **Issue:** `database_url` uses relative path `sqlite:///./data/chatbot.db` which resolves incorrectly when running from project root
 - **Fix:** Change to absolute path using `Path(__file__).parent`
 
-### 2. OneDrive Path References
-- **Files:** Multiple files contain hardcoded Windows OneDrive paths
-- **Issue:** Paths reference `C:\Users\Armaan\OneDrive - The Era Corporations` or macOS OneDrive path
+### 2. Hardcoded Absolute Path References
+- **Files:** Multiple files contain hardcoded absolute Windows/macOS paths
+- **Issue:** Paths reference environment-specific absolute paths
 - **Fix:** Replace with relative paths or `Path.home()` references
 
 ### 3. Empty Database Created
@@ -85,10 +85,10 @@ git commit -m "fix: use absolute path for database_url"
 
 ---
 
-### Task 2: Remove OneDrive Path References
+### Task 2: Remove Hardcoded Absolute Path References
 
 **Files:**
-- Modify: `backend/bulk_ingest.py` (lines with Windows OneDrive paths)
+- Modify: `backend/bulk_ingest.py` (lines with hardcoded absolute paths)
 - Modify: `backend/tests/test_*.py` (test fixture paths)
 - Modify: `docs/superpowers/plans/*.md` (documentation paths)
 - Modify: `run_project.ps1` (comment only - informational)
@@ -97,7 +97,7 @@ git commit -m "fix: use absolute path for database_url"
 
 ```python
 # Old:
-r"C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan"
+str(Path(__file__).resolve().parent.parent / "data_source_finance")
 
 # New:
 str(Path.home() / "Library" / "CloudStorage" / "GoogleDrive-armaanmishra86@gmail.com" / "My Drive" / "Study" / "Armaan")
@@ -105,17 +105,17 @@ str(Path.home() / "Library" / "CloudStorage" / "GoogleDrive-armaanmishra86@gmail
 
 - [ ] **Step 2: Fix test fixture paths**
 
-Replace all `r"C:\Users\Armaan\OneDrive - The Era Corporations"` with relative paths or `Path.cwd()` references.
+Replace all hardcoded absolute root prefixes with relative paths (e.g., `./backend`) or `Path.cwd()` references.
 
 - [ ] **Step 3: Update documentation paths**
 
-Replace hardcoded OneDrive paths with relative paths or `Path(__file__).parent` references.
+Replace hardcoded absolute paths with relative paths or `Path(__file__).resolve().parent.parent` references.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add backend/bulk_ingest.py backend/tests/*.py docs/superpowers/plans/*.md
-git commit -m "fix: remove hardcoded OneDrive paths"
+git commit -m "fix: remove hardcoded absolute paths"
 ```
 
 ---
@@ -286,7 +286,7 @@ After completing all tasks:
 3. **Backend:** Server starts and responds correctly
 4. **Frontend:** Dev server starts and UI loads
 5. **Chat History Viewer:** All commands work
-6. **No OneDrive paths:** No hardcoded paths remain
+6. **No hardcoded absolute paths:** No environment-specific paths remain
 7. **Documentation:** All docs updated with correct paths
 
 ---

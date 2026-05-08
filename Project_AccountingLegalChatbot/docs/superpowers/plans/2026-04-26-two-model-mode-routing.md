@@ -71,7 +71,7 @@
 
   Run from `backend/` directory:
   ```
-  cd "C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\Project_AccountingLegalChatbot\backend"
+  cd backend
   python -m pytest tests/test_adaptive_token_budget.py -v -q
   ```
   Expected: all tests pass. If `test_compute_safe_max_tokens_short_input_honours_requested` fails because `fast_max_tokens` changed from `None` to `20000`, that is expected — it just means the token budget for fast mode now has a cap. The test itself does not read `fast_max_tokens`.
@@ -141,7 +141,7 @@
 - [ ] **Step 2: Run tests to confirm they fail**
 
   ```
-  cd "C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\Project_AccountingLegalChatbot\backend"
+  cd backend
   python -m pytest tests/test_model_routing.py::test_reasoning_effort_injected_when_set tests/test_model_routing.py::test_reasoning_effort_absent_when_none -v
   ```
   Expected: both FAIL with `TypeError: _build_payload() got an unexpected keyword argument 'reasoning_effort'`
@@ -523,7 +523,7 @@
 - [ ] **Step 5: Verify no syntax errors**
 
   ```
-  cd "C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\Project_AccountingLegalChatbot\backend"
+  cd backend
   python -c "from api.chat import router; print('OK')"
   ```
   Expected: `OK`
@@ -544,7 +544,7 @@
 - [ ] **Step 1: Run the complete test suite**
 
   ```
-  cd "C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\Project_AccountingLegalChatbot\backend"
+  cd backend
   python -m pytest --tb=short -q
   ```
   Expected: all tests pass (470+ passed, 0 failed). Note the exact count and report it.

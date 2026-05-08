@@ -1400,8 +1400,8 @@ cd backend
 python -c "
 from pathlib import Path
 dirs = {
-    'finance': Path(r'C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\data_source_finance'),
-    'law':     Path(r'C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan\AI Class\Data Science Class\35. 11-Apr-2026\data_source_law'),
+    'finance': Path(__file__).resolve().parent.parent / "data_source_finance",
+    'law':     Path(__file__).resolve().parent.parent / "data_source_law",
 }
 for cat, d in dirs.items():
     files = list(d.rglob('*')) if d.exists() else []
