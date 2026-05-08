@@ -42,6 +42,21 @@ def _build_hybrid_retriever() -> HybridRetriever:
 
 _hybrid_retriever = _build_hybrid_retriever()
 
+_NO_SOURCES_DISCLAIMER = (
+    "⚠️ **No matching documents found in the knowledge base.** "
+    "This answer is based on general knowledge and may not reflect "
+    "the specific laws or regulations in our database. "
+    "Please verify with official sources.\n\n"
+)
+
+
+def _inject_no_sources_disclaimer(response_text: str, sources_found: int) -> str:
+    """Prepend disclaimer to LLM response when RAG returned no sources."""
+    if sources_found == 0:
+        return _NO_SOURCES_DISCLAIMER + response_text
+    return response_text
+
+
 # Type aliases
 ConversationMode = Literal["fast", "deep_research", "analyst"]
 
@@ -896,6 +911,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _allowed_urls = {s.get("source", "") for s in _sources} | {s.get("href", "") for s in _sources}
             _allowed_urls.discard("")
             full_response = strip_hallucinated_urls(full_response, _allowed_urls)
+            full_response = _inject_no_sources_disclaimer(full_response, sources_found=len(_search_results))
 
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:
@@ -1274,6 +1290,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     _allowed_urls = {s.get("source", "") for s in sources} | {s.get("href", "") for s in sources}
     _allowed_urls.discard("")
     answer_content = strip_hallucinated_urls(answer_content, _allowed_urls)
+    answer_content = _inject_no_sources_disclaimer(answer_content, sources_found=len(search_results))
 
     # Save assistant message
     assistant_msg = Message(
