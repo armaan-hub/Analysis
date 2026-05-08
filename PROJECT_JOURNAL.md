@@ -714,3 +714,40 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 
 **ChromaDB:** 13,509 → 13,541 chunks (+32 tenancy law chunks, all domain=general)
 **Tests:** 729 passing (720 existing + 9 new tenancy tests)
+
+---
+
+### 2026-05-08 — Phase 4 Completion: Lint Fixes, Retag Script & Full Verification
+
+**Goal:** Complete Phase 4 of the Master Project Audit Plan — lint checks, retag utility, and full regression verification.
+
+**Context:** The Gemini session plans (`2026-05-07-project-flaw-fixes-plan.md`, `2026-05-07-master-project-fix-plan.md`) confirmed Phases 1–3 were already done. This session closed Phase 4.
+
+**Verified Already Done (no re-work needed):**
+- `graph_rag.py`: e-invoicing terms in `_FINANCE_TERMS` ✅
+- `graph_rag.py`: LIKE-based `search_by_entities` ✅  
+- GoogleDrive `chat_history_viewer.py` sync ✅
+- Full test suite: 663 passed, 8 skipped, 0 failed ✅
+
+**Phase 4 Work Completed:**
+
+**Lint fixes (commit `28188c02`) — 65 auto-fixed via ruff:**
+- F401: Removed unused imports across 27 files (`api/chat.py`, `core/rag_engine.py`, etc.)
+- E702: Reformatted semicolon-separated statements in `core/format_applier.py`
+- F541: Removed `f` prefix from f-strings with no placeholders
+- E401: Split multiple imports onto separate lines
+- Remaining 12 F841 (unused stubs) and 10 E402 (intentional conditional imports) left as-is
+- All 663 tests pass after lint fixes
+
+**retag_vector_store.py (commit `28188c02`):**
+- Created `backend/scripts/retag_vector_store.py`
+- Reads all documents from SQLite, re-infers domain via `_infer_domain_from_name`
+- Updates ChromaDB chunk metadata where domain label has changed
+- Supports `--dry-run` (default) and `--apply` flags
+- Dry-run result: 443 docs scanned, 32 ChromaDB chunks checked, **0 need retagging** — all already correct
+
+**Process:** receiving-code-review → dispatching-parallel-agents (Claude Opus 4.7 + GPT-5.3-Codex, then direct lint run after agent connection error) → verification-before-completion
+
+**Commits pushed to `main`:**
+- `0e890453`: fix(tests): update test_token_budget to expect None for adaptive max tokens
+- `28188c02`: fix(lint): 65 unused imports/semicolons + feat(scripts): retag_vector_store.py
