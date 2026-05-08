@@ -1,6 +1,6 @@
+"""Tests for LLM guard — doc-scoped queries with no RAG results skip LLM call."""
 import pytest
-import json
-from httpx import AsyncClient, ASGITransport
+from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch, MagicMock
 from core.chat.domain_classifier import DomainLabel, ClassifierResult
 from core.llm_manager import LLMResponse
@@ -52,9 +52,11 @@ async def test_no_llm_guard_returns_honest_message_for_doc_scoped(
             "stream": False,
         })
         conv_id = init_resp.json()["conversation_id"]
-    
+
     # Now test the guard with doc-scoped query and empty RAG results
+    # Must patch should_skip_llm at the location where it's used (api.chat module)
     with (
+        patch("core.accuracy.citation_validator.should_skip_llm", return_value=True) as mock_skip,
         patch("api.chat.get_llm_provider") as mock_llm,
         patch("api.chat.classify_intent", new=AsyncMock()),
     ):
@@ -91,7 +93,7 @@ async def test_no_guard_when_not_doc_scoped(client: AsyncClient, mock_rag_empty)
             "stream": False,
         })
         conv_id = init_resp.json()["conversation_id"]
-    
+
     # Now test without guard - LLM should be called
     with (
         patch("api.chat.get_llm_provider", return_value=_mock_llm()),

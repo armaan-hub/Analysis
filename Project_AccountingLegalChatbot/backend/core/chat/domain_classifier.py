@@ -3,26 +3,15 @@ import json
 import logging
 import os
 import re
-from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from core.llm_manager import get_llm_provider
+from core.domains import DomainLabel, DOMAIN_KEYWORDS
 
 logger = logging.getLogger(__name__)
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "domain_classifier.md"
-
-
-class DomainLabel(str, Enum):
-    VAT = "vat"
-    CORPORATE_TAX = "corporate_tax"
-    PEPPOL = "peppol"
-    E_INVOICING = "e_invoicing"
-    LABOUR = "labour"
-    COMMERCIAL = "commercial"
-    IFRS = "ifrs"
-    GENERAL_LAW = "general_law"
 
 
 class ClassifierResult(BaseModel):
@@ -36,48 +25,10 @@ try:
 except (ValueError, TypeError):
     _FUZZY_CUTOFF = 0.78
 
-_DOMAIN_KEYWORDS: dict[str, list[str]] = {
-    "vat": [
-        "vat", "value added tax", "tax invoice", "input tax", "output tax",
-        "zero rating", "hotel apartment", "commercial property", "trn",
-        "reverse charge", "excise", "zero rated", "exempt supply",
-    ],
-    "corporate_tax": [
-        "corporate tax", "corporate", "ct", "qualifying income", "free zone",
-        "transfer pricing", "permanent establishment", "withholding tax",
-        "corporate income", "taxable income", "small business relief",
-    ],
-    "peppol": [
-        "peppol", "peppol bis", "peppol network", "access point", "peppol id",
-    ],
-    "e_invoicing": [
-        "e-invoice", "einvoice", "electronic invoice", "e invoicing",
-        "e invoice", "digital invoice",
-    ],
-    "labour": [
-        "labour", "labor", "employment", "visa", "gratuity", "termination",
-        "end of service", "worker", "employee", "wages", "mohre", "wps",
-    ],
-    "commercial": [
-        "commercial", "company law", "llc", "partnership", "trading licence",
-        "commercial register", "agency", "licensing", "business setup",
-    ],
-    "ifrs": [
-        "ifrs", "ias", "financial statement", "accounting standard",
-        "consolidation", "revenue recognition", "lease", "impairment",
-        "fair value", "disclosure",
-    ],
-    "general_law": [
-        "wills", "will and testament", "inheritance", "inherit",
-        "probate", "testator", "beneficiary", "estate planning",
-        "succession", "guardian appointment",
-    ],
-}
-
-# Flat list of (keyword, domain) pairs for difflib matching
+# Flat list of (keyword, domain_value) pairs for difflib matching
 _FLAT_KEYWORDS: list[tuple[str, str]] = [
-    (kw, domain)
-    for domain, kws in _DOMAIN_KEYWORDS.items()
+    (kw, domain.value)
+    for domain, kws in DOMAIN_KEYWORDS.items()
     for kw in kws
 ]
 
@@ -106,10 +57,10 @@ def _fuzzy_classify_query(query: str) -> "ClassifierResult | None":
     lower = query.lower()
 
     # Pass 1: word-boundary-aware match (longest keywords first)
-    for kw, domain in _FLAT_KEYWORDS_SORTED:
+    for kw, domain_val in _FLAT_KEYWORDS_SORTED:
         if _word_boundary_match(kw, lower):
             return ClassifierResult(
-                domain=DomainLabel(domain), confidence=0.8, alternatives=[]
+                domain=DomainLabel(domain_val), confidence=0.8, alternatives=[]
             )
 
     # Pass 2: difflib fuzzy match on individual query words
@@ -125,9 +76,9 @@ def _fuzzy_classify_query(query: str) -> "ClassifierResult | None":
             max_len = max(len(word), len(matched_kw))
             if min_len / max_len < 0.75:
                 continue
-            matched_domain = _KW_TO_DOMAIN[matched_kw]
+            matched_domain_val = _KW_TO_DOMAIN[matched_kw]
             return ClassifierResult(
-                domain=DomainLabel(matched_domain), confidence=0.7, alternatives=[]
+                domain=DomainLabel(matched_domain_val), confidence=0.7, alternatives=[]
             )
 
     return None

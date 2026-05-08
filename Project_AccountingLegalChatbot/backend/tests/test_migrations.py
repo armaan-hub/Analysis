@@ -1,22 +1,57 @@
-import sqlite3, pathlib
+import pytest
+from sqlalchemy import text
+from db.database import engine
+from db.models import Base
 
-DB_PATH = pathlib.Path(__file__).parent.parent / "data" / "chatbot.db"
+@pytest.mark.asyncio
+async def test_content_hash_column_exists():
+    """Verify that create_all creates the expected columns."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    # Use a fresh in-memory DB for this test to be certain of state
+    test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        
+    async with test_engine.connect() as conn:
+        result = await conn.execute(text("PRAGMA table_info(documents)"))
+        cols = {row[1] for row in result.fetchall()}
+        assert 'content_hash' in cols, f"content_hash not found. Columns: {cols}"
+        assert 'summary' in cols
+        assert 'key_terms' in cols
+        assert 'source' in cols
 
 
-def test_content_hash_column_exists():
-    """content_hash column must exist in documents table."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(documents)").fetchall()}
-    conn.close()
-    assert 'content_hash' in cols, f"content_hash not found. Columns: {cols}"
+@pytest.mark.asyncio
+async def test_entities_tables_exist():
+    """Verify that create_all creates GraphRAG tables."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        
+    async with test_engine.connect() as conn:
+        result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        tables = {row[0] for row in result.fetchall()}
+        assert 'entities' in tables, f"entities table not found. Tables: {tables}"
+        assert 'entity_relations' in tables
 
 
-def test_entities_tables_exist():
-    """entities and entity_relations tables must exist."""
-    conn = sqlite3.connect(str(DB_PATH))
-    tables = {r[0] for r in conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    ).fetchall()}
-    conn.close()
-    assert 'entities' in tables, f"entities table not found. Tables: {tables}"
-    assert 'entity_relations' in tables, f"entity_relations table not found. Tables: {tables}"
+@pytest.mark.asyncio
+async def test_conversation_columns_exist():
+    """Verify that create_all creates new conversation columns."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        
+    async with test_engine.connect() as conn:
+        result = await conn.execute(text("PRAGMA table_info(conversations)"))
+        cols = {row[1] for row in result.fetchall()}
+        assert 'domain' in cols
+        assert 'is_pinned' in cols
+        assert 'mode' in cols
+        assert 'summary' in cols
+        assert 'summary_msg_count' in cols

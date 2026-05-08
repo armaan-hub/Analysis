@@ -413,3 +413,30 @@ class ResearchJob(Base):
     result_json = Column(JSON, nullable=True)
     started_at = Column(DateTime, default=_utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Graph RAG Models
+# ═══════════════════════════════════════════════════════════════════
+
+class Entity(Base):
+    """A named entity extracted from a document chunk."""
+    __tablename__ = "entities"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doc_id = Column(String(36), nullable=False, index=True)
+    chunk_index = Column(Integer, nullable=False)
+    name = Column(String(500), nullable=False)
+    entity_type = Column(String(50), nullable=False, default="GENERAL")
+
+
+class EntityRelation(Base):
+    """A relationship between two entities."""
+    __tablename__ = "entity_relations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doc_id = Column(String(36), nullable=False, index=True)
+    source_name = Column(String(500), nullable=False)
+    target_name = Column(String(500), nullable=False)
+    relation = Column(String(100), nullable=False, default="RELATED_TO")
+    weight = Column(Float, nullable=False, default=1.0)

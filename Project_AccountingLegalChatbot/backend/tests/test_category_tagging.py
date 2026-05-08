@@ -90,8 +90,14 @@ async def test_upload_no_studio_sets_general_category(client):
 
 
 @pytest.mark.asyncio
-async def test_ingest_chunks_stores_category():
+async def test_ingest_chunks_stores_category(monkeypatch):
     """Unit test — ingest_chunks with category param stores it in ChromaDB."""
+    # Mock the embedding provider to avoid API calls during tests
+    async def mock_embed_texts(texts):
+        return [[0.1] * 1024 for _ in texts]
+
+    monkeypatch.setattr(rag_engine.embedding_provider, "embed_texts", mock_embed_texts)
+
     # Create test chunks
     doc_id = f"test_doc_{uuid.uuid4()}"
     chunks = [
@@ -101,7 +107,7 @@ async def test_ingest_chunks_stores_category():
         )
         for i in range(3)
     ]
-    
+
     # Ingest with category="law"
     count = await rag_engine.ingest_chunks(
         chunks,
@@ -109,15 +115,15 @@ async def test_ingest_chunks_stores_category():
         original_name="test.txt",
         category="law"
     )
-    
+
     assert count == 3, f"Expected 3 chunks ingested, got {count}"
-    
+
     # Verify category is stored in ChromaDB
     results = rag_engine.collection.get(
         where={"doc_id": doc_id},
         include=["metadatas"],
     )
-    
+
     assert len(results["ids"]) == 3
     for meta in results["metadatas"]:
         assert "category" in meta

@@ -1,7 +1,7 @@
 """Test backward compatibility with legacy domain string values.
 
 Legacy frontend domain values like 'law', 'finance', 'audit', 'aml',
-'general', and 'legal' are NOT members of DomainLabel but must not crash
+and 'legal' are NOT members of DomainLabel but must not crash
 the /api/chat/send endpoint — the backend should fall back to the LLM
 classifier.
 """
@@ -25,7 +25,8 @@ def _mock_llm():
     return mock
 
 
-LEGACY_DOMAINS = ["law", "finance", "audit", "aml", "general", "legal"]
+# 'general' removed as it is now a valid DomainLabel member
+LEGACY_DOMAINS = ["law", "finance", "audit", "aml", "legal"]
 
 
 @pytest.mark.asyncio

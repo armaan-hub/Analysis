@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     openai_embed_model: str = "text-embedding-3-small"  # 1536-dim, same as NIM
 
     # ── Database ─────────────────────────────────────────────────────
-    database_url: str = "sqlite:///./data/chatbot.db"
+    database_url: str = f"sqlite:///{Path(__file__).parent}/data/chatbot.db"
 
     # ── File Storage ─────────────────────────────────────────────────
     upload_dir: str = "./uploads"
