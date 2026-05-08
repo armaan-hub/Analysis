@@ -3,11 +3,7 @@ import pytest
 from pathlib import Path
 
 
-REFERENCE_PDF = (
-    r"C:\Users\Armaan\OneDrive - The Era Corporations"
-    r"\Study\Armaan\AI Class\Data Science Class"
-    r"\35. 11-Apr-2026\Testing data\Draft FS - Castle Plaza 2025.pdf"
-)
+REFERENCE_PDF = str(Path.cwd().parent / "Testing data" / "Draft FS - Castle Plaza 2025.pdf")
 
 FINGERPRINT_KEYS = {"page_size", "currency", "section_count", "has_notes", "col_count", "format_family"}
 
