@@ -52,6 +52,21 @@ async def init_db():
     # SQLite's create_all won't add columns to existing tables.
     # Run ALTER TABLE manually, swallowing the error if the column already exists.
     async with engine.begin() as conn:
+        # document_chunks table (added 2026-05-09) — persistent chunk text store
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS document_chunks (
+                id VARCHAR(36) PRIMARY KEY,
+                doc_id VARCHAR(36) NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                chunk_index INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                metadata_json JSON,
+                created_at DATETIME
+            )
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_document_chunks_doc_id ON document_chunks (doc_id)"
+        ))
+
         for stmt in (
             "ALTER TABLE templates ADD COLUMN format_family TEXT NOT NULL DEFAULT 'custom'",
             "ALTER TABLE templates ADD COLUMN format_variant TEXT",

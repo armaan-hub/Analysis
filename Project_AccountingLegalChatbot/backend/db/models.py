@@ -82,6 +82,35 @@ class Document(Base):
     source = Column(String(50), nullable=True, default="upload")  # "upload" | "research"
     content_hash = Column(String(64), nullable=True, index=True)
 
+    chunks = relationship(
+        "DocumentChunk",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+
+
+class DocumentChunk(Base):
+    """Permanent store of raw extracted chunk text.
+
+    ChromaDB is rebuilt from this table when the embedding provider changes
+    or the vector index is corrupted. This is the source of truth for RAG.
+    """
+    __tablename__ = "document_chunks"
+
+    id = Column(String(36), primary_key=True)           # same ID used in ChromaDB
+    doc_id = Column(
+        String(36),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    chunk_index = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    document = relationship("Document", back_populates="chunks")
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Report Models
