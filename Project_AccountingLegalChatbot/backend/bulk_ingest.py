@@ -46,15 +46,10 @@ _engine = create_async_engine(
 _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
 # ── Source directories ────────────────────────────────────────────
+_HERE = Path(__file__).resolve().parent
 DIRS = {
-    "finance": Path(
-        r"C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan"
-        r"\AI Class\Data Science Class\35. 11-Apr-2026\data_source_finance"
-    ),
-    "law": Path(
-        r"C:\Users\Armaan\OneDrive - The Era Corporations\Study\Armaan"
-        r"\AI Class\Data Science Class\35. 11-Apr-2026\data_source_law"
-    ),
+    "finance": _HERE / "data_source_finance",
+    "law": _HERE / "data_source_law",
 }
 
 
