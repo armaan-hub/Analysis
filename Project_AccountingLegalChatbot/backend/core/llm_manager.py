@@ -76,8 +76,8 @@ _CONTEXT_WINDOW_FALLBACK: int = 8_192
 class LLMResponse:
     """Standardized response from any LLM provider."""
 
-    def __init__(self, content: str, model: str, provider: str,
-                 tokens_used: int = 0, finish_reason: str = "stop"):
+    def __init__(self, content: str, model: str, provider: str = "",
+                 tokens_used: int = 0, finish_reason: str = "stop", **kwargs):
         self.content = content
         self.model = model
         self.provider = provider
@@ -92,6 +92,82 @@ class LLMResponse:
             "tokens_used": self.tokens_used,
             "finish_reason": self.finish_reason,
         }
+
+
+# ── MetadataResult ────────────────────────────────────────────────────────────
+from dataclasses import dataclass as _dataclass, field as _field
+from typing import Optional as _Opt
+
+
+@_dataclass
+class MetadataResult:
+    domain:         str       = "general"
+    jurisdiction:   str       = ""
+    law_number:     str       = ""
+    subjects:       list      = _field(default_factory=list)
+    effective_date: _Opt[str] = None
+    summary:        str       = ""
+
+
+# ── LLMManager ────────────────────────────────────────────────────────────────
+
+class LLMManager:
+    """Thin wrapper around a provider instance with higher-level helpers."""
+
+    def __init__(self, provider: "BaseLLMProvider"):
+        self._provider = provider
+
+    async def translate(self, text: str, src: str = "ar", tgt: str = "en") -> str:
+        _TRANSLATE_SYSTEM = (
+            "You are a professional legal translator. "
+            "Translate the following document from Arabic to English. "
+            "Preserve legal terminology precisely. Return ONLY the English translation. "
+            "If a passage cannot be translated with confidence, mark it as [TRANSLATION_UNCERTAIN]. "
+            "Do not add explanations or notes."
+        )
+        messages = [
+            {"role": "system", "content": _TRANSLATE_SYSTEM},
+            {"role": "user",   "content": f"Translate this text:\n\n{text}"},
+        ]
+        response = await self._provider.chat(messages, temperature=0.1, max_tokens=4096)
+        return response.content.strip()
+
+    async def extract_metadata(self, filename: str, text: str, source_dir: str) -> "MetadataResult":
+        import json as _json
+        _META_SYSTEM = (
+            "You are a UAE legal research assistant. Analyze this document and extract metadata. "
+            "Return ONLY valid JSON with these fields: "
+            "domain (one of: tenancy|vat|corporate_tax|aml|competition|banking_compliance|labour|"
+            "antidumping|trademark|copyright|consumer_protection|companies|general|other), "
+            "jurisdiction (uae_federal|dubai|cabinet|ministerial|local), "
+            "law_number (official law/decree number or empty string), "
+            "subjects (array of 3-8 specific legal topics), "
+            "effective_date (ISO date or null), "
+            "summary (1-2 sentence plain-English summary)."
+        )
+        sample = text[:2000]
+        messages = [
+            {"role": "system", "content": _META_SYSTEM},
+            {"role": "user",   "content": f"Filename: {filename}\nSource category: {source_dir}\n\nDocument text (first 2000 chars):\n{sample}"},
+        ]
+        try:
+            response = await self._provider.chat(messages, temperature=0.1, max_tokens=512)
+            raw = response.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            data = _json.loads(raw)
+            return MetadataResult(
+                domain         = data.get("domain", "general") or "general",
+                jurisdiction   = data.get("jurisdiction", "") or "",
+                law_number     = data.get("law_number", "") or "",
+                subjects       = data.get("subjects", []) or [],
+                effective_date = data.get("effective_date") or None,
+                summary        = data.get("summary", "") or "",
+            )
+        except Exception:
+            return MetadataResult()
 
 
 class BaseLLMProvider:
@@ -1251,3 +1327,7 @@ def list_available_providers() -> list[dict]:
             "is_active": name == settings.llm_provider,
         })
     return result
+
+
+# ── Module-level singleton ────────────────────────────────────────────────────
+llm_manager: LLMManager = LLMManager(get_llm_provider())
