@@ -73,6 +73,13 @@ class GraphifyRetriever:
 
     def is_available(self) -> bool:
         """Returns True if graph loaded successfully."""
+        if not self._available and Path(self._graph_path).exists():
+            self._load()
+        return self._available
+
+    def reload(self) -> bool:
+        """Reload graph from disk. Call after graphify pipeline completes."""
+        self._load()
         return self._available
 
     def search(self, query: str, top_k: int = 10) -> list[GraphResult]:
@@ -154,7 +161,7 @@ class GraphifyRetriever:
             attrs = self._graph.nodes[node_id]
             label = str(attrs.get("label", ""))
             source_file = str(attrs.get("source_file", ""))
-            confidence = str(attrs.get("confidence", attrs.get("file_type", "EXTRACTED")))
+            confidence = str(attrs.get("confidence", "EXTRACTED"))
 
             # Score: keyword matches in label + proximity bonus (closer = higher)
             score = sum(1.0 for kw in keywords if kw in label.lower())

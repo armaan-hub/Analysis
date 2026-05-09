@@ -19,9 +19,10 @@ async def search_concept_graph(
     if not graphify_retriever.is_available():
         return {"available": False, "results": [], "message": "Graphify graph not built yet"}
     results = graphify_retriever.search(query, top_k=top_k)
+    source_files = list(dict.fromkeys(r.source_file for r in results if r.source_file))
     return {
         "available": True,
         "query": query,
         "results": [asdict(r) for r in results],
-        "source_files": graphify_retriever.get_related_source_files(query, top_k),
+        "source_files": source_files,
     }
