@@ -101,6 +101,10 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     vector_store_dir: str = "./vector_store_v2"
     graph_store_dir: str = "./graph_store"
+    # ── Auto-ingest source directories ──────────────────────────────
+    source_law_dir: str = "../data_source_law"
+    source_finance_dir: str = "../data_source_finance"
+    entity_graph_db: str = "./graph_store/entity_graph.db"
 
     # ── Server ───────────────────────────────────────────────────────
     host: str = "0.0.0.0"
@@ -136,9 +140,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(case_sensitive=False)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _resolve_relative_paths(cls, values: dict) -> dict:
+    @model_validator(mode="after")
+    def _resolve_relative_paths(self) -> "Settings":
         """Convert relative paths to absolute, anchored to backend/ directory."""
         _backend_dir = Path(__file__).resolve().parent
 
@@ -154,10 +157,19 @@ class Settings(BaseSettings):
                 return str((_backend_dir / path).resolve())
             return p
 
-        for key in ("database_url", "upload_dir", "vector_store_dir", "graph_store_dir"):
-            if key in values and isinstance(values[key], str):
-                values[key] = _abs(values[key])
-        return values
+        for key in (
+            "database_url",
+            "upload_dir",
+            "vector_store_dir",
+            "graph_store_dir",
+            "source_law_dir",
+            "source_finance_dir",
+            "entity_graph_db",
+        ):
+            value = getattr(self, key, None)
+            if isinstance(value, str):
+                setattr(self, key, _abs(value))
+        return self
 
     # ── Helper Properties ────────────────────────────────────────────
 
