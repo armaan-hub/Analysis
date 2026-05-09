@@ -102,3 +102,20 @@ def test_smart_chunk_short_text_returns_single_chunk():
     chunks = processor._smart_chunk(text, chunk_size=800, overlap=150)
     assert len(chunks) == 1
     assert chunks[0] == text
+
+
+@pytest.mark.asyncio
+async def test_registry_endpoint_returns_list(client):
+    """GET /api/documents/registry must return a list."""
+    resp = await client.get("/api/documents/registry")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+
+@pytest.mark.asyncio
+async def test_scan_source_dirs_endpoint_exists(client):
+    """POST /api/documents/scan-source-dirs must return 200 with queued field."""
+    resp = await client.post("/api/documents/scan-source-dirs")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "queued" in body
