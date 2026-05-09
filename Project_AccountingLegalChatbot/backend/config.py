@@ -106,7 +106,6 @@ class Settings(BaseSettings):
     source_law_dir:     str = str(Path(__file__).parent.parent / "data_source_law")
     source_finance_dir: str = str(Path(__file__).parent.parent / "data_source_finance")
     entity_graph_db:    str = str(Path(__file__).parent / "graph_store" / "entity_graph.db")
-    graphify_graph_path: str = str(Path(__file__).parent / "graph_store" / "graphify_graph.json")
 
     # ── Server ───────────────────────────────────────────────────────
     host: str = "0.0.0.0"

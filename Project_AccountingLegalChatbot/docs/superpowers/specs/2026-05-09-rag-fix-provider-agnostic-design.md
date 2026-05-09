@@ -8,28 +8,13 @@
 
 The chatbot is answering legal questions using LLM training data instead of the 491 indexed documents. Specifically, a question about "Rent Payment by Cheque Bounce Law in Dubai" should cite **Federal Decree-Law No. 50 of 2022** (present in `data_source_law/DecreeLaw_50_2022_pdf.pdf`) but the LLM cited a completely wrong law (Federal Decree-Law No. 14 of 2020 — anti-money laundering). The RAG system is not being used at all.
 
-### Exact Document Inventory (verified 2026-05-09)
-
-| Location | Count |
-|----------|-------|
-| Files on disk (data_source_law + data_source_finance) | **449** |
-| Files registered in DB | 443 |
-| Files on disk but NEVER processed (not in DB) | **62** |
-| DB docs with status=indexed (chunks in DB) | 273 |
-| DB docs with status=error (embedding failed, 0 chunks) | 170 |
-| Chunks embedded into ChromaDB | 12,376 |
-| Chunks currently ACCESSIBLE via RAG search | **0** |
-
-**Every single RAG query returns 0 results.** The chatbot has been answering 100% from hallucination.
-
 ### Root Causes (3 layers)
 
 | Layer | Issue | Impact |
 |-------|-------|--------|
-| 1 | ChromaDB 1.5.8 (Rust) type incompatibility with existing data: `u64 ≠ BLOB`. Collection exists but throws `InternalError` on EVERY query | ALL 12,376 embedded chunks unreachable → 0 RAG results on every query |
-| 2 | 170 documents failed embedding with HTTP 400. NVIDIA `nv-embedqa-e5-v5` has 512-token limit; chunk_size=1000 chars exceeds this for dense legal text. Includes `DecreeLaw_50_2022_pdf.pdf` | 38% of documents (incl. the cheque bounce law) never in vector store |
-| 3 | 62 files on disk were NEVER uploaded or processed at all | 14% of the knowledge base missing entirely |
-| 4 | When RAG returns 0 results, LLM answers from training data **silently** with no disclaimer | User gets confident but hallucinated law citations (wrong law cited) |
+| 1 | ChromaDB 1.5.8 (Rust) type incompatibility with existing data: `u64 ≠ BLOB`. Collection exists but throws `InternalError` on every query | ALL 12,376 embedded chunks unreachable → 0 RAG results |
+| 2 | 170 documents (38%) failed embedding with HTTP 400. NVIDIA `nv-embedqa-e5-v5` has a 512-token limit; current chunk_size=1000 chars exceeds this for dense legal text | `DecreeLaw_50_2022_pdf.pdf` and 169 others never in vector store |
+| 3 | When RAG returns 0 results, LLM answers from training data **silently** with no disclaimer | User gets confident but hallucinated law citations |
 
 ---
 

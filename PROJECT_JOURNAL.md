@@ -915,3 +915,33 @@ Designed and fully implemented a 10-task RAG Auto-Ingest Pipeline for the UAE le
 - `8d7793ef` feat: add daily source rescan scheduler job (every 24h)
 - `fc93ecf5` feat: add registry + scan-source-dirs + reindex API endpoints
 - `58f177f8` fix: _DATA_SOURCES now reads from settings instead of hardcoded user paths
+
+---
+
+## Session: 2026-05-09 — Batch Ingest v2 (OOM Fix + Successful Launch)
+
+### Problem Diagnosed
+Previous `batch_ingest.py` was killed by macOS OOM (SIGKILL/exit code 137) reaching 14.4 GB RSS. Root cause could not be reproduced in isolation — memory profiling showed only 0.15 GB after text extraction.
+
+### Solution: `batch_ingest_v2.py`
+Wrote a lean replacement script that bypasses ALL LLM calls:
+- **No entity-graph LLM calls** (the suspected OOM trigger)
+- **No metadata LLM extraction** (domain inferred from filename keywords)
+- **Embed in batches of 20 chunks** (NVIDIA embedding API)
+- **GraphRAG NER via spaCy only** (CPU-only, no network)
+- **`gc.collect()` between files** (prevent memory accumulation)
+- **500-char truncation per chunk** (fixes NVIDIA 512-token limit for Arabic PDFs)
+- **Idempotent** — already-indexed files are skipped based on `content_hash`
+
+### Results
+- Memory usage: **0.8%** (vs 29.9% before) ✅
+- No OOM kills ✅
+- 3,852+ vectors in ChromaDB and growing ✅
+- Process running as nohup background: `PID 42816`
+- Log: `backend/scripts/batch_ingest_v2.log`
+
+### Monitor
+```bash
+tail -f ~/chatbot_local/Project_AccountingLegalChatbot/backend/scripts/batch_ingest_v2.log
+~/chatbot_venv/bin/python3 -c "import sys; sys.path.insert(0,'backend'); import chromadb; c=chromadb.PersistentClient('/Users/armaan/vector_store_v2'); col=c.get_collection('documents'); print('Vectors:', col.count())"
+```

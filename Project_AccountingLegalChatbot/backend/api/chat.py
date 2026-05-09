@@ -26,7 +26,7 @@ from core.chat.intent_classifier import classify_intent
 from pathlib import Path as _Path
 from core.rag.hybrid_retriever import HybridRetriever
 from core.rag.graph_rag import GraphRAG
-from core.rag.graphify_retriever import graphify_retriever as _graphify_retriever
+from core.rag.graphify_retriever import graphify_retriever
 from config import settings
 from core.web_search import search_web, build_web_context
 
@@ -56,26 +56,6 @@ def _inject_no_sources_disclaimer(response_text: str, sources_found: int) -> str
     if sources_found == 0:
         return _NO_SOURCES_DISCLAIMER + response_text
     return response_text
-
-
-def _build_graph_context(query: str) -> str:
-    """Build graph-based context string to augment RAG prompt. Returns '' if unavailable."""
-    try:
-        if not _graphify_retriever.is_available():
-            return ""
-        results = _graphify_retriever.search(query, top_k=5)
-        if not results:
-            return ""
-        labels = [r.label for r in results[:3]]
-        source_files = list(dict.fromkeys(r.source_file for r in results if r.source_file))[:3]
-        lines = [
-            "\n--- Knowledge Graph Context ---",
-            f"Query matched concepts: {', '.join(labels)}",
-            f"Related source files: {', '.join(source_files) if source_files else 'None'}",
-        ]
-        return "\n".join(lines)
-    except Exception:
-        return ""  # always degrade gracefully
 
 
 # Type aliases
@@ -195,6 +175,46 @@ def _dedup_merge(batches: list, top_k: int) -> list:
                 seen.add(key)
                 merged.append(r)
     return sorted(merged, key=lambda x: x.get("score", 0), reverse=True)[:top_k]
+
+
+def _build_graph_context(query: str, top_k: int = 5) -> str:
+    """Return knowledge-graph prompt context, or empty string on graceful fallback."""
+    try:
+        if not graphify_retriever.is_available():
+            return ""
+        graph_results = graphify_retriever.search(query, top_k=top_k) or []
+        graph_source_files = graphify_retriever.get_related_source_files(query, top_k=top_k) or []
+    except Exception as exc:
+        logger.warning("Graph search failed; continuing without graph context: %s", exc)
+        return ""
+
+    labels: list[str] = []
+    for result in graph_results:
+        if not isinstance(result, dict):
+            continue
+        label = result.get("label") or result.get("name") or result.get("concept")
+        if isinstance(label, str) and label.strip():
+            labels.append(label.strip())
+        if len(labels) >= 3:
+            break
+
+    if not labels and not graph_source_files:
+        return ""
+
+    related_concepts = " → ".join(labels) if labels else "None"
+    concepts_list = ", ".join(f"[{label}]" for label in labels) if labels else "None"
+    source_files_list = (
+        ", ".join(f"[{src}]" for src in graph_source_files[:5])
+        if graph_source_files
+        else "None"
+    )
+
+    return (
+        "\n\n--- Knowledge Graph Context ---\n"
+        f"[Knowledge Graph] Related concepts: {related_concepts}\n"
+        f"Query matched concepts: {concepts_list}\n"
+        f"Related source files: {source_files_list}"
+    )
 
 async def _get_or_refresh_summary(conversation_id: str, history_count: int, provider: str | None = None) -> None:
     """Summarise oldest messages when conversation grows beyond 20 turns. Non-fatal."""
@@ -602,6 +622,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _doc_scoped = False
             _search_results: list = []
             _sources: list = []
+            _graph_context = ""
 
             if req.use_rag:
                 if req.selected_doc_ids:
@@ -743,6 +764,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 # ------ end suppression ------
 
                 logger.info("RAG returned %d results for conversation %s", len(_search_results), conversation.id)
+                _graph_context = _build_graph_context(req.message, top_k=5)
 
             # No-LLM guard: doc-scoped query with zero chunks → honest refusal
             from core.accuracy.citation_validator import should_skip_llm
@@ -767,6 +789,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 _aug = rag_engine.build_augmented_prompt(
                     req.message, _search_results, system_prompt=_sys
                 )
+                if _graph_context:
+                    _aug[0]["content"] += _graph_context
                 _msgs.append(_aug[0])
 
                 def _sanitize_rag_source(src: str) -> str:
@@ -795,11 +819,6 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 ]
             else:
                 _msgs.append({"role": "system", "content": _sys})
-
-            # ── Graph context augmentation ─────────────────────────────────────
-            _graph_ctx = _build_graph_context(req.message)
-            if _graph_ctx:
-                _msgs[0]["content"] += _graph_ctx
 
             # ── 7. Structured text injection ──────────────────────────────────
             try:
@@ -872,7 +891,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             f"Take your time and be accurate.\n\n{_url_rule}\n\n"
                             + web_context
                         )
-                    _msgs[0] = {"role": "system", "content": _sys + (_graph_ctx or "") + "\n\n" + web_instruction}
+                    _msgs[0] = {"role": "system", "content": _sys + "\n\n" + web_instruction}
                     _sources = [
                         {
                             "source": r.get("href", ""),
@@ -1004,6 +1023,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     messages = []
     sources = []
     search_results = []
+    graph_context = ""
 
     # Domain classification — use override if provided, else run LLM classifier
     effective_override = req.domain_override or req.domain  # backward compat
@@ -1215,11 +1235,15 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 model=settings.active_model,
             )
 
+        graph_context = _build_graph_context(req.message, top_k=5)
+
 
         if search_results:
             augmented = rag_engine.build_augmented_prompt(
                 req.message, search_results, system_prompt=system_prompt
             )
+            if graph_context:
+                augmented[0]["content"] += graph_context
             messages.append(augmented[0])  # system message with context
 
             def _sanitize_rag_source(src: str) -> str:
@@ -1244,11 +1268,6 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             messages.append({"role": "system", "content": system_prompt})
     else:
         messages.append({"role": "system", "content": system_prompt})
-
-    # Graph context augmentation (soft — no-op if unavailable)
-    _graph_ctx = _build_graph_context(req.message)
-    if _graph_ctx:
-        messages[0]["content"] += _graph_ctx
 
     # Inject structured text from small xlsx/csv documents
     try:
@@ -1698,4 +1717,3 @@ async def deep_research_stream(req: DeepResearchRequest):
         media_type="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
-
