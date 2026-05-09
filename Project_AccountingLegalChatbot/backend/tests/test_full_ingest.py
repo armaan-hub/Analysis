@@ -114,8 +114,17 @@ async def test_registry_endpoint_returns_list(client):
 
 @pytest.mark.asyncio
 async def test_scan_source_dirs_endpoint_exists(client):
-    """POST /api/documents/scan-source-dirs must return 200 with queued field."""
-    resp = await client.post("/api/documents/scan-source-dirs")
+    """POST /api/documents/scan-source-dirs must return 200 with queued field.
+
+    The scanner is mocked to return zero pending files so the test does not
+    trigger a real ingest of the 451-file source directories (which would OOM).
+    """
+    with patch("core.pipeline.source_scanner.SourceScanner") as MockScanner, \
+         patch("core.pipeline.source_scanner.build_registry_from_db", new_callable=AsyncMock) as mock_registry:
+        mock_registry.return_value = {}
+        MockScanner.return_value.scan.return_value = []
+        resp = await client.post("/api/documents/scan-source-dirs")
+
     assert resp.status_code == 200
     body = resp.json()
     assert "queued" in body
