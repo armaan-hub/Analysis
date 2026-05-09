@@ -876,3 +876,42 @@ the RAG system was returning 0 results on every query. Root causes found through
 - `9d0ca059` feat(ui): embedding provider status + reindex button in Settings
 - `407a1447` fix(tests): restore EMBEDDING_PROVIDER env var after each test
 - `325ef209` fix(rag): catch ChromaDB 'Error finding id' + fix doc_id param in search
+
+---
+
+## Session — 2026-05-09: RAG Auto-Ingest Pipeline (Full Implementation)
+
+### Summary
+Designed and fully implemented a 10-task RAG Auto-Ingest Pipeline for the UAE legal/accounting chatbot. The pipeline auto-ingests 461+ PDFs from `data_source_law/` and `data_source_finance/` with Arabic translation, LLM metadata tagging, entity graph extraction, and a SHA256-based document registry. Used subagent-driven development with GPT-5.5, GPT-5.3-Codex, and Claude Opus 4.7 agents in parallel, with spec compliance reviews and code quality reviews between tasks.
+
+### Features Added
+- **Document model enriched** — 9 new pipeline columns: `source_dir`, `domain`, `jurisdiction`, `law_number`, `subjects`, `effective_date`, `is_arabic`, `was_translated`, `indexed_at`
+- **Idempotent DB migration** — `add_rag_auto_ingest_fields.py` safely adds columns on every startup
+- **Config** — `source_law_dir`, `source_finance_dir`, `entity_graph_db` settings with absolute-path defaults
+- **PDF Extractor** (`core/pipeline/pdf_extractor.py`) — pymupdf + Arabic detection (30% threshold, U+0600–06FF) + OCR fallback + encrypted PDF skip
+- **LLM Methods** (`core/llm_manager.py`) — `LLMManager.translate()` and `extract_metadata()` + internal API endpoints at `/api/llm/translate` and `/api/llm/extract-metadata`
+- **Entity Graph** (`core/entity_graph.py`) — SQLite-backed entity/relationship store with `parse_llm_response`, cascade delete; `EntityRetriever` for graph-based doc retrieval
+- **Source Scanner** (`core/pipeline/source_scanner.py`) — SHA256-based diff of source dirs vs. registry; returns `PendingFile` list
+- **Full Ingest Pipeline** (`DocumentProcessor.ingest_source_file()`) — 3-stage: Extract → Translate → Tag+Index; dual-language chunks for Arabic; law=800/150, finance=1200/200 chunk sizes; smart chunking with paragraph/sentence-boundary splitting
+- **Registry API endpoints** — `GET /api/documents/registry`, `GET /api/documents/registry/{doc_id}`, `POST /api/documents/scan-source-dirs`, `POST /api/documents/{doc_id}/reindex`
+- **Startup scan** — `_startup_source_scan()` async task launched at lifespan boot
+- **Daily scheduler job** — `_rescan_source_dirs()` registered every 24h in APScheduler
+- **Bug fix** — `_DATA_SOURCES` in `api/documents.py` was hardcoded to user's Google Drive; replaced with `settings.source_law_dir/source_finance_dir`
+
+### Test Coverage
+- 28 new tests across 6 test files — all passing
+- `tests/test_pdf_extraction.py` (7), `tests/test_source_scanner.py` (6), `tests/test_entity_graph.py` (5), `tests/test_translation.py` (2), `tests/test_metadata_tagger.py` (2), `tests/test_full_ingest.py` (6)
+
+### Commits (pushed to origin/main)
+- `f99bf983` feat: add RAG auto-ingest fields to Document model + migration
+- `856589ed` feat: add source_law_dir, source_finance_dir, entity_graph_db to config
+- `336af839` feat: add entity knowledge graph (SQLite) and EntityRetriever
+- `667c94a6` feat: add PDF extractor module with Arabic detection and OCR fallback
+- `5eed8fb7` feat: add LLMManager.translate() and extract_metadata() + internal API endpoints
+- `0b2f5d09` fix: timer reset before RAG migration + skip guard for Task 6 scanner tests
+- `aaed00c9` feat: add SourceScanner for SHA256-based source directory diff
+- `42225d33` feat: add ingest_source_file() + _smart_chunk() to DocumentProcessor
+- `ae9364ba` feat: startup source scan task on lifespan boot
+- `8d7793ef` feat: add daily source rescan scheduler job (every 24h)
+- `fc93ecf5` feat: add registry + scan-source-dirs + reindex API endpoints
+- `58f177f8` fix: _DATA_SOURCES now reads from settings instead of hardcoded user paths
