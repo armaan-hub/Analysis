@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
     _add_conv_mode(str(_s.database_url).replace("sqlite:///", ""))
     logger.info(f"[OK] Schema migration: conversation mode column ensured ({time.perf_counter()-_t:.2f}s)")
 
+    _t = time.perf_counter()
     from db.migrations.add_rag_auto_ingest_fields import run_migration as _add_rag_fields
     _add_rag_fields(str(_s.database_url).replace("sqlite+aiosqlite:///", "").replace("sqlite:///", ""))
     logger.info(f"[OK] Schema migration: RAG auto-ingest fields ensured ({time.perf_counter()-_t:.2f}s)")
