@@ -123,6 +123,38 @@ async def lifespan(app: FastAPI):
     start_auto_sync(loop)
     logger.info(f"[OK] Auto-sync watchdog started")
     
+    # Scan source directories on startup and queue new/changed files
+    _t = time.perf_counter()
+    async def _startup_source_scan():
+        try:
+            from db.database import AsyncSessionLocal as _ASL
+            from core.pipeline.source_scanner import SourceScanner, build_registry_from_db
+            from core.document_processor import DocumentProcessor
+            from config import settings as _cfg
+            async with _ASL() as _scan_db:
+                registry = await build_registry_from_db(_scan_db)
+            scanner = SourceScanner(
+                source_law_dir=_cfg.source_law_dir,
+                source_finance_dir=_cfg.source_finance_dir,
+                registry=registry,
+            )
+            pending = scanner.scan()
+            if pending:
+                logger.info(f"[OK] Source scan: {len(pending)} new/changed files queued for ingest")
+                processor = DocumentProcessor()
+                async with _ASL() as _ingest_db:
+                    for pf in pending:
+                        try:
+                            await processor.ingest_source_file(pf.path, pf.source_dir, _ingest_db)
+                        except Exception as _pf_exc:
+                            logger.warning(f"[WARN] Ingest failed for {pf.path}: {_pf_exc}")
+            else:
+                logger.info("[OK] Source scan: all files up to date, nothing to ingest")
+        except Exception as _scan_err:
+            logger.warning(f"[WARN] Startup source scan failed: {_scan_err}")
+
+    asyncio.create_task(_startup_source_scan())
+    logger.info(f"[OK] Startup source scan task started ({time.perf_counter()-_t:.2f}s)")
     logger.info(f"[OK] Total startup time: {time.perf_counter()-_startup_t0:.2f}s")
     logger.info("=" * 60)
 
