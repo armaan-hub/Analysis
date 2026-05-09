@@ -71,9 +71,8 @@ def _build_graph_context(query: str) -> str:
         lines = [
             "\n--- Knowledge Graph Context ---",
             f"Query matched concepts: {', '.join(labels)}",
+            f"Related source files: {', '.join(source_files) if source_files else 'None'}",
         ]
-        if source_files:
-            lines.append(f"Related source files: {', '.join(source_files)}")
         return "\n".join(lines)
     except Exception:
         return ""  # always degrade gracefully
