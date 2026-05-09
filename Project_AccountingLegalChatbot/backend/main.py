@@ -78,6 +78,34 @@ async def lifespan(app: FastAPI):
         logger.warning("[WARN] Embedding fingerprint changed — documents flagged for reindex")
     else:
         logger.info(f"[OK] Embedding fingerprint: {settings.embedding_fingerprint} ({time.perf_counter()-_t:.2f}s)")
+
+    # Auto-detect ChromaDB/SQLite mismatch and trigger background reindex if needed.
+    # This prevents the "58K chunks in SQLite but 0 vectors in ChromaDB" silent failure.
+    _t = time.perf_counter()
+    try:
+        import sqlite3 as _sqlite3
+        from core.rag_engine import rag_engine as _rag_engine
+        _chroma_count = _rag_engine.collection.count()
+        _db_path = str(settings.database_url).replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+        _conn = _sqlite3.connect(_db_path)
+        _sqlite_chunks = _conn.execute("SELECT COUNT(*) FROM document_chunks").fetchone()[0]
+        _conn.close()
+        logger.info(f"[OK] ChromaDB vectors: {_chroma_count:,} | SQLite chunks: {_sqlite_chunks:,}")
+        if _sqlite_chunks > 0 and _chroma_count < _sqlite_chunks * 0.5:
+            logger.warning(
+                f"[WARN] ChromaDB has only {_chroma_count:,} vectors but SQLite has {_sqlite_chunks:,} chunks "
+                f"({_chroma_count/_sqlite_chunks*100:.1f}% populated). "
+                "Triggering background reindex to repair ChromaDB..."
+            )
+            async def _background_reindex():
+                async with AsyncSessionLocal() as _ri_db:
+                    from api.documents import reindex_all_from_db
+                    result = await reindex_all_from_db(db=_ri_db)
+                    logger.info(f"[OK] Background reindex complete: {result['reindexed_chunks']:,} chunks re-embedded")
+            asyncio.create_task(_background_reindex())
+        logger.info(f"[OK] ChromaDB integrity check done ({time.perf_counter()-_t:.2f}s)")
+    except Exception as _chk_err:
+        logger.warning(f"[WARN] ChromaDB integrity check failed: {_chk_err}")
     
     # Start APScheduler
     _t = time.perf_counter()
