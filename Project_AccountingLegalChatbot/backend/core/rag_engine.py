@@ -541,10 +541,19 @@ class RAGEngine:
         except Exception as _qe:
             _qe_msg = str(_qe)
             _qe_lower = _qe_msg.lower()
-            if "dimensionality" in _qe_msg or "segment" in _qe_lower:
+            if (
+                "dimensionality" in _qe_msg
+                or "segment" in _qe_lower
+                or "executing plan" in _qe_lower
+                or "error finding id" in _qe_lower
+                or ("internal error" in _qe_lower and "finding" in _qe_lower)
+                or "u64" in _qe_lower
+                or "blob" in _qe_lower
+                or "mismatched types" in _qe_lower
+            ):
                 logger.warning(
-                    f"ChromaDB dimensionality error during query ({_qe}). "
-                    "Re-initializing client and retrying..."
+                    "ChromaDB query error (%s). Re-initializing client and retrying...",
+                    str(_qe)[:120],
                 )
                 self._reinit_client()
                 results = self._collection.query(

@@ -323,7 +323,8 @@ async def search_documents(
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
     try:
-        results = await rag_engine.search(query, top_k=top_k, doc_id=doc_id)
+        chroma_filter = {"doc_id": {"$eq": doc_id}} if doc_id else None
+        results = await rag_engine.search(query, top_k=top_k, filter=chroma_filter)
     except Exception as e:
         raise HTTPException(
             status_code=502,
