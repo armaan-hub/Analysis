@@ -76,6 +76,21 @@ def create_test_tables():
     asyncio.run(_teardown())
 
 
+@pytest.fixture(autouse=True)
+def restore_embedding_provider_env():
+    """Restore EMBEDDING_PROVIDER env var after each test to prevent pollution."""
+    original = os.environ.get("EMBEDDING_PROVIDER")
+    yield
+    if original is None:
+        os.environ.pop("EMBEDDING_PROVIDER", None)
+    else:
+        os.environ["EMBEDDING_PROVIDER"] = original
+    # Reload config so settings reflects the restored value
+    import importlib
+    import config as _cfg
+    importlib.reload(_cfg)
+
+
 @pytest_asyncio.fixture()
 async def db_session():
     async with _test_session_factory() as session:
