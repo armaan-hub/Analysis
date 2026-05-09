@@ -51,6 +51,11 @@ async def lifespan(app: FastAPI):
     _add_conv_mode(str(_s.database_url).replace("sqlite:///", ""))
     logger.info(f"[OK] Schema migration: conversation mode column ensured ({time.perf_counter()-_t:.2f}s)")
 
+    _t = time.perf_counter()
+    from db.migrations.add_rag_auto_ingest_fields import run_migration as _add_rag_fields
+    _add_rag_fields(str(_s.database_url).replace("sqlite+aiosqlite:///", "").replace("sqlite:///", ""))
+    logger.info(f"[OK] Schema migration: RAG auto-ingest fields ensured ({time.perf_counter()-_t:.2f}s)")
+
     # Seed account-mapping cache from bundled CSV (INSERT OR IGNORE — safe to re-run)
     _t = time.perf_counter()
     from core.agents.account_cache import seed_from_csv, cache_size
@@ -78,6 +83,34 @@ async def lifespan(app: FastAPI):
         logger.warning("[WARN] Embedding fingerprint changed — documents flagged for reindex")
     else:
         logger.info(f"[OK] Embedding fingerprint: {settings.embedding_fingerprint} ({time.perf_counter()-_t:.2f}s)")
+
+    # Auto-detect ChromaDB/SQLite mismatch and trigger background reindex if needed.
+    # This prevents the "58K chunks in SQLite but 0 vectors in ChromaDB" silent failure.
+    _t = time.perf_counter()
+    try:
+        import sqlite3 as _sqlite3
+        from core.rag_engine import rag_engine as _rag_engine
+        _chroma_count = _rag_engine.collection.count()
+        _db_path = str(settings.database_url).replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+        _conn = _sqlite3.connect(_db_path)
+        _sqlite_chunks = _conn.execute("SELECT COUNT(*) FROM document_chunks").fetchone()[0]
+        _conn.close()
+        logger.info(f"[OK] ChromaDB vectors: {_chroma_count:,} | SQLite chunks: {_sqlite_chunks:,}")
+        if _sqlite_chunks > 0 and _chroma_count < _sqlite_chunks * 0.5:
+            logger.warning(
+                f"[WARN] ChromaDB has only {_chroma_count:,} vectors but SQLite has {_sqlite_chunks:,} chunks "
+                f"({_chroma_count/_sqlite_chunks*100:.1f}% populated). "
+                "Triggering background reindex to repair ChromaDB..."
+            )
+            async def _background_reindex():
+                async with AsyncSessionLocal() as _ri_db:
+                    from api.documents import reindex_all_from_db
+                    result = await reindex_all_from_db(db=_ri_db)
+                    logger.info(f"[OK] Background reindex complete: {result['reindexed_chunks']:,} chunks re-embedded")
+            asyncio.create_task(_background_reindex())
+        logger.info(f"[OK] ChromaDB integrity check done ({time.perf_counter()-_t:.2f}s)")
+    except Exception as _chk_err:
+        logger.warning(f"[WARN] ChromaDB integrity check failed: {_chk_err}")
     
     # Start APScheduler
     _t = time.perf_counter()
@@ -90,6 +123,38 @@ async def lifespan(app: FastAPI):
     start_auto_sync(loop)
     logger.info(f"[OK] Auto-sync watchdog started")
     
+    # Scan source directories on startup and queue new/changed files
+    _t = time.perf_counter()
+    async def _startup_source_scan():
+        try:
+            from db.database import AsyncSessionLocal as _ASL
+            from core.pipeline.source_scanner import SourceScanner, build_registry_from_db
+            from core.document_processor import DocumentProcessor
+            from config import settings as _cfg
+            async with _ASL() as _scan_db:
+                registry = await build_registry_from_db(_scan_db)
+            scanner = SourceScanner(
+                source_law_dir=_cfg.source_law_dir,
+                source_finance_dir=_cfg.source_finance_dir,
+                registry=registry,
+            )
+            pending = scanner.scan()
+            if pending:
+                logger.info(f"[OK] Source scan: {len(pending)} new/changed files queued for ingest")
+                processor = DocumentProcessor()
+                async with _ASL() as _ingest_db:
+                    for pf in pending:
+                        try:
+                            await processor.ingest_source_file(pf.path, pf.source_dir, _ingest_db)
+                        except Exception as _pf_exc:
+                            logger.warning(f"[WARN] Ingest failed for {pf.path}: {_pf_exc}")
+            else:
+                logger.info("[OK] Source scan: all files up to date, nothing to ingest")
+        except Exception as _scan_err:
+            logger.warning(f"[WARN] Startup source scan failed: {_scan_err}")
+
+    asyncio.create_task(_startup_source_scan())
+    logger.info(f"[OK] Startup source scan task started ({time.perf_counter()-_t:.2f}s)")
     logger.info(f"[OK] Total startup time: {time.perf_counter()-_startup_t0:.2f}s")
     logger.info("=" * 60)
 
@@ -133,6 +198,7 @@ from api.templates import router as templates_router
 from api import audit_studio
 from api.legal_studio import router as legal_studio_router
 from api.council import router as council_router
+from api.llm import router as llm_router
 
 app.include_router(chat_router)
 app.include_router(documents_router)
@@ -144,6 +210,7 @@ app.include_router(templates_router)
 app.include_router(audit_studio.router)
 app.include_router(legal_studio_router)
 app.include_router(council_router)
+app.include_router(llm_router)
 
 
 # ── Root Endpoint ─────────────────────────────────────────────────

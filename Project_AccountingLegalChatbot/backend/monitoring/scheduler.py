@@ -167,6 +167,38 @@ async def fetch_and_check_updates():
     logger.info("Completed monitoring check.")
 
 
+async def _rescan_source_dirs() -> None:
+    """Daily job: scan source directories and ingest new/changed files."""
+    try:
+        from db.database import AsyncSessionLocal
+        from core.pipeline.source_scanner import SourceScanner, build_registry_from_db
+        from core.document_processor import DocumentProcessor
+        from config import settings
+
+        async with AsyncSessionLocal() as db:
+            registry = await build_registry_from_db(db)
+
+        scanner = SourceScanner(
+            source_law_dir=settings.source_law_dir,
+            source_finance_dir=settings.source_finance_dir,
+            registry=registry,
+        )
+        pending = scanner.scan()
+        if pending:
+            logger.info(f"[Scheduler] Source scan: {len(pending)} files to ingest")
+            processor = DocumentProcessor()
+            async with AsyncSessionLocal() as ingest_db:
+                for pf in pending:
+                    try:
+                        await processor.ingest_source_file(pf.path, pf.source_dir, ingest_db)
+                    except Exception as exc:
+                        logger.warning(f"[Scheduler] Ingest failed for {pf.path}: {exc}")
+        else:
+            logger.info("[Scheduler] Source scan: all files up to date")
+    except Exception as exc:
+        logger.error(f"[Scheduler] Source scan job failed: {exc}")
+
+
 def start_scheduler():
     """Start the APScheduler for periodic checks."""
     global _scheduler_running
@@ -195,6 +227,16 @@ def start_scheduler():
                 max_instances=1,
             )
             logger.info("Scheduled FTA scraper: daily at midnight")
+
+            scheduler.add_job(
+                _rescan_source_dirs,
+                trigger=IntervalTrigger(hours=24),
+                id="daily_source_rescan",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+            logger.info("Scheduled daily source rescan job (every 24h)")
 
             scheduler.start()
         except Exception:

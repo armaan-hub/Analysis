@@ -14,6 +14,7 @@ import threading
 from pathlib import Path
 
 from config import settings
+from core.llm_manager import llm_manager
 
 logger = logging.getLogger(__name__)
 
@@ -426,6 +427,243 @@ class DocumentProcessor:
         total = len(chunks)
         for chunk in chunks:
             chunk.metadata["total_chunks"] = total
+
+        return chunks
+
+    # ── Source-directory ingestion pipeline ───────────────────────────────────
+
+    async def ingest_source_file(
+        self,
+        path: str,
+        source_dir: str,   # "law" | "finance"
+        db,                # AsyncSession
+    ):
+        """Full three-stage pipeline for a file from a source directory.
+
+        Stage 1: Extract text (pdf_extractor)
+        Stage 2: Arabic detection + translation
+        Stage 3: LLM metadata extraction + entity graph
+        Then: chunk, embed, store in ChromaDB
+
+        Returns the Document ORM object (status='indexed') or raises on
+        unrecoverable error. Sets status='skipped' for un-parseable files.
+        """
+        import hashlib as _hl
+        import asyncio as _asyncio
+        from datetime import datetime, timezone
+        from pathlib import Path as _Path
+
+        from core.pipeline.pdf_extractor import extract_text
+        from config import settings
+        from db.models import Document, DocumentChunk as DBDocumentChunk
+        from core.rag_engine import rag_engine
+        from sqlalchemy import select as _select, delete as _delete
+
+        p = _Path(path)
+        content_hash = _hl.sha256(p.read_bytes()).hexdigest()
+        doc_id = content_hash[:36]
+
+        existing = await db.execute(_select(Document).where(Document.id == doc_id))
+        doc: Document = existing.scalar_one_or_none()
+        if doc is None:
+            doc = Document(
+                id=doc_id,
+                filename=str(p.resolve()),
+                original_name=p.name,
+                file_type=p.suffix.lstrip(".").lower(),
+                file_size=p.stat().st_size,
+                content_hash=content_hash,
+                source_dir=source_dir,
+                status="processing",
+                source="auto_ingest",
+            )
+            db.add(doc)
+        else:
+            doc.status = "processing"
+            doc.content_hash = content_hash
+        await db.commit()
+
+        try:
+            # Stage 1: Extract text
+            extraction = extract_text(path)
+            if extraction.skipped:
+                doc.status = "skipped"
+                doc.error_message = extraction.skip_reason
+                await db.commit()
+                return doc
+
+            raw_text = extraction.text
+            doc.is_arabic = extraction.is_arabic
+
+            # Stage 2: Translation (Arabic only)
+            index_text = raw_text
+            if extraction.is_arabic:
+                pages = raw_text.split("\f") if "\f" in raw_text else [raw_text]
+                translated_pages: list[str] = []
+                batch_size = 5
+                for i in range(0, len(pages), batch_size):
+                    batch = pages[i:i + batch_size]
+                    tasks = [llm_manager.translate(pg, src="ar", tgt="en") for pg in batch]
+                    results = await _asyncio.gather(*tasks, return_exceptions=True)
+                    for r in results:
+                        translated_pages.append(r if isinstance(r, str) else "")
+                index_text = "\n".join(translated_pages)
+                doc.was_translated = True
+
+            # Stage 3: Metadata extraction
+            meta = await llm_manager.extract_metadata(
+                filename=p.name,
+                text=raw_text[:2000],
+                source_dir=source_dir,
+            )
+            doc.domain         = meta.domain
+            doc.jurisdiction   = meta.jurisdiction
+            doc.law_number     = meta.law_number
+            doc.subjects       = meta.subjects
+            doc.effective_date = meta.effective_date
+
+            # Entity graph extraction
+            try:
+                from core.entity_graph import EntityGraph
+                graph = EntityGraph(settings.entity_graph_db)
+                await graph.init()
+                _ENTITY_SYSTEM = (
+                    "Extract all legal entities and relationships from this document. "
+                    "Return ONLY JSON: {\"entities\": [{\"name\": ..., \"type\": ..., \"properties\": {}}], "
+                    "\"relationships\": [{\"source\": ..., \"target\": ..., \"relationship\": ...}]}"
+                )
+                resp = await llm_manager._provider.chat(
+                    [{"role": "system", "content": _ENTITY_SYSTEM},
+                     {"role": "user",   "content": raw_text[:3000]}],
+                    temperature=0.1, max_tokens=1024,
+                )
+                entities, rels = graph.parse_llm_response(resp.content)
+                await graph.store_entities(doc_id, entities, rels)
+            except Exception as eg_exc:
+                logger.warning("Entity graph extraction failed for %s: %s", p.name, eg_exc)
+
+            # Chunking with source-dir-specific sizes
+            if source_dir == "law":
+                chunk_size, overlap = 800, 150
+            else:
+                chunk_size, overlap = 1200, 200
+
+            chunks = self._smart_chunk(index_text, chunk_size, overlap)
+
+            # Delete old chunks and reindex
+            await db.execute(_delete(DBDocumentChunk).where(DBDocumentChunk.doc_id == doc_id))
+            await rag_engine.delete_document(doc_id)
+
+            new_chunks: list[DBDocumentChunk] = []
+            chunk_objects: list[DocumentChunk] = []
+
+            # Shared metadata template (overridden per chunk)
+            base_meta = {
+                "doc_id":         doc_id,
+                "original_name":  p.name,
+                "source_dir":     source_dir,
+                "domain":         meta.domain,
+                "jurisdiction":   meta.jurisdiction,
+                "law_number":     meta.law_number,
+                "subjects":       meta.subjects,
+                "is_arabic":      False,
+                "was_translated": getattr(doc, "was_translated", False),
+            }
+
+            for idx, chunk_text in enumerate(chunks):
+                chunk_id = f"{doc_id}_{idx}"
+                chunk_meta = {
+                    **base_meta,
+                    "chunk_index": idx,
+                    "text_hash":   _hl.sha256(chunk_text.encode()).hexdigest()[:16],
+                }
+                new_chunks.append(DBDocumentChunk(
+                    id=chunk_id, doc_id=doc_id, chunk_index=idx,
+                    text=chunk_text, metadata_json=chunk_meta,
+                ))
+                chunk_objects.append(DocumentChunk(text=chunk_text, metadata=chunk_meta))
+
+            db.add_all(new_chunks)
+
+            # Also store original Arabic chunks for dual-language retrieval
+            if getattr(doc, "was_translated", False):
+                arabic_chunks = self._smart_chunk(raw_text, chunk_size, overlap)
+                arabic_chunk_objs: list[DBDocumentChunk] = []
+                arabic_doc_chunks: list[DocumentChunk] = []
+                for idx, atxt in enumerate(arabic_chunks):
+                    cid = f"{doc_id}_ar_{idx}"
+                    meta_ar = {**base_meta, "chunk_index": idx, "is_arabic": True,
+                               "was_translated": False,
+                               "text_hash": _hl.sha256(atxt.encode()).hexdigest()[:16]}
+                    arabic_chunk_objs.append(DBDocumentChunk(
+                        id=cid, doc_id=doc_id, chunk_index=idx,
+                        text=atxt, metadata_json=meta_ar,
+                    ))
+                    arabic_doc_chunks.append(DocumentChunk(text=atxt, metadata=meta_ar))
+                db.add_all(arabic_chunk_objs)
+                chunk_objects += arabic_doc_chunks
+
+            # Embed + store in ChromaDB
+            await rag_engine.ingest_chunks(
+                chunks=chunk_objects,
+                doc_id=doc_id,
+                original_name=p.name,
+                category=meta.domain or source_dir,
+            )
+
+            doc.chunk_count = len(new_chunks)
+            doc.status      = "indexed"
+            doc.indexed_at  = datetime.now(timezone.utc)
+            await db.commit()
+            return doc
+
+        except Exception as exc:
+            logger.error("ingest_source_file failed for %s: %s", path, exc, exc_info=True)
+            try:
+                doc.status = "error"
+                doc.error_message = str(exc)[:500]
+                await db.commit()
+            except Exception:
+                pass
+            raise
+
+    def _smart_chunk(self, text: str, chunk_size: int, overlap: int) -> list[str]:
+        """Split text into overlapping chunks of ~chunk_size chars.
+
+        Splits at: double-newline → single-newline → sentence boundary → hard cut.
+        Never exceeds 1.5× chunk_size.
+        """
+        if len(text) <= chunk_size:
+            return [text] if text.strip() else []
+
+        chunks: list[str] = []
+        start = 0
+
+        while start < len(text):
+            end = start + chunk_size
+            if end >= len(text):
+                chunk = text[start:]
+                if chunk.strip():
+                    chunks.append(chunk.strip())
+                break
+
+            # Try double newline, then single newline, then sentence boundary
+            split_at = text.rfind("\n\n", start, end)
+            if split_at == -1:
+                split_at = text.rfind("\n", start, end)
+            if split_at == -1:
+                split_at = text.rfind(". ", start, end)
+                if split_at != -1:
+                    split_at += 2
+            if split_at == -1 or split_at <= start:
+                split_at = end  # hard cut
+
+            chunk = text[start:split_at].strip()
+            if chunk:
+                chunks.append(chunk)
+            start = split_at - overlap
+            if start < 0:
+                start = 0
 
         return chunks
 

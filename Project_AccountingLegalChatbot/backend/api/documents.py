@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select, desc
@@ -104,6 +104,21 @@ class UploadResponse(BaseModel):
 class ExportSourceRequest(BaseModel):
     text: str
     filename: str = "source"
+
+class RegistryItem(BaseModel):
+    id: str
+    original_name: str
+    source_dir: Optional[str] = None
+    domain: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    law_number: Optional[str] = None
+    subjects: Optional[list] = None
+    status: str
+    chunk_count: int = 0
+    indexed_at: Optional[str] = None
+    is_arabic: bool = False
+    was_translated: bool = False
+    file_size: int = 0
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
@@ -466,6 +481,106 @@ async def export_source_xlsx(req: ExportSourceRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/registry", response_model=list[RegistryItem])
+async def list_registry(
+    source_dir: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import select as _sel
+    from db.models import Document as _Doc
+    q = _sel(_Doc).where(_Doc.source_dir.in_(["law", "finance"]))
+    if source_dir:
+        q = q.where(_Doc.source_dir == source_dir)
+    if status:
+        q = q.where(_Doc.status == status)
+    result = await db.execute(q.order_by(_Doc.original_name))
+    docs = result.scalars().all()
+    return [RegistryItem(
+        id=d.id, original_name=d.original_name, source_dir=d.source_dir,
+        domain=d.domain, jurisdiction=d.jurisdiction, law_number=d.law_number,
+        subjects=d.subjects, status=d.status,
+        chunk_count=d.chunk_count or 0,
+        indexed_at=d.indexed_at.isoformat() if d.indexed_at else None,
+        is_arabic=bool(d.is_arabic), was_translated=bool(d.was_translated),
+        file_size=d.file_size or 0,
+    ) for d in docs]
+
+
+@router.get("/registry/{doc_id}", response_model=RegistryItem)
+async def get_registry_item(doc_id: str, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select as _sel
+    from db.models import Document as _Doc
+    from fastapi import HTTPException
+    result = await db.execute(_sel(_Doc).where(_Doc.id == doc_id, _Doc.source_dir.in_(["law", "finance"])))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Registry item not found")
+    return RegistryItem(
+        id=doc.id, original_name=doc.original_name, source_dir=doc.source_dir,
+        domain=doc.domain, jurisdiction=doc.jurisdiction, law_number=doc.law_number,
+        subjects=doc.subjects, status=doc.status,
+        chunk_count=doc.chunk_count or 0,
+        indexed_at=doc.indexed_at.isoformat() if doc.indexed_at else None,
+        is_arabic=bool(doc.is_arabic), was_translated=bool(doc.was_translated),
+        file_size=doc.file_size or 0,
+    )
+
+
+@router.post("/scan-source-dirs")
+async def scan_source_dirs(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    from core.pipeline.source_scanner import SourceScanner, build_registry_from_db
+    from core.document_processor import DocumentProcessor
+    from config import settings as _cfg
+
+    registry = await build_registry_from_db(db)
+    scanner = SourceScanner(
+        source_law_dir=_cfg.source_law_dir,
+        source_finance_dir=_cfg.source_finance_dir,
+        registry=registry,
+    )
+    pending = scanner.scan()
+
+    async def _run_ingest():
+        from db.database import AsyncSessionLocal
+        processor = DocumentProcessor()
+        async with AsyncSessionLocal() as ingest_db:
+            for pf in pending:
+                try:
+                    await processor.ingest_source_file(pf.path, pf.source_dir, ingest_db)
+                except Exception as exc:
+                    logger.warning("scan-source-dirs: ingest failed for %s: %s", pf.path, exc)
+
+    if pending:
+        background_tasks.add_task(_run_ingest)
+
+    return {"queued": len(pending), "message": f"{len(pending)} files queued for ingest"}
+
+
+@router.post("/{doc_id}/reindex")
+async def reindex_document(doc_id: str, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select as _sel
+    from db.models import Document as _Doc
+    from core.document_processor import DocumentProcessor
+    from fastapi import HTTPException
+
+    result = await db.execute(_sel(_Doc).where(_Doc.id == doc_id, _Doc.source_dir.in_(["law", "finance"])))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found in registry")
+
+    processor = DocumentProcessor()
+    updated = await processor.ingest_source_file(doc.filename, doc.source_dir, db)
+    return {
+        "status": updated.status,
+        "chunk_count": updated.chunk_count,
+        "indexed_at": updated.indexed_at.isoformat() if updated.indexed_at else None,
+    }
+
+
 @router.delete("/{doc_id}")
 async def delete_document(doc_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a document and remove it from the vector store."""
@@ -572,17 +687,10 @@ async def repair_zero_chunk_documents(db: AsyncSession = Depends(get_db)):
 
 
 # ── Data source directories ───────────────────────────────────────────────────
+# Use settings so paths are correct on any machine (not hardcoded to a single user's drive)
 _DATA_SOURCES: dict[str, str] = {
-    "law": (
-        "/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com"
-        "/My Drive/Study/Armaan/AI Class/Data Science Class"
-        "/35. 11-Apr-2026 Agentic AI/data_source_law"
-    ),
-    "finance": (
-        "/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com"
-        "/My Drive/Study/Armaan/AI Class/Data Science Class"
-        "/35. 11-Apr-2026 Agentic AI/data_source_finance"
-    ),
+    "law":     settings.source_law_dir,
+    "finance": settings.source_finance_dir,
 }
 _SUPPORTED_EXTS = {".pdf", ".docx", ".txt", ".doc"}
 

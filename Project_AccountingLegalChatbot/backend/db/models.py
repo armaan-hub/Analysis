@@ -73,7 +73,7 @@ class Document(Base):
     file_type = Column(String(20), nullable=False)  # pdf | docx | xlsx | txt
     file_size = Column(Integer, default=0)  # bytes
     chunk_count = Column(Integer, default=0)
-    status = Column(String(20), default="processing")  # processing | indexed | error
+    status = Column(String(20), default="processing")  # processing | indexed | error | pending | failed | skipped
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     metadata_json = Column(JSON, nullable=True)
@@ -82,6 +82,17 @@ class Document(Base):
     source = Column(String(50), nullable=True, default="upload")  # "upload" | "research"
     content_hash = Column(String(64), nullable=True, index=True)
     needs_reindex = Column(Boolean, default=False, nullable=False, server_default="0")
+
+    # ── Source pipeline fields ────────────────────────────────────────
+    source_dir     = Column(String(20),  nullable=True)          # "law" | "finance" | None (upload)
+    domain         = Column(String(50),  nullable=True)          # e.g. "banking_compliance"
+    jurisdiction   = Column(String(50),  nullable=True)          # e.g. "uae_federal"
+    law_number     = Column(String(200), nullable=True)          # e.g. "Decree Law 50 of 2022"
+    subjects       = Column(JSON,        nullable=True)          # ["cheque bouncing", "penalties"]
+    effective_date = Column(String(20),  nullable=True)          # ISO date or None
+    is_arabic      = Column(Boolean,     default=False, nullable=False, server_default="0")
+    was_translated = Column(Boolean,     default=False, nullable=False, server_default="0")
+    indexed_at     = Column(DateTime,    nullable=True)
 
     chunks = relationship(
         "DocumentChunk",
