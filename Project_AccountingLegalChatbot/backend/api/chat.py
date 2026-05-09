@@ -26,6 +26,7 @@ from core.chat.intent_classifier import classify_intent
 from pathlib import Path as _Path
 from core.rag.hybrid_retriever import HybridRetriever
 from core.rag.graph_rag import GraphRAG
+from core.rag.graphify_retriever import graphify_retriever as _graphify_retriever
 from config import settings
 from core.web_search import search_web, build_web_context
 
@@ -55,6 +56,27 @@ def _inject_no_sources_disclaimer(response_text: str, sources_found: int) -> str
     if sources_found == 0:
         return _NO_SOURCES_DISCLAIMER + response_text
     return response_text
+
+
+def _build_graph_context(query: str) -> str:
+    """Build graph-based context string to augment RAG prompt. Returns '' if unavailable."""
+    try:
+        if not _graphify_retriever.is_available():
+            return ""
+        results = _graphify_retriever.search(query, top_k=5)
+        if not results:
+            return ""
+        labels = [r.label for r in results[:3]]
+        source_files = list(dict.fromkeys(r.source_file for r in results if r.source_file))[:3]
+        lines = [
+            "\n--- Knowledge Graph Context ---",
+            f"Query matched concepts: {', '.join(labels)}",
+        ]
+        if source_files:
+            lines.append(f"Related source files: {', '.join(source_files)}")
+        return "\n".join(lines)
+    except Exception:
+        return ""  # always degrade gracefully
 
 
 # Type aliases
@@ -775,6 +797,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             else:
                 _msgs.append({"role": "system", "content": _sys})
 
+            # ── Graph context augmentation ─────────────────────────────────────
+            _graph_ctx = _build_graph_context(req.message)
+            if _graph_ctx:
+                _msgs[0]["content"] += _graph_ctx
+
             # ── 7. Structured text injection ──────────────────────────────────
             try:
                 if _search_results:
@@ -1218,6 +1245,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             messages.append({"role": "system", "content": system_prompt})
     else:
         messages.append({"role": "system", "content": system_prompt})
+
+    # Graph context augmentation (soft — no-op if unavailable)
+    _graph_ctx = _build_graph_context(req.message)
+    if _graph_ctx:
+        messages[0]["content"] += _graph_ctx
 
     # Inject structured text from small xlsx/csv documents
     try:
