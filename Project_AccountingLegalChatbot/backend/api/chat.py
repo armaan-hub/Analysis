@@ -872,7 +872,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             f"Take your time and be accurate.\n\n{_url_rule}\n\n"
                             + web_context
                         )
-                    _msgs[0] = {"role": "system", "content": _sys + "\n\n" + web_instruction}
+                    _msgs[0] = {"role": "system", "content": _sys + (_graph_ctx or "") + "\n\n" + web_instruction}
                     _sources = [
                         {
                             "source": r.get("href", ""),
