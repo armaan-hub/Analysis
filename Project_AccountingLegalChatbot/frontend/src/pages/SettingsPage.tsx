@@ -360,13 +360,24 @@ export default function SettingsPage() {
 
                   <div className="settings-field" style={{ marginBottom: 0 }}>
                     <label className="settings-label" style={{ fontSize: '0.78rem' }}>Fast Mode Model</label>
-                    <input
-                      type="text"
-                      className="settings-input"
-                      placeholder="e.g. deepseek-ai/deepseek-v3.1-terminus"
-                      value={editFastModel}
-                      onChange={e => setEditFastModel(e.target.value)}
-                    />
+                    {models.length > 0 ? (
+                      <select
+                        className="settings-input settings-select"
+                        value={editFastModel}
+                        onChange={e => setEditFastModel(e.target.value)}
+                      >
+                        <option value="">— select fast model —</option>
+                        {models.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        className="settings-input"
+                        placeholder="e.g. deepseek-ai/deepseek-v3.1-terminus"
+                        value={editFastModel}
+                        onChange={e => setEditFastModel(e.target.value)}
+                      />
+                    )}
                   </div>
                 </div>
               )}
