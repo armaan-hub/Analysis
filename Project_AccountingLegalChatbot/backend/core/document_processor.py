@@ -524,21 +524,39 @@ class DocumentProcessor:
 
             # Entity graph extraction
             try:
-                from core.entity_graph import EntityGraph
-                graph = EntityGraph(settings.entity_graph_db)
-                await graph.init()
-                _ENTITY_SYSTEM = (
-                    "Extract all legal entities and relationships from this document. "
-                    "Return ONLY JSON: {\"entities\": [{\"name\": ..., \"type\": ..., \"properties\": {}}], "
-                    "\"relationships\": [{\"source\": ..., \"target\": ..., \"relationship\": ...}]}"
-                )
-                resp = await llm_manager._provider.chat(
-                    [{"role": "system", "content": _ENTITY_SYSTEM},
-                     {"role": "user",   "content": raw_text[:3000]}],
-                    temperature=0.1, max_tokens=1024,
-                )
-                entities, rels = graph.parse_llm_response(resp.content)
-                await graph.store_entities(doc_id, entities, rels)
+                import core.llm_manager as _lm_mod
+                # _BATCH_FAST_PROVIDER is set by batch_ingest._patch_fast_llm_for_batch():
+                #   None  → no LLM available, skip entity graph entirely
+                #   value → use that provider (mistral-small or devstral)
+                # In normal (non-batch) operation, attribute is absent → use main provider
+                _batch_provider_sentinel = getattr(_lm_mod, "_BATCH_FAST_PROVIDER", "NOT_SET")
+                if _batch_provider_sentinel is None:
+                    # Batch mode with no working LLM — skip entity graph to avoid hanging
+                    logger.info("Entity graph skipped for %s (no LLM available in batch mode)", p.name)
+                else:
+                    from core.entity_graph import EntityGraph
+                    graph = EntityGraph(settings.entity_graph_db)
+                    await graph.init()
+                    _ENTITY_SYSTEM = (
+                        "Extract all legal entities and relationships from this document. "
+                        "Return ONLY JSON: {\"entities\": [{\"name\": ..., \"type\": ..., \"properties\": {}}], "
+                        "\"relationships\": [{\"source\": ..., \"target\": ..., \"relationship\": ...}]}"
+                    )
+                    _eg_provider = (
+                        _batch_provider_sentinel
+                        if _batch_provider_sentinel != "NOT_SET"
+                        else llm_manager._provider
+                    )
+                    resp = await asyncio.wait_for(
+                        _eg_provider.chat(
+                            [{"role": "system", "content": _ENTITY_SYSTEM},
+                             {"role": "user",   "content": raw_text[:3000]}],
+                            temperature=0.1, max_tokens=1024,
+                        ),
+                        timeout=25.0,
+                    )
+                    entities, rels = graph.parse_llm_response(resp.content)
+                    await graph.store_entities(doc_id, entities, rels)
             except Exception as eg_exc:
                 logger.warning("Entity graph extraction failed for %s: %s", p.name, eg_exc)
 
