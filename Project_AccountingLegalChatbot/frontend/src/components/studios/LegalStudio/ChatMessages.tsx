@@ -17,6 +17,20 @@ interface Props {
   docs?: SourceDocLike[];
 }
 
+const NO_SOURCES_PREFIX = '⚠ No matching documents found in my knowledge base';
+
+function parseDisclaimer(text: string): { hasDisclaimer: boolean; cleanText: string } {
+  if (text.startsWith(NO_SOURCES_PREFIX)) {
+    const sepIdx = text.indexOf('\n\n---\n\n');
+    if (sepIdx !== -1) {
+      return { hasDisclaimer: true, cleanText: text.slice(sepIdx + 7).trim() };
+    }
+    const parts = text.split('\n\n');
+    return { hasDisclaimer: true, cleanText: parts.slice(2).join('\n\n').trim() };
+  }
+  return { hasDisclaimer: false, cleanText: text };
+}
+
 const SUGGESTIONS = [
   'What are the UAE VAT filing requirements?',
   'Explain IFRS 15 revenue recognition',
@@ -80,7 +94,9 @@ function AIMessage({ msg, onSourceClick, resolve }: { msg: Message; onSourceClic
   
   const [showThinking, setShowThinking] = useState(false);
   const parsed = parseThinking(msg.text || '');
-  const displayText = parsed ? parsed.answer : (msg.text || ' ');
+  const rawText = parsed ? parsed.answer : (msg.text || ' ');
+  const { hasDisclaimer, cleanText } = parseDisclaimer(rawText);
+  const displayText = cleanText || ' ';
 
   return (
     <div className="chat-msg chat-msg--ai">
@@ -99,6 +115,26 @@ function AIMessage({ msg, onSourceClick, resolve }: { msg: Message; onSourceClic
                 <div className="chat-thinking-content">{parsed.thinking}</div>
               )}
             </>
+          )}
+          {hasDisclaimer && (
+            <div style={{
+              background: 'rgba(255, 190, 0, 0.12)',
+              border: '1px solid rgba(255, 190, 0, 0.4)',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              marginBottom: '10px',
+              fontSize: '0.82rem',
+              color: 'var(--text-1)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px',
+            }}>
+              <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚠️</span>
+              <span>
+                <strong>No matching documents found</strong> in the knowledge base for this query.
+                Answer is from general training only — verify with official sources.
+              </span>
+            </div>
           )}
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeMarkdown(displayText)}</ReactMarkdown>
         </div>
