@@ -825,3 +825,54 @@ Backend was confirmed working correctly (streamed valid SSE responses including 
 
 **Commits pushed to `main`:**
 - `069da518`: docs: remove hardcoded OneDrive paths from plan documents
+
+---
+
+## Session: 2026-05-09 — RAG Fix Once For All (5th & Final Attempt)
+
+### Problem
+LLM was hallucinating law citations (e.g., wrong law for "rent cheque bounce in Dubai") because
+the RAG system was returning 0 results on every query. Root causes found through full audit:
+1. ChromaDB 1.5.8 Rust u64/BLOB type corruption causing vector store failures
+2. NVIDIA embedding 512-token limit exceeded (chunk_size was 1000, should be 350 chars)
+3. Subdirectory PDFs never ingested — `os.listdir()` only found 24 root-level files (not 439)
+4. ChromaDB "Error executing plan: Internal error: Error finding id" not caught in error handler
+5. `/api/documents/search` passed wrong kwarg `doc_id=` to `rag_engine.search()` (expects `filter=`)
+
+### What Was Built (8 tasks + 2 critical bug fixes)
+- **T1**: `DocumentChunk` ORM table — persistent chunk text storage, source of truth for re-embedding
+- **T2**: `OllamaEmbeddingProvider` + provider-aware chunk sizing (350 chars NVIDIA, 1200 Ollama)
+- **T3**: ChromaDB corruption recovery (`_reinit_client()` + retry on BLOB/segment/u64/finding-id errors)
+- **T4**: `scan_and_ingest_all()` with `os.walk()` recursive discovery — found all 439 PDFs
+- **T5**: `_NO_SOURCES_DISCLAIMER` injected in both streaming + non-streaming chat paths
+- **T6**: `Document.needs_reindex` column + fingerprint change detection at startup
+- **T7**: Settings UI embedding provider card (status badge, re-index all button)
+- **T8**: Full E2E ingest — 439 docs, 58,517 chunks, 57,387 vectors in ChromaDB
+- **Bug fix A**: Extended ChromaDB error handler to catch "executing plan"/"error finding id"
+- **Bug fix B**: Fixed `/api/documents/search` kwarg — `doc_id=doc_id` → `filter={"doc_id":{"$eq":doc_id}}`
+
+### Verification
+- E2E query "Federal Decree-Law No. 50 of 2022 / cheque bounce in Dubai" →
+  15 sources, `DecreeLaw_50_2022_pdf.pdf` top result (score 0.47), correct law cited, no hallucination
+- 22 RAG tests pass, 677 total tests pass
+- 0 failed documents (all 439 indexed successfully)
+
+### Key Architecture Decisions
+- NVIDIA embedding stays at 350-char chunks (512 NVIDIA token limit = ~350 chars)
+- ChromaDB reinit + retry is recovery strategy (not rebuild on every query)
+- `general_law` domain suppression threshold: 0.35 combined score (vector needed to pass)
+- No domain filter for `general_law` queries — all 439 docs eligible
+- Provider-agnostic: switch to Ollama (local) or any future provider via EMBEDDING_PROVIDER env var
+
+### Commits (pushed to origin/main)
+- `96499923` feat(rag): add DocumentChunk table
+- `f6e7680f` fix(rag): enable PRAGMA foreign_keys=ON + unique constraint
+- `1dbec5a5` fix(rag): store computed _size/_overlap in DocumentProcessor
+- `d6dbd1b4` feat(rag): persist chunks to DB + fix ChromaDB 1.5.8 corruption
+- `9e9c4bb6` feat(rag): inject no-sources disclaimer when RAG returns 0 results
+- `beafddc3` feat(rag): scan-and-ingest + reindex-all endpoints
+- `f6f167e1` fix(rag): use os.walk() to recurse into data_source subdirectories
+- `af66d87c` feat(rag): auto-detect embedding provider change + flag docs for reindex
+- `9d0ca059` feat(ui): embedding provider status + reindex button in Settings
+- `407a1447` fix(tests): restore EMBEDDING_PROVIDER env var after each test
+- `325ef209` fix(rag): catch ChromaDB 'Error finding id' + fix doc_id param in search
