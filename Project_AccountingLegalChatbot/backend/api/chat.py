@@ -808,7 +808,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _msgs.append({"role": "user", "content": req.message})
 
             # ── 8. Web search fallback (if no RAG results) ───────────────────
-            if not _search_results and not _doc_scoped:
+            # Skip web search for law/UAE-specific domains: web returns US/foreign law sites
+            # which are actively harmful for UAE legal questions. Use local RAG or disclaimer.
+            _LAW_DOMAINS = {"general_law", "commercial", "labour", "e_invoicing", "peppol"}
+            _is_law_domain = _cls.domain.value in _LAW_DOMAINS
+            if not _search_results and not _doc_scoped and not _is_law_domain:
                 is_research = _is_research_query(req.message)
                 if is_research:
                     yield f"data: {json.dumps({'type': 'status', 'status': 'researching', 'message': 'Deep research in progress…'})}\n\n"
