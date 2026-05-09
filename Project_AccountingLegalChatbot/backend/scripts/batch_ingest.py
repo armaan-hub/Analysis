@@ -125,13 +125,12 @@ async def run_batch_ingest() -> None:
 
     save_progress_log(total, processed, skipped, errors, error_details)
 
-    print(f"\n{'=' * 22}")
-    print("=== Ingest Complete ===")
+    print("\n=== Ingest Complete ===")
     print(f"Total files found:     {total}")
     print(f"Already indexed:       {skipped}")
     print(f"Successfully ingested: {processed}")
     print(f"Errors:                {errors}")
-    print(f"Log saved to: {LOG_PATH}")
+    print("Log saved to: scripts/ingest_log.json")
 
 
 if __name__ == "__main__":
