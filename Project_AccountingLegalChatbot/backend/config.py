@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     vector_store_dir: str = "./vector_store_v2"
     graph_store_dir: str = "./graph_store"
 
+    # ── Auto-ingest source directories ──────────────────────────────
+    source_law_dir:     str = str(Path(__file__).parent.parent / "data_source_law")
+    source_finance_dir: str = str(Path(__file__).parent.parent / "data_source_finance")
+    entity_graph_db:    str = str(Path(__file__).parent / "graph_store" / "entity_graph.db")
+
     # ── Server ───────────────────────────────────────────────────────
     host: str = "0.0.0.0"
     port: int = 8001   # run_project.ps1 default; override via PORT in .env
@@ -154,7 +159,8 @@ class Settings(BaseSettings):
                 return str((_backend_dir / path).resolve())
             return p
 
-        for key in ("database_url", "upload_dir", "vector_store_dir", "graph_store_dir"):
+        for key in ("database_url", "upload_dir", "vector_store_dir", "graph_store_dir",
+                    "source_law_dir", "source_finance_dir", "entity_graph_db"):
             if key in values and isinstance(values[key], str):
                 values[key] = _abs(values[key])
         return values
