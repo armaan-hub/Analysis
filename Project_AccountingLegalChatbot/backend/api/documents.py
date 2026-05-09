@@ -687,17 +687,10 @@ async def repair_zero_chunk_documents(db: AsyncSession = Depends(get_db)):
 
 
 # ── Data source directories ───────────────────────────────────────────────────
+# Use settings so paths are correct on any machine (not hardcoded to a single user's drive)
 _DATA_SOURCES: dict[str, str] = {
-    "law": (
-        "/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com"
-        "/My Drive/Study/Armaan/AI Class/Data Science Class"
-        "/35. 11-Apr-2026 Agentic AI/data_source_law"
-    ),
-    "finance": (
-        "/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com"
-        "/My Drive/Study/Armaan/AI Class/Data Science Class"
-        "/35. 11-Apr-2026 Agentic AI/data_source_finance"
-    ),
+    "law":     settings.source_law_dir,
+    "finance": settings.source_finance_dir,
 }
 _SUPPORTED_EXTS = {".pdf", ".docx", ".txt", ".doc"}
 
