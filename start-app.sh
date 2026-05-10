@@ -16,8 +16,7 @@ mkdir -p "$LOG_DIR"
 # ── Helpers ───────────────────────────────────────────────────────────────────
 kill_port() {
   local pids
-  pids=$(lsof -ti tcp:"$1" 2>/dev/null)
-  # || true prevents set -e exit when port is already free (pids is empty)
+  pids=$(lsof -ti tcp:"$1" 2>/dev/null) || true
   [ -n "$pids" ] && echo "$pids" | xargs kill -9 2>/dev/null || true
 }
 
