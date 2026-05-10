@@ -66,6 +66,15 @@ CITATION_INSTRUCTION = (
 )
 
 
+_CITATION_RE = re.compile(
+    r'\[Source:[^\]]+\]|'          # [Source: filename]
+    r'\[Ref:[^\]]+\]|'             # [Ref: filename]
+    r'\[source:[^\]]+\]|'          # [source: filename]
+    r'\bSources?:\s*\n',           # "Sources:" or "Source:" at line start
+    re.IGNORECASE
+)
+
+
 def _inject_citation_fallback(response: str, chunks: list[dict]) -> str:
     """Append source list to response if LLM did not include citations.
 
@@ -79,9 +88,8 @@ def _inject_citation_fallback(response: str, chunks: list[dict]) -> str:
     if not chunks:
         return response
 
-    # Detect if citations already present
-    citation_markers = ("[Source:", "[source:", "Source:", "p.", "page", "cit", "Ref:")
-    if any(marker in response for marker in citation_markers):
+    # Detect if citations already present using strict regex to avoid false positives
+    if _CITATION_RE.search(response):
         return response
 
     # Deduplicate by source_file
@@ -1015,7 +1023,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _allowed_urls.discard("")
             full_response = strip_hallucinated_urls(full_response, _allowed_urls)
             full_response = _inject_no_sources_disclaimer(full_response, sources_found=len(_search_results))
-            full_response = _inject_citation_fallback(full_response, [_normalize_chunk(r) for r in _search_results])
+            normalized_chunks = [_normalize_chunk(r) for r in _search_results]
+            _pre_fallback = full_response
+            full_response = _inject_citation_fallback(full_response, normalized_chunks)
+            # If fallback appended sources, stream the appended portion to the client
+            if full_response != _pre_fallback:
+                appended = full_response[len(_pre_fallback):]
+                yield f"data: {json.dumps({'delta': appended, 'type': 'citation_append'})}\n\n"
 
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:

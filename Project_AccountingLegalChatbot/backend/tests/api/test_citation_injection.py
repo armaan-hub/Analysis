@@ -79,3 +79,11 @@ class TestInjectCitationFallback:
         chunks = [self._chunk("doc.pdf")]
         result = _inject_citation_fallback("answer", chunks)
         assert isinstance(result, str)
+
+    def test_no_false_positive_on_city_word(self):
+        """'city' must NOT be treated as citation marker."""
+        chunks = [self._chunk("doc.pdf")]
+        response = "The city of Dubai has regulations."
+        result = _inject_citation_fallback(response, chunks)
+        # Should have appended sources (not skipped due to "cit" substring)
+        assert "doc.pdf" in result
