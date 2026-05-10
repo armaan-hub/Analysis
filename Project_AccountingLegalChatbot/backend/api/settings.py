@@ -3,10 +3,12 @@ Settings API – Manage LLM providers and application settings.
 """
 
 import asyncio
+import ipaddress
+import logging
 import re
-import time as _time
 from pathlib import Path
 from typing import Optional, List
+from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -20,6 +22,7 @@ from core.llm_manager import get_llm_provider, list_available_providers
 from config import settings
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
+logger = logging.getLogger(__name__)
 
 _settings_lock = asyncio.Lock()
 
@@ -82,9 +85,42 @@ class DetectProviderRequest(BaseModel):
 
 class DetectProviderResponse(BaseModel):
     provider: str
-    key_env_var: Optional[str]
+    key_env_var: Optional[str] = None
     key_label: str
     key_valid: bool
+
+
+# ── SSRF guard ────────────────────────────────────────────────────
+
+_BLOCKED_METADATA_HOSTS = {
+    "169.254.169.254",           # AWS
+    "metadata.google.internal",  # GCP
+    "metadata.gcp.internal",
+}
+
+
+def _validate_provider_url(url: str) -> None:
+    """Block SSRF-risky URLs (cloud metadata, non-http schemes)."""
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:
+        raise ValueError(f"Invalid URL: {exc}") from exc
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("URL scheme must be http or https")
+    host = parsed.hostname or ""
+    if not host:
+        raise ValueError("URL must have a valid host")
+    if host in _BLOCKED_METADATA_HOSTS:
+        raise ValueError(f"URL host '{host}' is not permitted")
+    # Block any 169.254.x.x (link-local — cloud metadata range)
+    try:
+        addr = ipaddress.ip_address(host)
+        if addr.is_link_local:
+            raise ValueError("Link-local addresses are not permitted")
+    except ValueError as exc:
+        if "not permitted" in str(exc):
+            raise
+        pass  # not an IP address, fine
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -384,23 +420,17 @@ def _mask(key: str) -> str:
 @router.get("/local-scan", response_model=LocalScanResponse)
 async def get_local_scan():
     """
-    Return cached local server scan results.
-    If cache is empty, triggers a fresh scan first.
+    Return local server scan results (uses cache if fresh, scans if not).
     Always returns 200 (servers may all be offline).
     """
     scanner = LocalServerScanner.instance()
-    servers = scanner.get_cached()
-    cache_age = 0
-    if servers is None:
-        servers = await scanner.scan_all()
-    else:
-        try:
-            cache_age = int(_time.monotonic() - float(scanner._cache_ts))
-        except Exception:
-            cache_age = 0
-
+    try:
+        data = await scanner.scan_all()
+    except Exception as exc:
+        logger.error("Local scan failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Local scan failed")
     return LocalScanResponse(
-        cache_age_s=cache_age,
+        cache_age_s=scanner.get_cache_age_s(),
         servers=[
             LocalServerInfo(
                 provider=s.provider,
@@ -409,7 +439,7 @@ async def get_local_scan():
                 models=s.models,
                 latency_ms=s.latency_ms,
             )
-            for s in servers
+            for s in data
         ],
     )
 
@@ -418,7 +448,11 @@ async def get_local_scan():
 async def refresh_local_scan():
     """Trigger a fresh local port scan, bypassing the cache."""
     scanner = LocalServerScanner.instance()
-    servers = await scanner.scan_all(force=True)
+    try:
+        servers = await scanner.scan_all(force=True)
+    except Exception as exc:
+        logger.error("Local scan refresh failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Local scan failed")
     return LocalScanResponse(
         cache_age_s=0,
         servers=[
@@ -440,6 +474,11 @@ async def detect_provider(req: DetectProviderRequest):
     Identify the LLM provider from a base URL.
     Optionally validates the API key with a lightweight test call.
     """
+    try:
+        _validate_provider_url(req.base_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
     info = detect_provider_from_url(req.base_url)
     key_valid = False
 

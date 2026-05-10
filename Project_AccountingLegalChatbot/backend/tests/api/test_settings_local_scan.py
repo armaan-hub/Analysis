@@ -15,7 +15,8 @@ async def test_get_local_scan_returns_200(client):
     ]
     with patch("api.settings.LocalServerScanner") as MockScanner:
         instance = MockScanner.instance.return_value
-        instance.get_cached.return_value = mock_servers
+        instance.scan_all = AsyncMock(return_value=mock_servers)
+        instance.get_cache_age_s.return_value = 10
         r = await client.get("/api/settings/local-scan")
 
     assert r.status_code == 200
@@ -36,11 +37,13 @@ async def test_get_local_scan_triggers_scan_when_cache_empty(client):
     ]
     with patch("api.settings.LocalServerScanner") as MockScanner:
         instance = MockScanner.instance.return_value
-        instance.get_cached.return_value = None
         instance.scan_all = AsyncMock(return_value=mock_servers)
+        instance.get_cache_age_s.return_value = 0
         r = await client.get("/api/settings/local-scan")
 
     assert r.status_code == 200
+    data = r.json()
+    assert data["servers"][0]["provider"] == "ollama"
     instance.scan_all.assert_called_once()
 
 
@@ -90,3 +93,23 @@ async def test_detect_provider_custom(client):
     assert r.status_code == 200
     data = r.json()
     assert data["provider"] == "custom"
+
+
+@pytest.mark.asyncio
+async def test_get_local_scan_returns_503_when_scanner_raises(client):
+    """GET /api/settings/local-scan returns 503 when scan_all raises."""
+    with patch("api.settings.LocalServerScanner") as MockScanner:
+        instance = MockScanner.instance.return_value
+        instance.scan_all = AsyncMock(side_effect=RuntimeError("scanner boom"))
+        r = await client.get("/api/settings/local-scan")
+    assert r.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_post_local_scan_refresh_returns_503_when_scanner_raises(client):
+    """POST /api/settings/local-scan/refresh returns 503 when scan_all raises."""
+    with patch("api.settings.LocalServerScanner") as MockScanner:
+        instance = MockScanner.instance.return_value
+        instance.scan_all = AsyncMock(side_effect=RuntimeError("refresh boom"))
+        r = await client.post("/api/settings/local-scan/refresh")
+    assert r.status_code == 503

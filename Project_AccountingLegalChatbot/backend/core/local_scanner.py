@@ -104,6 +104,12 @@ class LocalServerScanner:
             cls._singleton = cls()
         return cls._singleton
 
+    def get_cache_age_s(self) -> int:
+        """Return seconds since last successful scan, or 0 if no cache exists."""
+        if self._cache_ts == 0.0:
+            return 0
+        return int(time.monotonic() - self._cache_ts)
+
     def get_cached(self) -> Optional[list[LocalServer]]:
         """Return cached results if still within TTL, else None."""
         ttl = settings.local_scan_cache_ttl_s
