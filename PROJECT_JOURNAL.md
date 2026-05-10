@@ -209,7 +209,7 @@ pytest tests/ -m "not integration" --cov=. --cov-report=term-missing
 RUN_LLM_TESTS=1 pytest tests/ -m integration -v
 ```
 
-**Current status (as of 2026-05-04):** `632 passed, 0 failed, 8 skipped`
+**Current status (as of 2026-05-10):** `732 passed, 0 failed` (Smart LLM Detection + all prior fixes)
 
 **Critical test files:**
 | Test File | What it tests |
@@ -395,6 +395,120 @@ ChromaDB HNSW error: `"Cannot return results in contiguous 2D array. Probably ef
 *Append new sessions below this line. Each entry: date, goal, decisions, changes, commits, outcome.*
 
 ---
+
+### 2026-05-06 — Auto-Cleanup Stub Conversations
+
+**Goal:** 49 stub conversations (0 messages) were cluttering the UI. Diagnose root cause and implement permanent auto-fix.
+
+**Root cause:** Conversations were being created at the DB level without messages attached (race condition / failed chat creation). No cleanup existed at startup.
+
+**Decisions made:**
+1. Auto-delete stubs at every backend startup (0-message conversations = always safe to delete)
+2. Also expose a manual `/api/maintenance/cleanup-stubs` endpoint for on-demand cleanup
+3. Stored as Rule: "Auto-delete stub conversations with 0 messages at startup or via maintenance endpoint"
+
+**Changes made:**
+- `backend/api/maintenance.py` — New module with stub conversation cleanup functions
+- `backend/main.py` — Added startup cleanup call + maintenance router registration
+- DB cleanup: 49 existing stubs deleted from `chatbot.db`
+
+**Outcome:** UI no longer shows empty stub conversations. Auto-cleanup runs on every backend start.
+
+---
+
+### 2026-05-07 — Fix Fast Mode DEGRADED Deadlock
+
+**Goal:** NVIDIA NIM devstral fast model going DEGRADED caused entire backend to become unresponsive (infinite hang).
+
+**Root causes identified:**
+1. `reasoning_effort="high"` was forwarded to fallback model (mistral-small) — it produced only reasoning tokens with no content → infinite streaming wait
+2. Devstral sometimes hangs instead of returning 400 DEGRADED → triggered 120s read timeout, blocking `classify_intent` and `_get_query_variations`
+
+**Decisions made:**
+1. Strip `reasoning_effort` from payload when falling back to a non-reasoning model
+2. Reduce non-streaming read timeout: 120s → 30s
+3. Add module-level circuit breaker with TTL cache to avoid hammering a DEGRADED model
+
+**Changes made:**
+- `backend/core/llm_manager.py` — Added circuit breaker (`_DEGRADED_CACHE`, `_DEGRADED_TTL`, `_is_degraded()`, `_mark_degraded()`, `_clear_degraded()`), reduced `_DEFAULT_TIMEOUT` read to 30s, strip `reasoning_effort` on fallback
+
+**Outcome:** Fast mode gracefully falls back to mistral-small when devstral is DEGRADED; no more infinite hangs.
+
+---
+
+### 2026-05-08 — RAG System Full Repair + UI Improvements
+
+**Goal:** Fix broken RAG system (0 results for all queries), add UI improvements, diagnose web-search fallback pulling US law sources.
+
+**Root causes fixed:**
+1. ChromaDB error handler not catching "executing plan"/"error finding id" errors → 0 results returned silently
+2. `/api/documents/search` had wrong kwarg (`doc_id=doc_id` instead of proper ChromaDB `filter` dict)
+3. Fast model `<select>` dropdown missing from Settings UI when models loaded
+4. No visual warning shown to user when response has 0 RAG sources (LLM was hallucinating UAE citations)
+5. Web search fallback was pulling US law sites (nolo.com, tenantstogether.org) — wrong jurisdiction
+
+**Changes made:**
+- `backend/core/rag_engine.py` — Extended ChromaDB error handler to catch new error variants
+- `backend/api/documents.py` — Fixed `/api/documents/search` filter kwarg
+- `frontend/src/pages/SettingsPage.tsx` — Fast model `<select>` dropdown when models loaded
+- `frontend/src/components/studios/LegalStudio/ChatMessages.tsx` — Amber warning banner when response has 0 sources
+
+**Commits pushed to `origin/main`:**
+- `325ef209` — fix(rag): extend ChromaDB error handler; fix /documents/search filter kwarg
+- `0c3d16b1` — feat(settings): fast model dropdown when models loaded
+- `8d8ee3e7` — feat(ui): amber warning banner for no-sources responses
+
+**Outcome:** RAG now returns results correctly. UI warns user when answer has no document sources.
+
+---
+
+### 2026-05-09–10 — Smart LLM Auto-Detection + RAG Batch Ingest + Startup OOM Fixes
+
+**Goal:** Build Smart LLM Auto-Detection feature (Ollama / LM Studio / TGI / cloud providers), fix startup OOM crashes, fix Cloudflare frontend tunnel unavailability.
+
+**Feature: Smart LLM Auto-Detection (Tasks 1–8)**
+
+Auto-detects running local inference servers at startup and exposes them in the Settings UI under "Local Models". Auto-identifies cloud providers from Base URL. All 8 tasks dispatched as parallel subagents (GPT-5.5, GPT-5.3-Codex, Claude Opus 4.7).
+
+**Decisions made:**
+1. `LocalServerScanner` singleton with 60s TTL cache; probes configurable ports
+2. SSRF guard on `/detect-provider` — blocks RFC-1918, link-local, cloud metadata IPs (allows loopback for Ollama/LM Studio)
+3. `LocalProvider` uses OpenAI-compat API with conditional `Authorization` header
+4. `lmstudio` added to `_PROVIDER_MAP`
+5. Pre-push hook created: auto-verifies backend+frontend health before every `git push`
+6. Startup source scan changed to scan-only (no ingest at startup) to prevent OOM
+7. Auto-reindex capped: only runs if missing ≤ 5,000 chunks (larger gaps warn + suggest `batch_ingest.py`)
+8. Cloudflare tunnel fix: 5 retries, 8s backoff, 5s gap between backend/frontend tunnels
+
+**Changes made:**
+- `backend/config.py` — Added `local_scan_ports`, `local_scan_timeout_s`, `local_scan_cache_ttl_s`
+- `backend/core/local_scanner.py` — Created `LocalServer`, `detect_provider_from_url()`, `LocalServerScanner`
+- `backend/core/llm_manager.py` — Added `LocalProvider`, `lmstudio` in `_PROVIDER_MAP`
+- `backend/api/settings.py` — Added 3 new endpoints + 4 Pydantic models + SSRF guard
+- `backend/main.py` — Startup scan task, 5k auto-reindex guard, scan-only startup
+- `frontend/src/pages/SettingsPage.tsx` — Local Models sidebar + URL auto-detect on blur
+- `backend/tests/core/test_local_scanner.py` — 11 TDD tests
+- `backend/tests/api/test_settings_local_scan.py` — 8 TDD tests
+- `start-app.sh` — CF_RETRIES=5, CF_RETRY_DELAY=8s, 5s gap before frontend tunnel
+- `.git/hooks/pre-push` — Health-check hook before every push
+
+**Rule added:** Rule 4 — Before every `git push`, pre-push hook auto-verifies backend (:8002) + frontend (:5173). Starts `start-app.sh` if services down; blocks push if unhealthy. Bypass: `git push --no-verify`.
+
+**Test result:** 732 tests passed, 0 failed
+
+**Commits pushed to `origin/main`:**
+- `9c8029f6` — feat(settings): local scan API endpoints + Pydantic models
+- `a35f35a7` — fix(settings): SSRF guard, 503 handling, get_cache_age_s(), 2 error-path tests
+- `ddd52283` — feat(main): startup local scan task
+- `72715ff2` — fix(main): wrap startup scan in try/except with OK log
+- `b28ed248` — feat(frontend): Local Models collapsible sidebar section
+- `31ec79e5` — feat(frontend): URL auto-detect on Base URL blur
+- `dcde7d39` — chore: E2E verified 732 tests, push all Smart LLM Detection commits
+- `a6bd285d` — fix(main): cap auto-reindex at 5k chunks to prevent OOM
+- `6c2c7ce4` — fix(main): startup source scan — scan-only, no ingest at startup
+- `d726cfb5` — fix(start-app): CF 5 retries + 8s backoff + 5s gap for frontend tunnel
+
+**Outcome:** Smart LLM detection live in UI. Backend starts cleanly (no OOM). Both Cloudflare tunnels active. Pre-push hook enforcing verification on every push.
 
 ---
 
