@@ -27,7 +27,7 @@ from pathlib import Path as _Path
 from core.rag.hybrid_retriever import HybridRetriever
 from core.rag.graph_rag import GraphRAG
 from core.rag.graphify_retriever import graphify_retriever
-from config import settings
+from config import settings, compute_llm_params
 from core.web_search import search_web, build_web_context
 
 logger = logging.getLogger(__name__)
@@ -553,6 +553,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     if req.stream:
         async def generate():  # noqa: C901
+            llm_params = compute_llm_params(
+                model_name=settings.nvidia_model,
+                mode=req.mode,
+                provider=settings.llm_provider,
+            )
             # ── 1. Domain classification ──────────────────────────────────────
             _eff = req.domain_override or req.domain
             if _eff:
@@ -646,7 +651,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 try:
                     _search_results = await _hybrid_retriever.retrieve(
                         query=req.message,
-                        top_k=settings.fast_top_k if req.mode == "fast" else settings.top_k_results,
+                        top_k=llm_params["top_k"],
                         rag_filter=_rag_filter,
                     )
                 except Exception as _rag_exc:
@@ -908,12 +913,12 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             # ── 9. Stream LLM response ────────────────────────────────────────
             full_response = ""
-            _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
+            _requested_max = llm_params["max_tokens"]
             _safe_max = _llm.compute_safe_max_tokens(_msgs, _requested_max)
             try:
                 async for chunk in _llm.chat_stream(
                     _msgs,
-                    temperature=settings.fast_temperature if req.mode == "fast" else settings.deep_temperature if req.mode in ("analyst", "deep_research") else settings.temperature,
+                    temperature=llm_params["temperature"],
                     max_tokens=_safe_max,
                     reasoning_effort=_reasoning_effort,
                 ):
@@ -1020,6 +1025,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
 
     # Build messages list
+    llm_params = compute_llm_params(
+        model_name=settings.nvidia_model,
+        mode=req.mode,
+        provider=settings.llm_provider,
+    )
     messages = []
     sources = []
     search_results = []
@@ -1098,7 +1108,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             )
             search_results = await _hybrid_retriever.retrieve(
                 query=req.message,
-                top_k=settings.fast_top_k if req.mode == "fast" else settings.top_k_results,
+                top_k=llm_params["top_k"],
                 rag_filter=rag_filter,
             )
         except Exception as rag_exc:
@@ -1301,13 +1311,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     messages.append({"role": "user", "content": req.message})
 
     # Call LLM
-    _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
+    _requested_max = llm_params["max_tokens"]
     _safe_max = llm.compute_safe_max_tokens(messages, _requested_max)
     try:
         # Non-streaming response
         response = await llm.chat(
             messages,
-            temperature=settings.fast_temperature if req.mode == "fast" else settings.deep_temperature if req.mode in ("analyst", "deep_research") else settings.temperature,
+            temperature=llm_params["temperature"],
             max_tokens=_safe_max,
             reasoning_effort=_reasoning_effort,
         )
