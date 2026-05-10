@@ -107,3 +107,36 @@ class TestNormalizeChunk:
         result = _normalize_chunk(raw)
         assert raw["metadata"] == original_meta  # raw unchanged
         assert result is not raw
+
+    def test_page_number_zero_preserved(self):
+        """page_number=0 must not fall through to page fallback."""
+        raw = self._raw()
+        raw["metadata"]["page_number"] = 0
+        raw["metadata"]["page"] = 99  # Should be ignored
+        result = _normalize_chunk(raw)
+        assert result["page"] == 0
+
+    def test_metadata_none_handled(self):
+        """metadata=None must not raise."""
+        raw = {
+            "id": "x",
+            "text": "t",
+            "metadata": None,
+            "score": 0.5,
+            "source": "doc.pdf",
+        }
+        result = _normalize_chunk(raw)
+        assert result["source_file"] == "doc.pdf"
+        assert result["page"] is None
+
+    def test_source_none_with_no_original_name(self):
+        """When both original_name and source are None, source_file is None."""
+        raw = {
+            "id": "x",
+            "text": "t",
+            "metadata": {},
+            "score": 0.5,
+            "source": None,
+        }
+        result = _normalize_chunk(raw)
+        assert result["source_file"] is None

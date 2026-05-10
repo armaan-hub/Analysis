@@ -834,13 +834,27 @@ def _normalize_chunk(raw: dict) -> dict:
 
     Output schema:
         {"chunk_id", "text", "source_file", "page", "score", "document_id", "section"}
+
+    Fallback precedence:
+        - source_file: metadata.original_name → raw.source → None
+        - page: metadata.page_number → metadata.page → None (preserves 0)
+        - document_id: metadata.doc_id → None
+        - section: metadata.section → None
     """
     meta = raw.get("metadata") or {}
+
+    original_name = meta.get("original_name")
+    source_file = original_name if original_name is not None else raw.get("source")
+
+    page = meta.get("page_number")
+    if page is None:
+        page = meta.get("page")
+
     return {
         "chunk_id": raw.get("id"),
         "text": raw.get("text"),
-        "source_file": meta.get("original_name") or raw.get("source"),
-        "page": meta.get("page_number") or meta.get("page"),
+        "source_file": source_file,
+        "page": page,
         "score": raw.get("score"),
         "document_id": meta.get("doc_id"),
         "section": meta.get("section"),
