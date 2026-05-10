@@ -18,6 +18,13 @@ interface FullSettings {
   providers: Record<string, ProviderConfig>;
 }
 
+interface DetectProviderResponse {
+  provider: string;
+  key_env_var: string | null;
+  key_label: string;
+  key_valid: boolean;
+}
+
 interface EmbeddingConfig {
   provider: string;
   model: string;
@@ -65,6 +72,11 @@ export default function SettingsPage() {
   const [saving,      setSaving]      = useState(false);
   const [testing,     setTesting]     = useState(false);
   const [statusMsg,   setStatusMsg]   = useState<{ text: string; ok: boolean } | null>(null);
+
+  // URL auto-detect state
+  const [detectingProvider, setDetectingProvider] = useState(false);
+  const [apiKeyLabel,       setApiKeyLabel]       = useState<string>('');
+  const [apiKeyValid,       setApiKeyValid]       = useState<boolean>(false);
 
   // Embedding provider state
   const [embeddingConfig,  setEmbeddingConfig]  = useState<EmbeddingConfig | null>(null);
@@ -205,6 +217,29 @@ export default function SettingsPage() {
     }
   };
 
+  const onBaseUrlBlur = async (url: string) => {
+    if (!url.trim()) return;
+    try {
+      setDetectingProvider(true);
+      const res = await fetch('/api/settings/detect-provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base_url: url, api_key: editKey || undefined }),
+      });
+      if (!res.ok) return;
+      const data: DetectProviderResponse = await res.json();
+      if (data.provider && PROVIDER_META[data.provider]) {
+        setSelectedProvider(data.provider);
+      }
+      setApiKeyLabel(data.key_env_var ?? '');
+      setApiKeyValid(data.key_valid);
+    } catch {
+      // silently ignore — don't disrupt user flow
+    } finally {
+      setDetectingProvider(false);
+    }
+  };
+
   const meta = PROVIDER_META[selectedProvider] ?? { label: selectedProvider, icon: '⚙️', keyRequired: true, hasBaseUrl: false, hasFastModel: false };
   const isActive = fullSettings?.llm_provider === selectedProvider;
 
@@ -258,7 +293,10 @@ export default function SettingsPage() {
               <div className="provider-config-header">
                 <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>{meta.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                    {meta.label}
+                    {detectingProvider && <span style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginLeft: '8px' }}>⟳ detecting…</span>}
+                  </div>
                   {isActive && <div style={{ fontSize: '0.75rem', color: 'var(--green)' }}>Currently active provider</div>}
                 </div>
               </div>
@@ -282,6 +320,12 @@ export default function SettingsPage() {
                   {hasKey[selectedProvider] && !editKey && (
                     <div style={{ fontSize: '0.72rem', color: 'var(--green)', marginTop: '4px' }}>✓ API key is configured</div>
                   )}
+                  {apiKeyValid && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--green)', marginTop: '4px' }}>✓ API key valid</div>
+                  )}
+                  {apiKeyLabel && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-2)', marginTop: '4px' }}>Set via env var: {apiKeyLabel}</div>
+                  )}
                 </div>
               )}
 
@@ -294,6 +338,7 @@ export default function SettingsPage() {
                     placeholder="https://..."
                     value={editBaseUrl}
                     onChange={e => setEditBaseUrl(e.target.value)}
+                    onBlur={e => onBaseUrlBlur(e.target.value)}
                   />
                 </div>
               )}
