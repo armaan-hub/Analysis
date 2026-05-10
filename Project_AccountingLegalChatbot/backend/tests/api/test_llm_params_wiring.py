@@ -48,6 +48,7 @@ class TestLlmParamsWiring:
         assert "fast_temperature if" not in source
         assert "fast_max_tokens if" not in source
         assert "fast_top_k if" not in source
+        assert "fast_top_k" not in source  # catches non-ternary usages too
 
     async def test_no_hardcoded_deep_temperature_ternary(self):
         """Verify deep_temperature ternary is gone."""

@@ -678,13 +678,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                                 _broad_all = await asyncio.gather(
                                     *[rag_engine.search(
                                         q,
-                                        top_k=settings.fast_top_k,
+                                        top_k=llm_params["top_k"],
                                         filter=_base_filter,
                                         min_score=settings.rag_min_score,
                                     ) for q in _query_vars],
                                     return_exceptions=True,
                                 )
-                                _broad_results = _dedup_merge(_broad_all, settings.fast_top_k)
+                                _broad_results = _dedup_merge(_broad_all, llm_params["top_k"])
                             else:
                                 _broad_results = await rag_engine.search(
                                     req.message,
@@ -1138,7 +1138,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             *[
                                 rag_engine.search(
                                     q,
-                                    top_k=settings.fast_top_k,
+                                    top_k=llm_params["top_k"],
                                     filter=_base_filter,
                                     min_score=settings.rag_min_score,
                                 )
@@ -1146,7 +1146,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             ],
                             return_exceptions=True,
                         )
-                        _broad_results = _dedup_merge(_broad_all, settings.fast_top_k)
+                        _broad_results = _dedup_merge(_broad_all, llm_params["top_k"])
                     else:
                         _broad_results = await rag_engine.search(
                             req.message,
