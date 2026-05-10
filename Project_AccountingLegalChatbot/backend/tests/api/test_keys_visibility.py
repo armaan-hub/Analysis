@@ -78,9 +78,15 @@ class TestPutKeyVisibility:
         assert resp.status_code == 400
 
     async def test_update_only_affects_target_key(self, client):
+        # Step 1: set ANTHROPIC to a non-default value
+        await client.put("/api/settings/keys", json={"ANTHROPIC_API_KEY": "hidden"})
+        # Step 2: update a different key
         await client.put("/api/settings/keys", json={"NVIDIA_API_KEY": "none"})
+        # Step 3: verify isolation
         resp = await client.get("/api/settings/keys")
         keys = {k["name"]: k["visibility"] for k in resp.json()["keys"]}
-        # Others should remain at default
-        assert keys["ANTHROPIC_API_KEY"] in ("masked", "hidden", "none")
+        assert keys["ANTHROPIC_API_KEY"] == "hidden", "ANTHROPIC_API_KEY should not have been reset"
         assert keys["NVIDIA_API_KEY"] == "none"
+        for key in KNOWN_KEYS:
+            if key not in ("ANTHROPIC_API_KEY", "NVIDIA_API_KEY"):
+                assert keys[key] == "masked", f"{key} should remain at default 'masked'"

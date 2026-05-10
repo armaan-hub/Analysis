@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/settings", tags=["Settings"])
 logger = logging.getLogger(__name__)
 
 _settings_lock = asyncio.Lock()
+_keys_lock = asyncio.Lock()
 
 # Path to root .env (one level up from backend/)
 _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -61,11 +62,22 @@ def _load_keys_visibility() -> dict[str, str]:
     return {k: _DEFAULT_VISIBILITY for k in _KNOWN_KEYS}
 
 
-def _save_keys_visibility(state: dict[str, str]) -> None:
-    """Save key visibility states to JSON file."""
+def _save_keys_visibility(data: dict) -> None:
+    """Save key visibility states to JSON file atomically."""
+    import tempfile
     path = _keys_file_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2))
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 # ── Schemas ───────────────────────────────────────────────────────
@@ -591,9 +603,14 @@ async def update_keys_visibility(
     unknown = [k for k in body if k not in _KNOWN_KEYS]
     if unknown:
         raise HTTPException(status_code=400, detail=f"Unknown key(s): {', '.join(unknown)}")
-    state = _load_keys_visibility()
-    state.update(body)
-    _save_keys_visibility(state)
+    async with _keys_lock:
+        state = _load_keys_visibility()
+        state.update(body)
+        try:
+            _save_keys_visibility(state)
+        except OSError as e:
+            logger.error("Failed to write settings_keys.json: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to persist key visibility settings") from e
     return KeysVisibilityResponse(
         keys=[KeyVisibilityItem(name=k, visibility=state[k]) for k in _KNOWN_KEYS]
     )
