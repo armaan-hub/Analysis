@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 _settings_lock = asyncio.Lock()
 _keys_lock = asyncio.Lock()
+_embedding_lock = asyncio.Lock()
 
 # Path to root .env (one level up from backend/)
 _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -101,6 +102,9 @@ class ProviderInfo(BaseModel):
     is_active: bool
 
 class ProviderSwitchRequest(BaseModel):
+    provider: str
+
+class EmbeddingSwitchRequest(BaseModel):
     provider: str
 
 class ProviderUpdateRequest(BaseModel):
@@ -614,3 +618,53 @@ async def update_keys_visibility(
     return KeysVisibilityResponse(
         keys=[KeyVisibilityItem(name=k, visibility=state[k]) for k in _KNOWN_KEYS]
     )
+
+
+# ── Embedding Provider Switch ─────────────────────────────────────
+
+_VALID_EMBEDDING_PROVIDERS = ("nvidia", "openai", "ollama")
+
+
+@router.post("/embedding-switch")
+async def switch_embedding_provider(req: EmbeddingSwitchRequest):
+    """Switch the active embedding provider and rebind the live rag_engine."""
+    if req.provider not in _VALID_EMBEDDING_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown embedding provider '{req.provider}'. Valid: {list(_VALID_EMBEDDING_PROVIDERS)}",
+        )
+
+    async with _embedding_lock:
+        current = getattr(settings, "embedding_provider", "nvidia")
+        needs_reindex = current != req.provider
+
+        # Best-effort .env persistence
+        try:
+            _update_env_key("EMBEDDING_PROVIDER", req.provider)
+        except Exception as e:
+            logger.warning("Could not persist EMBEDDING_PROVIDER to .env: %s", e)
+
+        # In-memory settings update (fatal if this fails)
+        try:
+            settings.embedding_provider = req.provider
+        except Exception as e:
+            logger.error("Could not update settings.embedding_provider: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to switch embedding provider")
+
+        # Best-effort live rag_engine rebind
+        try:
+            from core.rag_engine import rag_engine as _rag
+            if hasattr(_rag, "embedding_provider") and hasattr(_rag.embedding_provider, "provider"):
+                _rag.embedding_provider.provider = req.provider
+        except Exception as e:
+            logger.warning("Could not rebind rag_engine embedding provider: %s", e)
+
+        return {
+            "provider": req.provider,
+            "needs_reindex": needs_reindex,
+            "message": (
+                "Provider switched. Re-index required to update embeddings."
+                if needs_reindex
+                else "Provider unchanged."
+            ),
+        }
