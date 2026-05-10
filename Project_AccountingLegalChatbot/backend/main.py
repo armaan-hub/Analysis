@@ -97,18 +97,30 @@ async def lifespan(app: FastAPI):
         _sqlite_chunks = _conn.execute("SELECT COUNT(*) FROM document_chunks").fetchone()[0]
         _conn.close()
         logger.info(f"[OK] ChromaDB vectors: {_chroma_count:,} | SQLite chunks: {_sqlite_chunks:,}")
+        _AUTO_REINDEX_MAX_CHUNKS = 5_000  # never auto-repair gaps this large at startup
         if _sqlite_chunks > 0 and _chroma_count < _sqlite_chunks * 0.5:
-            logger.warning(
-                f"[WARN] ChromaDB has only {_chroma_count:,} vectors but SQLite has {_sqlite_chunks:,} chunks "
-                f"({_chroma_count/_sqlite_chunks*100:.1f}% populated). "
-                "Triggering background reindex to repair ChromaDB..."
-            )
-            async def _background_reindex():
-                async with AsyncSessionLocal() as _ri_db:
-                    from api.documents import reindex_all_from_db
-                    result = await reindex_all_from_db(db=_ri_db)
-                    logger.info(f"[OK] Background reindex complete: {result['reindexed_chunks']:,} chunks re-embedded")
-            asyncio.create_task(_background_reindex())
+            _missing = _sqlite_chunks - _chroma_count
+            if _missing > _AUTO_REINDEX_MAX_CHUNKS:
+                logger.warning(
+                    f"[WARN] ChromaDB/SQLite mismatch too large to auto-repair at startup "
+                    f"({_missing:,} chunks missing, limit={_AUTO_REINDEX_MAX_CHUNKS:,}). "
+                    "Run the batch_ingest.py script to rebuild ChromaDB."
+                )
+            else:
+                logger.warning(
+                    f"[WARN] ChromaDB has only {_chroma_count:,} vectors but SQLite has {_sqlite_chunks:,} chunks "
+                    f"({_chroma_count/_sqlite_chunks*100:.1f}% populated). "
+                    "Triggering background reindex to repair ChromaDB..."
+                )
+                async def _background_reindex():
+                    try:
+                        async with AsyncSessionLocal() as _ri_db:
+                            from api.documents import reindex_all_from_db
+                            result = await reindex_all_from_db(db=_ri_db)
+                            logger.info(f"[OK] Background reindex complete: {result['reindexed_chunks']:,} chunks re-embedded")
+                    except Exception as _ri_err:
+                        logger.warning(f"[WARN] Background reindex failed: {_ri_err}")
+                asyncio.create_task(_background_reindex())
         logger.info(f"[OK] ChromaDB integrity check done ({time.perf_counter()-_t:.2f}s)")
     except Exception as _chk_err:
         logger.warning(f"[WARN] ChromaDB integrity check failed: {_chk_err}")
