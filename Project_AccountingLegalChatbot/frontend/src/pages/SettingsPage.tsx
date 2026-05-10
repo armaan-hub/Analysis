@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API, API_BASE, getErrMsg } from '../lib/api';
+import ApiKeyRow, { type KeyMode } from '../components/ApiKeyRow';
 
 interface ProviderConfig {
   api_key: string;
@@ -109,6 +110,11 @@ export default function SettingsPage() {
   const [reindexStatus,    setReindexStatus]    = useState<ReindexStatus | null>(null);
   const [reindexing,       setReindexing]       = useState(false);
 
+  // API key visibility modes
+  const API_KEY_NAMES = ['NVIDIA_API_KEY', 'NVIDIA_FAST_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY'] as const;
+  const [keyModes,    setKeyModes]    = useState<Record<string, KeyMode>>({});
+  const [keyLoading,  setKeyLoading]  = useState<Record<string, boolean>>({});
+
   const flash = (text: string, ok: boolean) => {
     setStatusMsg({ text, ok });
     setTimeout(() => setStatusMsg(null), 4000);
@@ -200,7 +206,26 @@ export default function SettingsPage() {
       .finally(() => setLoading(false));
     fetchEmbeddingInfo();
     void fetchLocalScan();
+    API.get('/api/settings/keys')
+      .then(r => setKeyModes(r.data as Record<string, KeyMode>))
+      .catch(() => {});
   }, []);
+
+  const toggleKeyMode = async (keyName: string, newMode: KeyMode) => {
+    setKeyModes(prev => ({ ...prev, [keyName]: newMode }));
+    setKeyLoading(prev => ({ ...prev, [keyName]: true }));
+    try {
+      await API.put('/api/settings/keys', { [keyName]: newMode });
+    } catch (e) {
+      flash(getErrMsg(e, 'Failed to update key visibility'), false);
+      // Revert optimistic update on error
+      API.get('/api/settings/keys')
+        .then(r => setKeyModes(r.data as Record<string, KeyMode>))
+        .catch(() => {});
+    } finally {
+      setKeyLoading(prev => ({ ...prev, [keyName]: false }));
+    }
+  };
 
   const pickProvider = (p: string) => {
     setSelectedProvider(p);
@@ -658,6 +683,27 @@ export default function SettingsPage() {
                 <span style={{ marginLeft: '10px', color: 'var(--green)' }}>✓ All documents indexed</span>
               )}
             </div>
+          </div>
+        )}
+        {/* ── API Key Visibility Section ─────────────────────────── */}
+        {!loading && (
+          <div style={{ marginTop: '28px', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px', background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <span style={{ fontSize: '1.2rem' }}>🔑</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem' }}>API Key Visibility</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-2)' }}>Control how API keys are displayed — cycle between masked, hidden, and visible modes</div>
+              </div>
+            </div>
+            {API_KEY_NAMES.map(keyName => (
+              <ApiKeyRow
+                key={keyName}
+                keyName={keyName}
+                mode={(keyModes[keyName] as KeyMode) ?? 'masked'}
+                onToggle={toggleKeyMode}
+                loading={!!keyLoading[keyName]}
+              />
+            ))}
           </div>
         )}
       </div>
