@@ -1192,6 +1192,83 @@ class OllamaProvider(BaseLLMProvider):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# LocalProvider (OpenAI-compatible: LM Studio, TGI, Kobold.cpp)
+# ═══════════════════════════════════════════════════════════════════
+
+class LocalProvider(BaseLLMProvider):
+    """
+    Generic OpenAI-compatible provider for any local inference server
+    that speaks /v1/chat/completions (LM Studio, HuggingFace TGI, Kobold.cpp).
+
+    Ollama's native /api/chat protocol is handled by OllamaProvider.
+    """
+
+    def __init__(self, base_url: str, model: str, api_key: str = "sk-local"):
+        super().__init__(api_key=api_key, model=model, base_url=base_url)
+        self.provider_name = "local"
+
+    async def chat(self, messages, temperature=0.7, max_tokens=4096, reasoning_effort=None):
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
+        ) as client:
+            resp = await client.post(
+                f"{self.base_url}/v1/chat/completions",
+                json=payload,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        content = data["choices"][0]["message"]["content"]
+        return LLMResponse(
+            content=content,
+            model=data.get("model", self.model),
+            provider=self.provider_name,
+            tokens_used=data.get("usage", {}).get("total_tokens", 0),
+            finish_reason=data["choices"][0].get("finish_reason", "stop"),
+        )
+
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=4096, reasoning_effort=None):
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
+        ) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/v1/chat/completions",
+                json=payload,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                        content = chunk["choices"][0].get("delta", {}).get("content", "")
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Factory – get_llm_provider()
 # ═══════════════════════════════════════════════════════════════════
 
@@ -1222,6 +1299,10 @@ _PROVIDER_MAP = {
         api_key="",
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
+    ),
+    "lmstudio": lambda: LocalProvider(
+        base_url="http://localhost:1234",
+        model=getattr(settings, "lmstudio_model", "local-model"),
     ),
     "mock": lambda: MockProvider(),
 }
