@@ -139,10 +139,12 @@ async def lifespan(app: FastAPI):
     # Scan source directories on startup and queue new/changed files
     _t = time.perf_counter()
     async def _startup_source_scan():
+        # Scan only — do NOT ingest at startup to prevent OOM.
+        # Large batches are handled by the scheduler (every 24h) or manually
+        # via POST /api/documents/scan-and-ingest.
         try:
             from db.database import AsyncSessionLocal as _ASL
             from core.pipeline.source_scanner import SourceScanner, build_registry_from_db
-            from core.document_processor import DocumentProcessor
             from config import settings as _cfg
             async with _ASL() as _scan_db:
                 registry = await build_registry_from_db(_scan_db)
@@ -153,16 +155,12 @@ async def lifespan(app: FastAPI):
             )
             pending = scanner.scan()
             if pending:
-                logger.info(f"[OK] Source scan: {len(pending)} new/changed files queued for ingest")
-                processor = DocumentProcessor()
-                async with _ASL() as _ingest_db:
-                    for pf in pending:
-                        try:
-                            await processor.ingest_source_file(pf.path, pf.source_dir, _ingest_db)
-                        except Exception as _pf_exc:
-                            logger.warning(f"[WARN] Ingest failed for {pf.path}: {_pf_exc}")
+                logger.info(
+                    f"[OK] Source scan: {len(pending)} files pending ingest "
+                    f"(run POST /api/documents/scan-and-ingest or wait for scheduler)"
+                )
             else:
-                logger.info("[OK] Source scan: all files up to date, nothing to ingest")
+                logger.info("[OK] Source scan: all files up to date")
         except Exception as _scan_err:
             logger.warning(f"[WARN] Startup source scan failed: {_scan_err}")
 
