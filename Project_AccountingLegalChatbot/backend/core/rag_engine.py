@@ -823,3 +823,25 @@ class RAGEngine:
 
 # Module-level singleton
 rag_engine = RAGEngine()
+
+
+# ── Chunk Normalization ───────────────────────────────────────────────────────
+def _normalize_chunk(raw: dict) -> dict:
+    """Normalize a raw RAGEngine.search() result to the standard citation schema.
+
+    Input schema (from RAGEngine.search):
+        {"id", "text", "metadata": {...}, "score", "source"}
+
+    Output schema:
+        {"chunk_id", "text", "source_file", "page", "score", "document_id", "section"}
+    """
+    meta = raw.get("metadata") or {}
+    return {
+        "chunk_id": raw.get("id"),
+        "text": raw.get("text"),
+        "source_file": meta.get("original_name") or raw.get("source"),
+        "page": meta.get("page_number") or meta.get("page"),
+        "score": raw.get("score"),
+        "document_id": meta.get("doc_id"),
+        "section": meta.get("section"),
+    }
