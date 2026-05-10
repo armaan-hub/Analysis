@@ -9,8 +9,8 @@ from main import app
 
 
 KNOWN_KEYS = [
-    "NVIDIA_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
-    "MISTRAL_API_KEY", "GROQ_API_KEY", "BRAVE_SEARCH_API_KEY"
+    "NVIDIA_API_KEY", "NVIDIA_FAST_API_KEY", "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"
 ]
 
 
@@ -48,36 +48,37 @@ class TestGetKeysVisibility:
 class TestPutKeyVisibility:
     async def test_update_visibility_to_hidden(self, client):
         resp = await client.put(
-            "/api/settings/keys/NVIDIA_API_KEY",
-            json={"visibility": "hidden"}
+            "/api/settings/keys",
+            json={"NVIDIA_API_KEY": "hidden"}
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["name"] == "NVIDIA_API_KEY"
-        assert data["visibility"] == "hidden"
+        assert "keys" in data
+        keys_map = {k["name"]: k["visibility"] for k in data["keys"]}
+        assert keys_map["NVIDIA_API_KEY"] == "hidden"
 
     async def test_update_persists_across_requests(self, client):
-        await client.put("/api/settings/keys/OPENAI_API_KEY", json={"visibility": "none"})
+        await client.put("/api/settings/keys", json={"OPENAI_API_KEY": "none"})
         resp = await client.get("/api/settings/keys")
         keys = {k["name"]: k["visibility"] for k in resp.json()["keys"]}
         assert keys["OPENAI_API_KEY"] == "none"
 
     async def test_invalid_visibility_returns_422(self, client):
         resp = await client.put(
-            "/api/settings/keys/NVIDIA_API_KEY",
-            json={"visibility": "INVALID_VALUE"}
+            "/api/settings/keys",
+            json={"NVIDIA_API_KEY": "INVALID_VALUE"}
         )
         assert resp.status_code == 422
 
-    async def test_unknown_key_returns_404(self, client):
+    async def test_unknown_key_returns_400(self, client):
         resp = await client.put(
-            "/api/settings/keys/NONEXISTENT_KEY",
-            json={"visibility": "masked"}
+            "/api/settings/keys",
+            json={"NONEXISTENT_KEY": "masked"}
         )
-        assert resp.status_code == 404
+        assert resp.status_code == 400
 
     async def test_update_only_affects_target_key(self, client):
-        await client.put("/api/settings/keys/NVIDIA_API_KEY", json={"visibility": "none"})
+        await client.put("/api/settings/keys", json={"NVIDIA_API_KEY": "none"})
         resp = await client.get("/api/settings/keys")
         keys = {k["name"]: k["visibility"] for k in resp.json()["keys"]}
         # Others should remain at default

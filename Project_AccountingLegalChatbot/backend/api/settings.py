@@ -9,9 +9,9 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Literal, Optional, List
+from typing import Annotated, Literal, Optional, List
 from urllib.parse import urlparse
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,8 +34,8 @@ _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 # ── Key visibility helpers ─────────────────────────────────────────
 
 _KNOWN_KEYS = [
-    "NVIDIA_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
-    "MISTRAL_API_KEY", "GROQ_API_KEY", "BRAVE_SEARCH_API_KEY",
+    "NVIDIA_API_KEY", "NVIDIA_FAST_API_KEY", "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY",
 ]
 _VISIBILITY_VALUES = ("masked", "hidden", "none")
 _DEFAULT_VISIBILITY = "masked"
@@ -75,8 +75,8 @@ class KeyVisibilityItem(BaseModel):
     visibility: Literal["masked", "hidden", "none"]
 
 
-class KeyVisibilityUpdate(BaseModel):
-    visibility: Literal["masked", "hidden", "none"]
+class KeysVisibilityUpdate(BaseModel):
+    keys: dict[str, Literal["masked", "hidden", "none"]]
 
 
 class KeysVisibilityResponse(BaseModel):
@@ -583,12 +583,17 @@ async def get_keys_visibility():
     )
 
 
-@router.put("/keys/{key_name}", response_model=KeyVisibilityItem)
-async def update_key_visibility(key_name: str, body: KeyVisibilityUpdate):
-    """Update visibility state for a single API key."""
-    if key_name not in _KNOWN_KEYS:
-        raise HTTPException(status_code=404, detail=f"Unknown key: {key_name}")
+@router.put("/keys", response_model=KeysVisibilityResponse)
+async def update_keys_visibility(
+    body: Annotated[dict[str, Literal["masked", "hidden", "none"]], Body()]
+):
+    """Bulk-update visibility states for one or more API keys."""
+    unknown = [k for k in body if k not in _KNOWN_KEYS]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown key(s): {', '.join(unknown)}")
     state = _load_keys_visibility()
-    state[key_name] = body.visibility
+    state.update(body)
     _save_keys_visibility(state)
-    return KeyVisibilityItem(name=key_name, visibility=body.visibility)
+    return KeysVisibilityResponse(
+        keys=[KeyVisibilityItem(name=k, visibility=state[k]) for k in _KNOWN_KEYS]
+    )
