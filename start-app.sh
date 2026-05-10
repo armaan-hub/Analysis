@@ -7,8 +7,9 @@ FRONTEND_DIR="$HOME/chatbot_local/Project_AccountingLegalChatbot/frontend"
 VENV="$HOME/chatbot_venv/bin/activate"
 ENV_FILE="$FRONTEND_DIR/.env"
 LOG_DIR="$HOME/chatbot_local/logs"
-CF_RETRIES=3                       # attempts per tunnel before giving up
+CF_RETRIES=5                       # attempts per tunnel before giving up
 CF_WAIT_SECS=45                    # seconds to wait per attempt for URL
+CF_RETRY_DELAY=8                   # seconds between retry attempts
 STARTUP_TIMEOUT=${STARTUP_TIMEOUT:-60}   # seconds to wait for service ready
 
 mkdir -p "$LOG_DIR"
@@ -63,7 +64,7 @@ start_cf_tunnel() {
     fi
 
     kill "$pid" 2>/dev/null || true
-    sleep 2
+    sleep "$CF_RETRY_DELAY"
   done
 
   CF_URL=""; CF_PID=""
@@ -155,6 +156,8 @@ done
 # ── 6. Cloudflare tunnel for frontend ────────────────────────────────────────
 echo ""
 echo "▶ Starting Cloudflare tunnel for frontend…"
+# Brief pause so Cloudflare doesn't rate-limit the second quick tunnel
+sleep 5
 CF_URL=""; CF_PID=""
 if start_cf_tunnel "frontend" "http://localhost:5173" "$LOG_DIR/cf-frontend.log"; then
   CF_FRONTEND_URL="$CF_URL"; CF_FRONTEND_PID="$CF_PID"
