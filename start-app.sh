@@ -157,13 +157,21 @@ done
 echo ""
 echo "▶ Starting Cloudflare tunnel for frontend…"
 # Brief pause so Cloudflare doesn't rate-limit the second quick tunnel
-sleep 5
+sleep 10
 CF_URL=""; CF_PID=""
 if start_cf_tunnel "frontend" "http://localhost:5173" "$LOG_DIR/cf-frontend.log"; then
   CF_FRONTEND_URL="$CF_URL"; CF_FRONTEND_PID="$CF_PID"
   echo "  ✓ Frontend tunnel: $CF_FRONTEND_URL"
 else
-  CF_FRONTEND_URL="(unavailable)"; CF_FRONTEND_PID=""
+  CF_FRONTEND_PID=""
+  # Fallback: frontend is also accessible via backend CF tunnel at /ui
+  if [ "$CF_BACKEND_URL" != "(unavailable)" ]; then
+    CF_FRONTEND_URL="${CF_BACKEND_URL}/ui"
+    echo "  ⚠ Frontend CF tunnel unavailable — using backend tunnel fallback: $CF_FRONTEND_URL"
+  else
+    CF_FRONTEND_URL="(unavailable)"
+    echo "  ⚠ Frontend CF tunnel unavailable. Use http://localhost:5173 locally."
+  fi
 fi
 
 # ── 7. Summary ────────────────────────────────────────────────────────────────

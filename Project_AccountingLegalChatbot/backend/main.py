@@ -266,6 +266,24 @@ async def root():
 async def health():
     return {"status": "ok"}
 
+# ── Serve built frontend (fallback when CF frontend tunnel is unavailable) ────
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    # Serve /assets/* etc. from the dist folder
+    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/app/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Catch-all to serve the React SPA for any non-API route."""
+        from fastapi.responses import FileResponse
+        index = _FRONTEND_DIST / "index.html"
+        return FileResponse(str(index))
+
+    @app.get("/ui", include_in_schema=False)
+    async def serve_ui_root():
+        from fastapi.responses import FileResponse
+        return FileResponse(str(_FRONTEND_DIST / "index.html"))
+
 # ── Run directly ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
