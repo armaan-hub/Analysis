@@ -45,18 +45,24 @@ const reindexStatus = {
   fingerprint: 'fp1',
 };
 
+const makeGetMock = (keysData?: Record<string, string>) =>
+  (url: string) => {
+    if (url === '/api/settings/current') return Promise.resolve({ data: baseSettings });
+    if (url === '/api/documents/embedding-config') return Promise.resolve({ data: embeddingConfig });
+    if (url === '/api/documents/reindex-status') return Promise.resolve({ data: reindexStatus });
+    if (url === '/api/settings/local-scan') return Promise.resolve({ data: localScanData });
+    if (url === '/api/settings/keys') return keysData
+      ? Promise.resolve({ data: keysData })
+      : Promise.reject(new Error('keys not mocked'));
+    if (url.includes('/api/settings/providers/')) return Promise.resolve({ data: [] });
+    return Promise.reject(new Error(`Unhandled GET: ${url}`));
+  };
+
 describe('SettingsPage local models section', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    (API.get as any).mockImplementation((url: string) => {
-      if (url === '/api/settings/current') return Promise.resolve({ data: baseSettings });
-      if (url === '/api/documents/embedding-config') return Promise.resolve({ data: embeddingConfig });
-      if (url === '/api/documents/reindex-status') return Promise.resolve({ data: reindexStatus });
-      if (url === '/api/settings/local-scan') return Promise.resolve({ data: localScanData });
-      if (url.includes('/api/settings/providers/')) return Promise.resolve({ data: [] });
-      return Promise.reject(new Error(`Unhandled GET: ${url}`));
-    });
+    (API.get as any).mockImplementation(makeGetMock());
 
     (API.post as any).mockImplementation((url: string) => {
       if (url === '/api/settings/local-scan/refresh') return Promise.resolve({ data: localScanData });
@@ -87,6 +93,50 @@ describe('SettingsPage local models section', () => {
 
     await waitFor(() => {
       expect(API.post).toHaveBeenCalledWith('/api/settings/local-scan/refresh');
+    });
+  });
+});
+
+describe('SettingsPage API key toggle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    (API.get as any).mockImplementation(
+      makeGetMock({ NVIDIA_API_KEY: 'masked' }),
+    );
+
+    (API.post as any).mockImplementation((url: string) => {
+      if (url === '/api/settings/local-scan/refresh') return Promise.resolve({ data: localScanData });
+      if (url === '/api/settings/providers/test') return Promise.resolve({ data: { success: true, message: 'ok', model: 'meta/llama' } });
+      return Promise.reject(new Error(`Unhandled POST: ${url}`));
+    });
+
+    (API.put as any).mockResolvedValue({ data: {} });
+  });
+
+  it('reverts mode to previous value on PUT failure', async () => {
+    (API.put as any).mockRejectedValue(new Error('Network error'));
+
+    render(<SettingsPage />);
+
+    // Wait for the key row to appear (loading finishes)
+    const toggleBtn = await screen.findByRole('button', {
+      name: /toggle visibility for NVIDIA_API_KEY/i,
+    });
+
+    // Click to trigger optimistic update (masked → hidden) followed by PUT failure
+    fireEvent.click(toggleBtn);
+
+    // After PUT failure the mode should revert back to masked
+    // (button aria-label reflects current mode)
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /toggle visibility for NVIDIA_API_KEY/i });
+      expect(btn).toHaveAttribute('aria-label', expect.stringContaining('currently masked'));
+    });
+
+    // Error flash must be visible
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to update key visibility/i)).toBeInTheDocument();
     });
   });
 });

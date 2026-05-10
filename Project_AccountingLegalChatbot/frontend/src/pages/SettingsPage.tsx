@@ -212,13 +212,16 @@ export default function SettingsPage() {
   }, []);
 
   const toggleKeyMode = async (keyName: string, newMode: KeyMode) => {
+    if (keyLoading[keyName]) return;
+    const previousMode = keyModes[keyName];
     setKeyModes(prev => ({ ...prev, [keyName]: newMode }));
     setKeyLoading(prev => ({ ...prev, [keyName]: true }));
     try {
       await API.put('/api/settings/keys', { [keyName]: newMode });
     } catch (e) {
       flash(getErrMsg(e, 'Failed to update key visibility'), false);
-      // Revert optimistic update on error
+      setKeyModes(prev => ({ ...prev, [keyName]: previousMode }));
+      // Best-effort sync with server state after revert
       API.get('/api/settings/keys')
         .then(r => setKeyModes(r.data as Record<string, KeyMode>))
         .catch(() => {});
