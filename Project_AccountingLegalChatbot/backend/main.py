@@ -156,8 +156,14 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_startup_source_scan())
     logger.info(f"[OK] Startup source scan task started ({time.perf_counter()-_t:.2f}s)")
-    asyncio.create_task(LocalServerScanner.instance().scan_all())
-    logger.info("Local server scan scheduled at startup")
+    async def _startup_local_scan() -> None:
+        try:
+            await LocalServerScanner.instance().scan_all()
+        except Exception as _exc:
+            logger.warning("[WARN] Startup local server scan failed: %s", _exc)
+
+    asyncio.create_task(_startup_local_scan())
+    logger.info("[OK] Local server scan scheduled at startup")
     logger.info(f"[OK] Total startup time: {time.perf_counter()-_startup_t0:.2f}s")
     logger.info("=" * 60)
 

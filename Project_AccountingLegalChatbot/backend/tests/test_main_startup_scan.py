@@ -1,4 +1,5 @@
 """Test that LocalServerScanner.scan_all() is called during app lifespan startup."""
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,6 +23,8 @@ async def test_startup_triggers_local_scan(monkeypatch):
         async with app.router.lifespan_context(app):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 r = await client.get("/health")
+            # Yield to the event loop so the _startup_local_scan background task runs.
+            await asyncio.sleep(0)
 
     mock_instance.scan_all.assert_called_once()
     assert r.status_code == 200
