@@ -4,6 +4,7 @@ Settings API – Manage LLM providers and application settings.
 
 import asyncio
 import re
+import time as _time
 from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,6 +15,7 @@ import httpx
 
 from db.database import get_db
 from db.models import UserSettings
+from core.local_scanner import LocalServerScanner, detect_provider_from_url
 from core.llm_manager import get_llm_provider, list_available_providers
 from config import settings
 
@@ -57,6 +59,32 @@ class TestProviderResponse(BaseModel):
 class ModelInfo(BaseModel):
     id: str
     name: str
+
+
+class LocalServerInfo(BaseModel):
+    provider: str
+    base_url: str
+    online: bool
+    models: list[str]
+    latency_ms: int
+
+
+class LocalScanResponse(BaseModel):
+    scan_time: Optional[str] = None
+    cache_age_s: int = 0
+    servers: list[LocalServerInfo]
+
+
+class DetectProviderRequest(BaseModel):
+    base_url: str
+    api_key: Optional[str] = None
+
+
+class DetectProviderResponse(BaseModel):
+    provider: str
+    key_env_var: Optional[str]
+    key_label: str
+    key_valid: bool
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -351,3 +379,86 @@ def _mask(key: str) -> str:
     if not key:
         return ""
     return f"{'*' * (len(key) - 4)}{key[-4:]}" if len(key) > 4 else "****"
+
+
+@router.get("/local-scan", response_model=LocalScanResponse)
+async def get_local_scan():
+    """
+    Return cached local server scan results.
+    If cache is empty, triggers a fresh scan first.
+    Always returns 200 (servers may all be offline).
+    """
+    scanner = LocalServerScanner.instance()
+    servers = scanner.get_cached()
+    cache_age = 0
+    if servers is None:
+        servers = await scanner.scan_all()
+    else:
+        try:
+            cache_age = int(_time.monotonic() - float(scanner._cache_ts))
+        except Exception:
+            cache_age = 0
+
+    return LocalScanResponse(
+        cache_age_s=cache_age,
+        servers=[
+            LocalServerInfo(
+                provider=s.provider,
+                base_url=s.base_url,
+                online=s.online,
+                models=s.models,
+                latency_ms=s.latency_ms,
+            )
+            for s in servers
+        ],
+    )
+
+
+@router.post("/local-scan/refresh", response_model=LocalScanResponse)
+async def refresh_local_scan():
+    """Trigger a fresh local port scan, bypassing the cache."""
+    scanner = LocalServerScanner.instance()
+    servers = await scanner.scan_all(force=True)
+    return LocalScanResponse(
+        cache_age_s=0,
+        servers=[
+            LocalServerInfo(
+                provider=s.provider,
+                base_url=s.base_url,
+                online=s.online,
+                models=s.models,
+                latency_ms=s.latency_ms,
+            )
+            for s in servers
+        ],
+    )
+
+
+@router.post("/detect-provider", response_model=DetectProviderResponse)
+async def detect_provider(req: DetectProviderRequest):
+    """
+    Identify the LLM provider from a base URL.
+    Optionally validates the API key with a lightweight test call.
+    """
+    info = detect_provider_from_url(req.base_url)
+    key_valid = False
+
+    # Try a lightweight validation if key and a cloud URL are provided
+    if req.api_key and info["key_env_var"]:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                test_url = req.base_url.rstrip("/") + "/models"
+                resp = await client.get(
+                    test_url,
+                    headers={"Authorization": f"Bearer {req.api_key}"},
+                )
+                key_valid = resp.status_code == 200
+        except Exception:
+            key_valid = False
+
+    return DetectProviderResponse(
+        provider=info["provider"],
+        key_env_var=info.get("key_env_var"),
+        key_label=info.get("key_label", ""),
+        key_valid=key_valid,
+    )
