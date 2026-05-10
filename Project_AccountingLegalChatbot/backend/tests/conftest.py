@@ -157,6 +157,19 @@ async def client(db_session):
             )
         )
 
+        # Mock Ollama chat endpoint so tests pass when LLM_PROVIDER=ollama
+        respx_mock.post("http://localhost:11434/api/chat").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "model": "mock-ollama",
+                    "message": {"role": "assistant", "content": "Mock AI response."},
+                    "done": True,
+                    "eval_count": 10,
+                }
+            )
+        )
+
         app.dependency_overrides[get_db] = override_get_db
 
         with patch("api.audit_studio.AsyncSessionLocal", _mock_session), \

@@ -112,11 +112,15 @@ def _validate_provider_url(url: str) -> None:
         raise ValueError("URL must have a valid host")
     if host in _BLOCKED_METADATA_HOSTS:
         raise ValueError(f"URL host '{host}' is not permitted")
-    # Block any 169.254.x.x (link-local — cloud metadata range)
+    # Block link-local (169.254.x.x) and RFC-1918 private ranges
+    # (10.x, 192.168.x, 172.16-31.x) while allowing loopback (127.x)
+    # so Ollama/LM Studio on localhost remain reachable.
     try:
         addr = ipaddress.ip_address(host)
         if addr.is_link_local:
             raise ValueError("Link-local addresses are not permitted")
+        if addr.is_private and not addr.is_loopback:
+            raise ValueError("Private network addresses are not permitted")
     except ValueError as exc:
         if "not permitted" in str(exc):
             raise

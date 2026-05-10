@@ -89,15 +89,25 @@ async def test_document_chunk_cascade_delete_db_level(mem_db):
     os.environ.get("CI") == "true",
     reason="Requires local Ollama server",
 )
+@pytest.mark.asyncio
 async def test_ollama_embed_returns_vector():
-    """OllamaEmbeddingProvider returns a 768-dim vector."""
+    """OllamaEmbeddingProvider returns a 768-dim vector (mocked Ollama)."""
     import sys; sys.path.insert(0, ".")
+    import respx
+    import httpx
     from core.rag_engine import OllamaEmbeddingProvider
-    provider = OllamaEmbeddingProvider(
-        base_url="http://localhost:11434",
-        model="nomic-embed-text",
-    )
-    vec = await provider.embed_query("cheque bounce rent Dubai law")
+
+    fake_vector = [0.01] * 768
+    with respx.mock:
+        respx.post("http://localhost:11434/api/embeddings").mock(
+            return_value=httpx.Response(200, json={"embedding": fake_vector})
+        )
+        provider = OllamaEmbeddingProvider(
+            base_url="http://localhost:11434",
+            model="nomic-embed-text",
+        )
+        vec = await provider.embed_query("cheque bounce rent Dubai law")
+
     assert isinstance(vec, list)
     assert len(vec) == 768
     assert all(isinstance(v, float) for v in vec)
