@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
 
+    # ── Generic local OpenAI-compatible server (LM Studio, TGI, etc.) ──
+    local_base_url: str = "http://localhost:1234"
+    local_model: str = ""
+
     # ── Local Server Scanner ─────────────────────────────────────────
     local_scan_ports: list[int] = [11434, 1234, 8080, 5001]
     local_scan_timeout_s: float = 1.0

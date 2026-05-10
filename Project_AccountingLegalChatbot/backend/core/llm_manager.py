@@ -1320,6 +1320,11 @@ _PROVIDER_MAP = {
         model=getattr(settings, "lmstudio_model", "local-model"),
         api_key="",
     ),
+    "local": lambda: LocalProvider(
+        base_url=getattr(settings, "local_base_url", "http://localhost:1234"),
+        model=getattr(settings, "local_model", ""),
+        api_key="",
+    ),
     "mock": lambda: MockProvider(),
 }
 
@@ -1407,12 +1412,14 @@ def list_available_providers() -> list[dict]:
     """Return a list of all supported providers with their configured status."""
     # #11 fix: map provider names to their actual settings key names
     key_map = {
-        "nvidia":  "nvidia_api_key",
-        "openai":  "openai_api_key",
-        "claude":  "anthropic_api_key",
-        "mistral": "mistral_api_key",
-        "groq":    "groq_api_key",
-        "ollama":  None,
+        "nvidia":   "nvidia_api_key",
+        "openai":   "openai_api_key",
+        "claude":   "anthropic_api_key",
+        "mistral":  "mistral_api_key",
+        "groq":     "groq_api_key",
+        "ollama":   None,
+        "lmstudio": None,
+        "local":    None,
     }
     result = []
     for name in _PROVIDER_MAP:

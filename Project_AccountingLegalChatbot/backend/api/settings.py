@@ -195,6 +195,7 @@ async def update_provider(req: ProviderUpdateRequest):
         "mistral": ("mistral_api_key",  "MISTRAL_API_KEY",  "mistral_model",  "MISTRAL_MODEL",  None, None, None, None, None, None),
         "groq":    ("groq_api_key",     "GROQ_API_KEY",     "groq_model",     "GROQ_MODEL",     None, None, None, None, "groq_fast_model", "GROQ_FAST_MODEL"),
         "ollama":  (None, None,          "ollama_model",    "OLLAMA_MODEL",   "ollama_base_url","OLLAMA_BASE_URL", None, None, None, None),
+        "local":   (None, None,          "local_model",     "LOCAL_MODEL",    "local_base_url", "LOCAL_BASE_URL",  None, None, None, None),
     }
     if provider not in _KEY_MAP:
         raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
@@ -324,6 +325,19 @@ async def fetch_provider_models(provider: str):
                 return [ModelInfo(id=m, name=m) for m in models]
             except httpx.ConnectError:
                 raise HTTPException(status_code=503, detail="Ollama is not running at the configured Base URL")
+
+        # ── Generic local server (LM Studio, TGI, etc.) ───────────────
+        elif provider in ("local", "lmstudio"):
+            base_url = settings.local_base_url if provider == "local" else "http://localhost:1234"
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(f"{base_url}/v1/models")
+                    resp.raise_for_status()
+                    data = _parse_json_response(resp, "local")
+                models = sorted(m["id"] for m in data.get("data", []))
+                return [ModelInfo(id=m, name=m) for m in models]
+            except httpx.ConnectError:
+                raise HTTPException(status_code=503, detail=f"Local server not running at {base_url}")
 
         # ── Groq ──────────────────────────────────────────────────────
         elif provider == "groq":
