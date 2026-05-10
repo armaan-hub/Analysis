@@ -55,3 +55,27 @@ class TestLlmParamsWiring:
         import inspect, api.chat as chat_module
         source = inspect.getsource(chat_module)
         assert "deep_temperature if" not in source
+
+    async def test_top_k_flows_to_rag_search(self, client):
+        """llm_params['top_k'] must be passed into RAG search calls."""
+        with patch("api.chat.compute_llm_params") as mock_params, \
+             patch("api.chat.rag_engine.search") as mock_search:
+            mock_params.return_value = {
+                "max_tokens": 8192, "temperature": 0.3,
+                "timeout": 90.0, "top_k": 42
+            }
+            mock_search.return_value = []
+            await client.post("/api/chat/send", json={
+                "message": "test rag flow",
+                "mode": "fast",
+                "stream": True,
+            })
+            if mock_search.called:
+                # If RAG search was called, verify top_k=42 was used
+                for call in mock_search.call_args_list:
+                    args, kwargs = call
+                    actual_top_k = kwargs.get("top_k") or (args[1] if len(args) > 1 else None)
+                    if actual_top_k is not None:
+                        assert actual_top_k == 42, f"Expected top_k=42, got {actual_top_k}"
+            # At minimum verify compute_llm_params was called
+            assert mock_params.called

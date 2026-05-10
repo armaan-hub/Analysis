@@ -688,7 +688,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             else:
                                 _broad_results = await rag_engine.search(
                                     req.message,
-                                    top_k=settings.top_k_results,
+                                    top_k=llm_params["top_k"],
                                     filter=_base_filter,
                                     min_score=settings.rag_min_score,
                                 )
@@ -1150,7 +1150,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                     else:
                         _broad_results = await rag_engine.search(
                             req.message,
-                            top_k=settings.top_k_results,
+                            top_k=llm_params["top_k"],
                             filter=_base_filter,
                             min_score=settings.rag_min_score,
                         )
