@@ -4,10 +4,12 @@ Settings API – Manage LLM providers and application settings.
 
 import asyncio
 import ipaddress
+import json
 import logging
+import os
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import Literal, Optional, List
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -29,8 +31,57 @@ _settings_lock = asyncio.Lock()
 # Path to root .env (one level up from backend/)
 _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 
+# ── Key visibility helpers ─────────────────────────────────────────
+
+_KNOWN_KEYS = [
+    "NVIDIA_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
+    "MISTRAL_API_KEY", "GROQ_API_KEY", "BRAVE_SEARCH_API_KEY",
+]
+_VISIBILITY_VALUES = ("masked", "hidden", "none")
+_DEFAULT_VISIBILITY = "masked"
+
+
+def _keys_file_path() -> Path:
+    """Return path to settings_keys.json (overridable via env for tests)."""
+    env_path = os.environ.get("SETTINGS_KEYS_FILE")
+    if env_path:
+        return Path(env_path)
+    return Path(__file__).parent / "settings_keys.json"
+
+
+def _load_keys_visibility() -> dict[str, str]:
+    """Load key visibility states from JSON file. Returns defaults if file absent."""
+    path = _keys_file_path()
+    if path.exists():
+        try:
+            data = json.loads(path.read_text())
+            return {k: data.get(k, _DEFAULT_VISIBILITY) for k in _KNOWN_KEYS}
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {k: _DEFAULT_VISIBILITY for k in _KNOWN_KEYS}
+
+
+def _save_keys_visibility(state: dict[str, str]) -> None:
+    """Save key visibility states to JSON file."""
+    path = _keys_file_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2))
+
 
 # ── Schemas ───────────────────────────────────────────────────────
+
+class KeyVisibilityItem(BaseModel):
+    name: str
+    visibility: Literal["masked", "hidden", "none"]
+
+
+class KeyVisibilityUpdate(BaseModel):
+    visibility: Literal["masked", "hidden", "none"]
+
+
+class KeysVisibilityResponse(BaseModel):
+    keys: list[KeyVisibilityItem]
+
 
 class ProviderInfo(BaseModel):
     name: str
@@ -519,3 +570,25 @@ async def detect_provider(req: DetectProviderRequest):
         key_label=info.get("key_label", ""),
         key_valid=key_valid,
     )
+
+
+# ── Key Visibility Endpoints ──────────────────────────────────────
+
+@router.get("/keys", response_model=KeysVisibilityResponse)
+async def get_keys_visibility():
+    """Return visibility state for all known API keys."""
+    state = _load_keys_visibility()
+    return KeysVisibilityResponse(
+        keys=[KeyVisibilityItem(name=k, visibility=state[k]) for k in _KNOWN_KEYS]
+    )
+
+
+@router.put("/keys/{key_name}", response_model=KeyVisibilityItem)
+async def update_key_visibility(key_name: str, body: KeyVisibilityUpdate):
+    """Update visibility state for a single API key."""
+    if key_name not in _KNOWN_KEYS:
+        raise HTTPException(status_code=404, detail=f"Unknown key: {key_name}")
+    state = _load_keys_visibility()
+    state[key_name] = body.visibility
+    _save_keys_visibility(state)
+    return KeyVisibilityItem(name=key_name, visibility=body.visibility)
