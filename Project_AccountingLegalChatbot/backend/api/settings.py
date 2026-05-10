@@ -6,11 +6,12 @@ import asyncio
 import ipaddress
 import logging
 import re
+import time as _time
 from pathlib import Path
 from typing import Optional, List
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
@@ -19,6 +20,7 @@ from db.database import get_db
 from db.models import UserSettings
 from core.local_scanner import LocalServerScanner, detect_provider_from_url
 from core.llm_manager import get_llm_provider, list_available_providers
+from core.rag_engine import rag_engine
 from config import settings
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
@@ -505,3 +507,81 @@ async def detect_provider(req: DetectProviderRequest):
         key_label=info.get("key_label", ""),
         key_valid=key_valid,
     )
+
+
+# ── Embedding Status & Switch Endpoints ───────────────────────────
+
+_EMBEDDING_PROVIDERS = ("nvidia", "openai", "ollama")
+
+
+async def _check_embedding_latency() -> float:
+    """Ping the embedding provider with a trivial query and return latency in seconds."""
+    start = _time.monotonic()
+    await rag_engine.embedding_provider.embed_query("ping")
+    return _time.monotonic() - start
+
+
+class EmbeddingSwitchRequest(BaseModel):
+    provider: str
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v):
+        if v not in _EMBEDDING_PROVIDERS:
+            raise ValueError(
+                f"provider must be one of: {', '.join(_EMBEDDING_PROVIDERS)}. Got: {v!r}"
+            )
+        return v
+
+
+@router.get("/embedding-status")
+async def get_embedding_status():
+    """Return current embedding provider info and connectivity status."""
+    provider = getattr(rag_engine.embedding_provider, "provider", None) or getattr(
+        settings, "embedding_provider", "nvidia"
+    )
+    model = getattr(settings, "embedding_model", "nvidia/nv-embedqa-e5-v5")
+    doc_count = 0
+    try:
+        doc_count = rag_engine.collection.count()
+    except Exception:
+        pass
+
+    try:
+        latency = await asyncio.wait_for(_check_embedding_latency(), timeout=15.0)
+        status = "green" if latency < 5.0 else "yellow"
+    except Exception:
+        status = "red"
+        latency = None
+
+    return {
+        "provider": provider,
+        "model": model,
+        "status": status,
+        "latency_s": latency,
+        "document_count": doc_count,
+    }
+
+
+@router.post("/embedding-switch")
+async def switch_embedding_provider(req: EmbeddingSwitchRequest):
+    """Switch embedding provider. Returns needs_reindex=True if provider changes."""
+    current = getattr(settings, "embedding_provider", "nvidia")
+    needs_reindex = current != req.provider
+    try:
+        _update_env_key("EMBEDDING_PROVIDER", req.provider)
+    except Exception:
+        pass
+    try:
+        settings.embedding_provider = req.provider
+    except Exception:
+        pass
+    return {
+        "provider": req.provider,
+        "needs_reindex": needs_reindex,
+        "message": (
+            "Provider switched. Re-index required to update embeddings."
+            if needs_reindex
+            else "Provider unchanged."
+        ),
+    }

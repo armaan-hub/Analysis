@@ -94,7 +94,8 @@ async def test_ingest_chunks_stores_category(monkeypatch):
     """Unit test — ingest_chunks with category param stores it in ChromaDB."""
     # Mock the embedding provider to avoid API calls during tests
     async def mock_embed_texts(texts):
-        return [[0.1] * 1024 for _ in texts]
+        from config import settings
+        return [[0.1] * settings.embedding_dimension for _ in texts]
 
     monkeypatch.setattr(rag_engine.embedding_provider, "embed_texts", mock_embed_texts)
 

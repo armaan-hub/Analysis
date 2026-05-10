@@ -99,8 +99,9 @@ class EmbeddingProvider:
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts."""
         if self.provider == "mock":
-            # Return a fake 1024-dim embedding for each text
-            return [[0.1] * 1024 for _ in texts]
+            # Return a fake embedding with dimension matching current settings
+            dim = settings.embedding_dimension
+            return [[0.1] * dim for _ in texts]
         if self.provider == "ollama":
             return await self._ollama.embed_texts(texts)
         if self.provider == "openai":
@@ -110,7 +111,8 @@ class EmbeddingProvider:
     async def embed_query(self, query: str) -> list[float]:
         """Generate embedding for a single query. Raises on failure (no retry)."""
         if self.provider == "mock":
-            return [0.1] * 1024
+            dim = settings.embedding_dimension
+            return [0.1] * dim
         if self.provider == "ollama":
             return await self._ollama.embed_query(query)
         if self.provider == "openai":

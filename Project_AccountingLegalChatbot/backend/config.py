@@ -108,8 +108,8 @@ class Settings(BaseSettings):
     graph_store_dir: str = "./graph_store"
 
     # ── Auto-ingest source directories ──────────────────────────────
-    source_law_dir:     str = str(Path(__file__).parent.parent / "data_source_law")
-    source_finance_dir: str = str(Path(__file__).parent.parent / "data_source_finance")
+    source_law_dir:     str = str(Path(__file__).parent / "data_source_law")
+    source_finance_dir: str = str(Path(__file__).parent / "data_source_finance")
     entity_graph_db:    str = str(Path(__file__).parent / "graph_store" / "entity_graph.db")
 
     # ── Server ───────────────────────────────────────────────────────

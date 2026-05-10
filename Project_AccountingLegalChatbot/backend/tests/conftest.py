@@ -98,35 +98,21 @@ async def db_session():
         await session.rollback()
 
 
-@pytest_asyncio.fixture()
-async def client(db_session):
-    """HTTP test client that uses the in-memory test DB."""
-    from contextlib import asynccontextmanager
-    from unittest.mock import patch
-    import respx
-    import httpx
-
-    async def override_get_db():
-        yield db_session
-
-    @asynccontextmanager
-    async def _mock_session():
-        yield db_session
-
-    @asynccontextmanager
-    async def _fresh_test_session():
-        async with _test_session_factory() as session:
-            yield session
-
-    # Block all real API calls by default during tests to ensure isolation
-    with respx.mock(assert_all_called=False) as respx_mock:
-        # Mock embeddings to return a fake successful response
-        def mock_embedding_side_effect(request):
-            import json
-            body = json.loads(request.content)
-            inputs = body.get("input", [])
-            # Return a fake 1024-dim embedding for each input
-            embeddings = [[0.1] * 1024 for _ in inputs]
+@pytest_asyncio.fixture(autouse=True)
+async def mock_external_apis():
+    """Block all real API calls by default during tests and provide mocks."""
+    # Mock embeddings to return a fake successful response
+    def mock_embedding_side_effect(request):
+        import json
+        body = json.loads(request.content)
+        
+        # NVIDIA/OpenAI format (list of inputs)
+        if "input" in body:
+            inputs = body["input"]
+            if isinstance(inputs, str):
+                inputs = [inputs]
+            dim = settings.embedding_dimension
+            embeddings = [[0.1] * dim for _ in inputs]
             return httpx.Response(
                 200,
                 json={
@@ -135,12 +121,27 @@ async def client(db_session):
                     "usage": {"prompt_tokens": 10, "total_tokens": 10}
                 }
             )
+        
+        # Ollama format (single prompt)
+        if "prompt" in body:
+            dim = settings.embedding_dimension
+            return httpx.Response(
+                200,
+                json={
+                    "embedding": [0.1] * dim,
+                    "model": body.get("model", "mock-ollama")
+                }
+            )
+        
+        return httpx.Response(400, json={"error": "Unknown embedding request format"})
 
+    with respx.mock(assert_all_called=False) as respx_mock:
         respx_mock.post("https://integrate.api.nvidia.com/v1/embeddings").mock(
             side_effect=mock_embedding_side_effect
         )
-
-        # Also mock chat completions to avoid hitting the real API for chat
+        respx_mock.post("http://localhost:11434/api/embeddings").mock(
+            side_effect=mock_embedding_side_effect
+        )
         respx_mock.post("https://integrate.api.nvidia.com/v1/chat/completions").mock(
             return_value=httpx.Response(
                 200,
@@ -156,8 +157,6 @@ async def client(db_session):
                 }
             )
         )
-
-        # Mock Ollama chat endpoint so tests pass when LLM_PROVIDER=ollama
         respx_mock.post("http://localhost:11434/api/chat").mock(
             return_value=httpx.Response(
                 200,
@@ -169,23 +168,43 @@ async def client(db_session):
                 }
             )
         )
+        yield respx_mock
 
-        app.dependency_overrides[get_db] = override_get_db
 
-        with patch("api.audit_studio.AsyncSessionLocal", _mock_session), \
-             patch("core.audit_studio.versioning.AsyncSessionLocal", _mock_session), \
-             patch("core.audit_studio.chat_service.AsyncSessionLocal", _mock_session), \
-             patch("core.audit_studio.generation_service.AsyncSessionLocal", _mock_session), \
-             patch("core.research.orchestrator.async_session", _mock_session), \
-             patch("api.chat.AsyncSessionLocal", _fresh_test_session):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-                yield ac
-            # Drain any background tasks (e.g. _generate_title) while the session
-            # factory patch is still active.  Without this, they run after the patch
-            # exits and may corrupt the shared in-memory test DB connection.
-            _cur = asyncio.current_task()
-            _bg = [t for t in asyncio.all_tasks() if t is not _cur]
-            if _bg:
-                await asyncio.wait(_bg, timeout=1.0)
+@pytest_asyncio.fixture()
+async def client(db_session, mock_external_apis):
+    """HTTP test client that uses the in-memory test DB."""
+    from contextlib import asynccontextmanager
+    from unittest.mock import patch
 
-        app.dependency_overrides.clear()
+    async def override_get_db():
+        yield db_session
+
+    @asynccontextmanager
+    async def _mock_session():
+        yield db_session
+
+    @asynccontextmanager
+    async def _fresh_test_session():
+        async with _test_session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    with patch("api.audit_studio.AsyncSessionLocal", _mock_session), \
+         patch("core.audit_studio.versioning.AsyncSessionLocal", _mock_session), \
+         patch("core.audit_studio.chat_service.AsyncSessionLocal", _mock_session), \
+         patch("core.audit_studio.generation_service.AsyncSessionLocal", _mock_session), \
+         patch("core.research.orchestrator.async_session", _mock_session), \
+         patch("api.chat.AsyncSessionLocal", _fresh_test_session):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            yield ac
+        # Drain any background tasks (e.g. _generate_title) while the session
+        # factory patch is still active.  Without this, they run after the patch
+        # exits and may corrupt the shared in-memory test DB connection.
+        _cur = asyncio.current_task()
+        _bg = [t for t in asyncio.all_tasks() if t is not _cur]
+        if _bg:
+            await asyncio.wait(_bg, timeout=1.0)
+
+    app.dependency_overrides.clear()
