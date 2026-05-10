@@ -79,6 +79,10 @@ async def _retrieve_for_subquestion(
         asyncio.wait_for(search_web(sub_q, max_results=5), timeout=30.0)
     )
     rag_raw, web_results = await asyncio.gather(rag_task, web_task, return_exceptions=True)
+    if isinstance(rag_raw, Exception):
+        logger.warning("RAG retrieval failed for sub-question %r: %s", sub_q[:80], rag_raw)
+    if isinstance(web_results, Exception):
+        logger.warning("Web retrieval failed for sub-question %r: %s", sub_q[:80], web_results)
     rag_chunks = [_normalize_chunk(r) for r in (rag_raw or [])] if not isinstance(rag_raw, Exception) else []
     web_items = web_results if not isinstance(web_results, Exception) else []
     return rag_chunks, web_items or []
@@ -162,6 +166,7 @@ async def deep_research_stream(req: DeepResearchRequest):
                 try:
                     web_items = await asyncio.wait_for(search_web(req.query, max_results=10), timeout=60.0)
                 except asyncio.TimeoutError:
+                    logger.warning("Web search timed out for query: %r", req.query[:80])
                     web_items = []
 
                 yield f"data: {json.dumps({'type': 'step', 'text': 'Synthesising answer…'})}\n\n"
@@ -203,8 +208,9 @@ async def deep_research_stream(req: DeepResearchRequest):
                 deduped_rag = []
                 for c in all_rag:
                     cid = c.get("chunk_id")
-                    if cid not in seen_ids:
-                        seen_ids.add(cid)
+                    dedup_key = cid if cid is not None else f"{c.get('source_file')}:{c.get('page')}:{c.get('text', '')[:50]}"
+                    if dedup_key not in seen_ids:
+                        seen_ids.add(dedup_key)
                         deduped_rag.append(c)
 
                 yield f"data: {json.dumps({'type': 'step', 'text': 'Synthesising findings…'})}\n\n"
@@ -235,11 +241,11 @@ async def deep_research_stream(req: DeepResearchRequest):
                 web_sources = [{"title": w.get("title", ""), "url": w.get("href") or w.get("url", "")} for w in all_web[:10]]
                 yield f"data: {json.dumps({'type': 'answer', 'content': full, 'sources': doc_sources, 'web_sources': web_sources})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
         except Exception as e:
             logger.error("Deep research error: %s", e)
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+        finally:
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(
         generate(),

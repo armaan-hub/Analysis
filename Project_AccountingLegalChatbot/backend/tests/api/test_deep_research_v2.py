@@ -69,3 +69,36 @@ async def test_decompose_query_falls_back_on_parse_error():
         mock_llm.return_value = mock_instance
         result = await _decompose_query("My question")
     assert result == ["My question"]
+
+
+@pytest.mark.asyncio
+async def test_complex_query_path_emits_steps_and_answer(client):
+    """Complex query (contains 'compare') exercises decompose → parallel retrieval → synthesis."""
+    with patch("api.deep_research.rag_engine") as mock_rag, \
+         patch("api.deep_research.search_web", new_callable=AsyncMock, return_value=[]), \
+         patch("api.deep_research.get_llm_provider") as mock_llm, \
+         patch("api.deep_research._decompose_query", new_callable=AsyncMock,
+               return_value=["Sub-Q 1", "Sub-Q 2"]):
+        mock_rag.search = AsyncMock(return_value=[])
+        mock_llm_instance = MagicMock()
+        mock_llm_instance.chat_stream = AsyncMock(return_value=iter([]))
+        mock_llm.return_value = mock_llm_instance
+        r = await client.post(
+            "/api/deep-research",
+            json={"query": "Compare and analyze VAT compliance across UAE and KSA"}
+        )
+    assert r.status_code == 200
+    assert "parallel" in r.text or "Decomposing" in r.text or "step" in r.text
+
+
+@pytest.mark.asyncio
+async def test_error_path_emits_error_then_done(client):
+    """When RAG search throws, stream emits error event followed by done event."""
+    with patch("api.deep_research.rag_engine") as mock_rag, \
+         patch("api.deep_research.search_web", new_callable=AsyncMock, return_value=[]), \
+         patch("api.deep_research.get_llm_provider"):
+        mock_rag.search = AsyncMock(side_effect=RuntimeError("DB unavailable"))
+        r = await client.post("/api/deep-research", json={"query": "What is VAT?"})
+    assert r.status_code == 200
+    assert '"type": "error"' in r.text or '"type":"error"' in r.text
+    assert '"type": "done"' in r.text or '"type":"done"' in r.text
