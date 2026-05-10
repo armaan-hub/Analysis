@@ -1091,3 +1091,26 @@ tail -f ~/chatbot_local/Project_AccountingLegalChatbot/backend/scripts/batch_ing
 - Implement auto-ingest pipeline per design spec
 - Add Arabic translation, metadata tagging, entity graph
 
+
+---
+
+### Session: 2026-05-10 — Universal LLM + RAG Citations + API Settings + Analysis Mode
+
+**Tasks Completed (12/12):**
+1. `compute_llm_params()` — 9-family LLM parameter dispatcher (Tasks 1-2)
+2. `_normalize_chunk()` — safe chunk normalization with `is None` checks (Task 3)
+3. Citation injection — `CITATION_INSTRUCTION`, `_CITATION_RE`, `citation_append` SSE event (Task 4)
+4. API Key Visibility — `GET/PUT /api/settings/keys`, asyncio.Lock, atomic writes (Task 5)
+5. Embedding Provider Status — `GET /api/settings/embedding-status`, `POST /api/settings/embedding-switch` (Task 6)
+6. Deep Research Hybrid Pipeline — `/api/deep-research`, complex/simple path, `done` in finally (Task 7)
+7. Analysis Mode — `batch_extract_csv`, `batch_extract_excel`, `/api/analysis/upload`, `/api/analysis/analyze` (Task 8)
+8. ModeSelector — 4-mode pill tab selector (chat/research/analysis/council), wired into HomePage (Task 9)
+9. API Key Eye Toggle — `ApiKeyRow.tsx`, SettingsPage API Keys section, optimistic UI (Task 10)
+10. EmbeddingCard — status dot, latency, chunk count, provider switcher with AbortController (Task 11)
+11. End-to-end verification (Task 12)
+
+**Architecture:**
+- Backend: 9-family LLM routing, chunk normalization, citations, key visibility, embedding status, deep research, analysis mode
+- Frontend: ModeSelector (4 modes), ApiKeyRow (eye toggle), EmbeddingCard (embedding status + switch)
+
+**Commits:** `53d4ff5d` (base) → `d96b533f` T1 → `ac7f861f` T2 → `c89f5743` T3 → `6d58bbd4` T4 → `f7fe5a98` T5 → `5fba7f59` T6 → `03c6b686` T7 → `3ac47403` T8 → `3cca853d` T8-fix → `2150c1d9` T9 → `8ecb8086` T9-fix → `9c7c06a4` T10 → `3675542a` T10-fix → `ef57c7a3` T11 → `81685a02` T11-fix
