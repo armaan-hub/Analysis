@@ -14,6 +14,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from core.local_scanner import LocalServerScanner
 from core.pipeline.auto_sync import start_auto_sync, stop_auto_sync
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -155,6 +156,8 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_startup_source_scan())
     logger.info(f"[OK] Startup source scan task started ({time.perf_counter()-_t:.2f}s)")
+    asyncio.create_task(LocalServerScanner.instance().scan_all())
+    logger.info("Local server scan scheduled at startup")
     logger.info(f"[OK] Total startup time: {time.perf_counter()-_startup_t0:.2f}s")
     logger.info("=" * 60)
 
