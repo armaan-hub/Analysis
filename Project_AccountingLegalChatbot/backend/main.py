@@ -218,6 +218,7 @@ from api import audit_studio
 from api.legal_studio import router as legal_studio_router
 from api.council import router as council_router
 from api.llm import router as llm_router
+from api.deep_research import router as deep_research_router
 
 app.include_router(chat_router)
 app.include_router(documents_router)
@@ -230,6 +231,7 @@ app.include_router(audit_studio.router)
 app.include_router(legal_studio_router)
 app.include_router(council_router)
 app.include_router(llm_router)
+app.include_router(deep_research_router)
 
 
 # ── Root Endpoint ─────────────────────────────────────────────────
