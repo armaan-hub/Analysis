@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_db, AsyncSessionLocal
 from db.models import Conversation, Message, Document
 from core.llm_manager import get_llm_provider
-from core.rag_engine import rag_engine, _infer_domain_from_name
+from core.rag_engine import rag_engine, _infer_domain_from_name, _normalize_chunk
 from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, FORMATTING_REMINDER
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from core.chat.intent_classifier import classify_intent
@@ -56,6 +56,53 @@ def _inject_no_sources_disclaimer(response_text: str, sources_found: int) -> str
     if sources_found == 0:
         return _NO_SOURCES_DISCLAIMER + response_text
     return response_text
+
+
+CITATION_INSTRUCTION = (
+    "\n\nIMPORTANT: For every factual claim you make, cite the source document using the format "
+    "[Source: <filename>, p.<page>] or [Source: <filename>] if page is unknown. "
+    "Only cite sources that were actually provided in the context. "
+    "If no relevant sources were found, state that clearly."
+)
+
+
+def _inject_citation_fallback(response: str, chunks: list[dict]) -> str:
+    """Append source list to response if LLM did not include citations.
+
+    Args:
+        response: The LLM's text response.
+        chunks: List of normalized chunks (output of _normalize_chunk()).
+
+    Returns:
+        Original response if citations detected; otherwise response + appended sources.
+    """
+    if not chunks:
+        return response
+
+    # Detect if citations already present
+    citation_markers = ("[Source:", "[source:", "Source:", "p.", "page", "cit", "Ref:")
+    if any(marker in response for marker in citation_markers):
+        return response
+
+    # Deduplicate by source_file
+    seen: set[str] = set()
+    sources: list[str] = []
+    for chunk in chunks:
+        sf = chunk.get("source_file")
+        if not sf or sf in seen:
+            continue
+        seen.add(sf)
+        page = chunk.get("page")
+        if page is not None:
+            sources.append(f"- {sf}, p.{page}")
+        else:
+            sources.append(f"- {sf}")
+
+    if not sources:
+        return response
+
+    source_block = "\n\n**Sources:**\n" + "\n".join(sources)
+    return response + source_block
 
 
 # Type aliases
@@ -618,6 +665,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             else:
                 logger.warning("Intent classification failed (non-fatal): %s", _intent_res)
 
+            _sys += CITATION_INSTRUCTION
+
             if isinstance(_query_vars, Exception):
                 _query_vars = [req.message]
 
@@ -966,6 +1015,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _allowed_urls.discard("")
             full_response = strip_hallucinated_urls(full_response, _allowed_urls)
             full_response = _inject_no_sources_disclaimer(full_response, sources_found=len(_search_results))
+            full_response = _inject_citation_fallback(full_response, [_normalize_chunk(r) for r in _search_results])
 
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:
@@ -1077,6 +1127,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         system_prompt = system_prompt + intent_directive
     except Exception as exc:
         logger.warning("Intent classification failed (non-fatal): %s", exc)
+
+    system_prompt += CITATION_INSTRUCTION
 
     # If RAG is enabled, search for relevant context
     if req.use_rag:
@@ -1355,6 +1407,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     _allowed_urls.discard("")
     answer_content = strip_hallucinated_urls(answer_content, _allowed_urls)
     answer_content = _inject_no_sources_disclaimer(answer_content, sources_found=len(search_results))
+    answer_content = _inject_citation_fallback(answer_content, [_normalize_chunk(r) for r in search_results])
 
     # Save assistant message
     assistant_msg = Message(
