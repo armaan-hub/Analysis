@@ -75,3 +75,4 @@ pytest-asyncio==0.23.2
 
 # Chroma telemetry compatibility
 posthog==3.25.0
+respx>=0.21.0

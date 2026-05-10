@@ -114,7 +114,7 @@ async def test_scan_all_all_offline():
 @respx.mock
 async def test_scan_all_uses_cache():
     """Second call within TTL returns cache without hitting network."""
-    respx.get("http://localhost:11434/api/tags").mock(
+    ollama_route = respx.get("http://localhost:11434/api/tags").mock(
         return_value=httpx.Response(200, json={"models": [{"name": "test-model"}]})
     )
     respx.get("http://localhost:1234/v1/models").mock(side_effect=httpx.ConnectError("refused"))
@@ -123,8 +123,11 @@ async def test_scan_all_uses_cache():
 
     scanner = LocalServerScanner()
     scanner._cache = None
+    scanner._cache_ts = 0.0
     first = await scanner.scan_all(timeout_s=2.0)
+    call_count_after_first = ollama_route.call_count
 
-    # Network mock is exhausted after one call — second call must use cache
+    # Second call — cache is fresh, must NOT hit network again
     second = await scanner.scan_all(timeout_s=2.0)
+    assert ollama_route.call_count == call_count_after_first  # no new HTTP calls
     assert first == second

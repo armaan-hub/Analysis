@@ -36,7 +36,6 @@ _URL_PATTERNS: list[tuple[str, str, Optional[str], str]] = [
     ("anthropic.com",   "claude",   "ANTHROPIC_API_KEY", "Anthropic API Key"),
     ("openai.com",      "openai",   "OPENAI_API_KEY",    "OpenAI API Key"),
     ("nvidia.com",      "nvidia",   "NVIDIA_API_KEY",    "NVIDIA API Key"),
-    ("nim",             "nvidia",   "NVIDIA_API_KEY",    "NVIDIA API Key"),
     ("mistral.ai",      "mistral",  "MISTRAL_API_KEY",   "Mistral API Key"),
     ("groq.com",        "groq",     "GROQ_API_KEY",      "Groq API Key"),
     ("localhost:11434", "ollama",   None,                ""),
@@ -71,11 +70,12 @@ class _ProbeTarget:
     health_path: str
     models_path: str
     models_key: str   # JSON key in response that holds the list
+    separate_models_fetch: bool = False
 
 _PROBE_TARGETS: list[_ProbeTarget] = [
     _ProbeTarget("ollama",   11434, "/api/tags",    "/api/tags",    "models"),
     _ProbeTarget("lmstudio", 1234,  "/v1/models",   "/v1/models",   "data"),
-    _ProbeTarget("tgi",      8080,  "/health",      "/v1/models",   "data"),
+    _ProbeTarget("tgi",      8080,  "/health",      "/v1/models",   "data",  True),
     _ProbeTarget("kobold",   5001,  "/api/v1/info", "/api/v1/model","result"),
 ]
 
@@ -125,11 +125,12 @@ class LocalServerScanner:
                 return cached
 
         _timeout = timeout_s if timeout_s is not None else settings.local_scan_timeout_s
-        tasks = [self._probe_one(t, _timeout) for t in _PROBE_TARGETS]
+        active_targets = [t for t in _PROBE_TARGETS if t.port in settings.local_scan_ports]
+        tasks = [self._probe_one(t, _timeout) for t in active_targets]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         servers: list[LocalServer] = []
-        for t, result in zip(_PROBE_TARGETS, results):
+        for t, result in zip(active_targets, results):
             if isinstance(result, LocalServer):
                 servers.append(result)
             else:
@@ -172,8 +173,8 @@ class LocalServerScanner:
                 except Exception:
                     pass
 
-                # For TGI: health is /health, models is a separate endpoint
-                if target.provider == "tgi" and not models:
+                # For targets that use a separate models endpoint (e.g. TGI)
+                if target.separate_models_fetch and not models:
                     try:
                         mr = await client.get(f"{base}{target.models_path}")
                         mdata = mr.json().get(target.models_key, [])
