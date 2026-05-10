@@ -4,14 +4,15 @@ Settings API – Manage LLM providers and application settings.
 
 import asyncio
 import ipaddress
+import json
 import logging
+import os
 import re
-import time as _time
 from pathlib import Path
-from typing import Optional, List
+from typing import Annotated, Literal, Optional, List
 from urllib.parse import urlparse
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator
+from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
@@ -20,19 +21,80 @@ from db.database import get_db
 from db.models import UserSettings
 from core.local_scanner import LocalServerScanner, detect_provider_from_url
 from core.llm_manager import get_llm_provider, list_available_providers
-from core.rag_engine import rag_engine
 from config import settings
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
 logger = logging.getLogger(__name__)
 
 _settings_lock = asyncio.Lock()
+_keys_lock = asyncio.Lock()
+_embedding_lock = asyncio.Lock()
 
 # Path to root .env (one level up from backend/)
 _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 
+# ── Key visibility helpers ─────────────────────────────────────────
+
+_KNOWN_KEYS = [
+    "NVIDIA_API_KEY", "NVIDIA_FAST_API_KEY", "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY",
+]
+_VISIBILITY_VALUES = ("masked", "hidden", "none")
+_DEFAULT_VISIBILITY = "masked"
+
+
+def _keys_file_path() -> Path:
+    """Return path to settings_keys.json (overridable via env for tests)."""
+    env_path = os.environ.get("SETTINGS_KEYS_FILE")
+    if env_path:
+        return Path(env_path)
+    return Path(__file__).parent / "settings_keys.json"
+
+
+def _load_keys_visibility() -> dict[str, str]:
+    """Load key visibility states from JSON file. Returns defaults if file absent."""
+    path = _keys_file_path()
+    if path.exists():
+        try:
+            data = json.loads(path.read_text())
+            return {k: data.get(k, _DEFAULT_VISIBILITY) for k in _KNOWN_KEYS}
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {k: _DEFAULT_VISIBILITY for k in _KNOWN_KEYS}
+
+
+def _save_keys_visibility(data: dict) -> None:
+    """Save key visibility states to JSON file atomically."""
+    import tempfile
+    path = _keys_file_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
 
 # ── Schemas ───────────────────────────────────────────────────────
+
+class KeyVisibilityItem(BaseModel):
+    name: str
+    visibility: Literal["masked", "hidden", "none"]
+
+
+class KeysVisibilityUpdate(BaseModel):
+    keys: dict[str, Literal["masked", "hidden", "none"]]
+
+
+class KeysVisibilityResponse(BaseModel):
+    keys: list[KeyVisibilityItem]
+
 
 class ProviderInfo(BaseModel):
     name: str
@@ -40,6 +102,9 @@ class ProviderInfo(BaseModel):
     is_active: bool
 
 class ProviderSwitchRequest(BaseModel):
+    provider: str
+
+class EmbeddingSwitchRequest(BaseModel):
     provider: str
 
 class ProviderUpdateRequest(BaseModel):
@@ -197,6 +262,7 @@ async def update_provider(req: ProviderUpdateRequest):
         "mistral": ("mistral_api_key",  "MISTRAL_API_KEY",  "mistral_model",  "MISTRAL_MODEL",  None, None, None, None, None, None),
         "groq":    ("groq_api_key",     "GROQ_API_KEY",     "groq_model",     "GROQ_MODEL",     None, None, None, None, "groq_fast_model", "GROQ_FAST_MODEL"),
         "ollama":  (None, None,          "ollama_model",    "OLLAMA_MODEL",   "ollama_base_url","OLLAMA_BASE_URL", None, None, None, None),
+        "local":   (None, None,          "local_model",     "LOCAL_MODEL",    "local_base_url", "LOCAL_BASE_URL",  None, None, None, None),
     }
     if provider not in _KEY_MAP:
         raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
@@ -326,6 +392,19 @@ async def fetch_provider_models(provider: str):
                 return [ModelInfo(id=m, name=m) for m in models]
             except httpx.ConnectError:
                 raise HTTPException(status_code=503, detail="Ollama is not running at the configured Base URL")
+
+        # ── Generic local server (LM Studio, TGI, etc.) ───────────────
+        elif provider in ("local", "lmstudio"):
+            base_url = settings.local_base_url if provider == "local" else "http://localhost:1234"
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(f"{base_url}/v1/models")
+                    resp.raise_for_status()
+                    data = _parse_json_response(resp, "local")
+                models = sorted(m["id"] for m in data.get("data", []))
+                return [ModelInfo(id=m, name=m) for m in models]
+            except httpx.ConnectError:
+                raise HTTPException(status_code=503, detail=f"Local server not running at {base_url}")
 
         # ── Groq ──────────────────────────────────────────────────────
         elif provider == "groq":
@@ -509,79 +588,83 @@ async def detect_provider(req: DetectProviderRequest):
     )
 
 
-# ── Embedding Status & Switch Endpoints ───────────────────────────
+# ── Key Visibility Endpoints ──────────────────────────────────────
 
-_EMBEDDING_PROVIDERS = ("nvidia", "openai", "ollama")
-
-
-async def _check_embedding_latency() -> float:
-    """Ping the embedding provider with a trivial query and return latency in seconds."""
-    start = _time.monotonic()
-    await rag_engine.embedding_provider.embed_query("ping")
-    return _time.monotonic() - start
-
-
-class EmbeddingSwitchRequest(BaseModel):
-    provider: str
-
-    @field_validator("provider")
-    @classmethod
-    def validate_provider(cls, v):
-        if v not in _EMBEDDING_PROVIDERS:
-            raise ValueError(
-                f"provider must be one of: {', '.join(_EMBEDDING_PROVIDERS)}. Got: {v!r}"
-            )
-        return v
-
-
-@router.get("/embedding-status")
-async def get_embedding_status():
-    """Return current embedding provider info and connectivity status."""
-    provider = getattr(rag_engine.embedding_provider, "provider", None) or getattr(
-        settings, "embedding_provider", "nvidia"
+@router.get("/keys", response_model=KeysVisibilityResponse)
+async def get_keys_visibility():
+    """Return visibility state for all known API keys."""
+    state = _load_keys_visibility()
+    return KeysVisibilityResponse(
+        keys=[KeyVisibilityItem(name=k, visibility=state[k]) for k in _KNOWN_KEYS]
     )
-    model = getattr(settings, "embedding_model", "nvidia/nv-embedqa-e5-v5")
-    doc_count = 0
-    try:
-        doc_count = rag_engine.collection.count()
-    except Exception:
-        pass
 
-    try:
-        latency = await asyncio.wait_for(_check_embedding_latency(), timeout=15.0)
-        status = "green" if latency < 5.0 else "yellow"
-    except Exception:
-        status = "red"
-        latency = None
 
-    return {
-        "provider": provider,
-        "model": model,
-        "status": status,
-        "latency_s": latency,
-        "document_count": doc_count,
-    }
+@router.put("/keys", response_model=KeysVisibilityResponse)
+async def update_keys_visibility(
+    body: Annotated[dict[str, Literal["masked", "hidden", "none"]], Body()]
+):
+    """Bulk-update visibility states for one or more API keys."""
+    unknown = [k for k in body if k not in _KNOWN_KEYS]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown key(s): {', '.join(unknown)}")
+    async with _keys_lock:
+        state = _load_keys_visibility()
+        state.update(body)
+        try:
+            _save_keys_visibility(state)
+        except OSError as e:
+            logger.error("Failed to write settings_keys.json: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to persist key visibility settings") from e
+    return KeysVisibilityResponse(
+        keys=[KeyVisibilityItem(name=k, visibility=state[k]) for k in _KNOWN_KEYS]
+    )
+
+
+# ── Embedding Provider Switch ─────────────────────────────────────
+
+_VALID_EMBEDDING_PROVIDERS = ("nvidia", "openai", "ollama")
 
 
 @router.post("/embedding-switch")
 async def switch_embedding_provider(req: EmbeddingSwitchRequest):
-    """Switch embedding provider. Returns needs_reindex=True if provider changes."""
-    current = getattr(settings, "embedding_provider", "nvidia")
-    needs_reindex = current != req.provider
-    try:
-        _update_env_key("EMBEDDING_PROVIDER", req.provider)
-    except Exception:
-        pass
-    try:
-        settings.embedding_provider = req.provider
-    except Exception:
-        pass
-    return {
-        "provider": req.provider,
-        "needs_reindex": needs_reindex,
-        "message": (
-            "Provider switched. Re-index required to update embeddings."
-            if needs_reindex
-            else "Provider unchanged."
-        ),
-    }
+    """Switch the active embedding provider and rebind the live rag_engine."""
+    if req.provider not in _VALID_EMBEDDING_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown embedding provider '{req.provider}'. Valid: {list(_VALID_EMBEDDING_PROVIDERS)}",
+        )
+
+    async with _embedding_lock:
+        current = getattr(settings, "embedding_provider", "nvidia")
+        needs_reindex = current != req.provider
+
+        # Best-effort .env persistence
+        try:
+            _update_env_key("EMBEDDING_PROVIDER", req.provider)
+        except Exception as e:
+            logger.warning("Could not persist EMBEDDING_PROVIDER to .env: %s", e)
+
+        # In-memory settings update (fatal if this fails)
+        try:
+            settings.embedding_provider = req.provider
+        except Exception as e:
+            logger.error("Could not update settings.embedding_provider: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to switch embedding provider")
+
+        # Best-effort live rag_engine rebind
+        try:
+            from core.rag_engine import rag_engine as _rag
+            if hasattr(_rag, "embedding_provider") and hasattr(_rag.embedding_provider, "provider"):
+                _rag.embedding_provider.provider = req.provider
+        except Exception as e:
+            logger.warning("Could not rebind rag_engine embedding provider: %s", e)
+
+        return {
+            "provider": req.provider,
+            "needs_reindex": needs_reindex,
+            "message": (
+                "Provider switched. Re-index required to update embeddings."
+                if needs_reindex
+                else "Provider unchanged."
+            ),
+        }

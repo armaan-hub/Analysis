@@ -1,71 +1,125 @@
-"""Tests for embedding status and switch endpoints."""
+"""Tests for embedding provider switch endpoint."""
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from httpx import AsyncClient, ASGITransport
-from main import app
+from unittest.mock import patch, MagicMock
 
 
-@pytest.fixture
-async def client():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c
+_VALID_PROVIDERS = ["nvidia", "openai", "ollama"]
 
 
-@pytest.mark.asyncio
-async def test_get_embedding_status_returns_200(client):
-    """GET /api/settings/embedding-status returns provider, model, status, count."""
-    with patch("api.settings.rag_engine") as mock_rag:
-        mock_rag.collection.count.return_value = 1247
-        mock_rag.embedding_provider.provider = "nvidia"
-        r = await client.get("/api/settings/embedding-status")
-    assert r.status_code == 200
-    data = r.json()
-    assert "provider" in data
-    assert "model" in data
-    assert "status" in data
-    assert "document_count" in data
+class TestGetEmbeddingStatus:
+    @pytest.mark.asyncio
+    async def test_get_embedding_config_returns_200(self, client):
+        """GET /api/documents/embedding-config returns 200 with provider info."""
+        r = await client.get("/api/documents/embedding-config")
+        assert r.status_code == 200
+        data = r.json()
+        assert "provider" in data
+        assert "model" in data
+        assert "dimension" in data
 
 
-@pytest.mark.asyncio
-async def test_get_embedding_status_green_when_fast(client):
-    """Status is 'green' when embedding responds quickly."""
-    with patch("api.settings.rag_engine") as mock_rag, \
-         patch("api.settings._check_embedding_latency", new_callable=AsyncMock, return_value=2.0):
-        mock_rag.collection.count.return_value = 100
-        mock_rag.embedding_provider.provider = "nvidia"
-        r = await client.get("/api/settings/embedding-status")
-    assert r.status_code == 200
-    assert r.json()["status"] == "green"
+class TestPostEmbeddingSwitch:
+    @pytest.mark.asyncio
+    async def test_post_embedding_switch_returns_200(self, client, monkeypatch):
+        """POST /api/settings/embedding-switch with valid provider returns 200."""
+        import api.settings as settings_module
+        monkeypatch.setattr(settings_module.settings, "embedding_provider", "nvidia")
 
+        with patch("api.settings._update_env_key"), \
+             patch("api.settings.rag_engine", create=True) as mock_rag:
+            mock_rag.embedding_provider = MagicMock()
+            mock_rag.embedding_provider.provider = "nvidia"
+            r = await client.post(
+                "/api/settings/embedding-switch",
+                json={"provider": "openai"},
+            )
 
-@pytest.mark.asyncio
-async def test_get_embedding_status_yellow_when_slow(client):
-    with patch("api.settings.rag_engine") as mock_rag, \
-         patch("api.settings._check_embedding_latency", new_callable=AsyncMock, return_value=8.0):
-        mock_rag.collection.count.return_value = 100
-        mock_rag.embedding_provider.provider = "nvidia"
-        r = await client.get("/api/settings/embedding-status")
-    assert r.json()["status"] == "yellow"
+        assert r.status_code == 200
+        data = r.json()
+        assert data["provider"] == "openai"
+        assert data["needs_reindex"] is True
+        assert "message" in data
 
+    @pytest.mark.asyncio
+    async def test_post_embedding_switch_same_provider_no_reindex(self, client, monkeypatch):
+        """Switching to same provider returns needs_reindex=False."""
+        import api.settings as settings_module
+        monkeypatch.setattr(settings_module.settings, "embedding_provider", "openai")
 
-@pytest.mark.asyncio
-async def test_get_embedding_status_red_when_error(client):
-    with patch("api.settings.rag_engine") as mock_rag, \
-         patch("api.settings._check_embedding_latency", new_callable=AsyncMock, side_effect=Exception("timeout")):
-        mock_rag.collection.count.return_value = 100
-        mock_rag.embedding_provider.provider = "nvidia"
-        r = await client.get("/api/settings/embedding-status")
-    assert r.json()["status"] == "red"
+        with patch("api.settings._update_env_key"), \
+             patch("api.settings.rag_engine", create=True) as mock_rag:
+            mock_rag.embedding_provider = MagicMock()
+            mock_rag.embedding_provider.provider = "openai"
+            r = await client.post(
+                "/api/settings/embedding-switch",
+                json={"provider": "openai"},
+            )
 
+        assert r.status_code == 200
+        data = r.json()
+        assert data["provider"] == "openai"
+        assert data["needs_reindex"] is False
+        assert "Provider unchanged" in data["message"]
 
-@pytest.mark.asyncio
-async def test_post_embedding_switch_returns_200(client):
-    """POST /api/settings/embedding-switch with valid provider returns 200."""
-    r = await client.post("/api/settings/embedding-switch", json={"provider": "openai"})
-    assert r.status_code in (200, 202)
+    @pytest.mark.asyncio
+    async def test_post_embedding_switch_invalid_provider_returns_400(self, client):
+        """POST /api/settings/embedding-switch with unknown provider returns 400."""
+        with patch("api.settings._update_env_key"):
+            r = await client.post(
+                "/api/settings/embedding-switch",
+                json={"provider": "unknown_provider"},
+            )
 
+        assert r.status_code == 400
+        assert "unknown_provider" in r.json()["detail"].lower() or "unknown" in r.json()["detail"].lower()
 
-@pytest.mark.asyncio
-async def test_post_embedding_switch_invalid_provider_returns_422(client):
-    r = await client.post("/api/settings/embedding-switch", json={"provider": "unknown_provider"})
-    assert r.status_code == 422
+    @pytest.mark.asyncio
+    async def test_post_embedding_switch_all_valid_providers(self, client, monkeypatch):
+        """Each valid provider can be switched to successfully."""
+        import api.settings as settings_module
+
+        for provider in _VALID_PROVIDERS:
+            monkeypatch.setattr(settings_module.settings, "embedding_provider", "nvidia")
+            with patch("api.settings._update_env_key"), \
+                 patch("api.settings.rag_engine", create=True) as mock_rag:
+                mock_rag.embedding_provider = MagicMock()
+                mock_rag.embedding_provider.provider = "nvidia"
+                r = await client.post(
+                    "/api/settings/embedding-switch",
+                    json={"provider": provider},
+                )
+            assert r.status_code == 200, f"Expected 200 for provider={provider}, got {r.status_code}"
+            assert r.json()["provider"] == provider
+
+    @pytest.mark.asyncio
+    async def test_post_embedding_switch_env_write_failure_is_non_fatal(self, client, monkeypatch):
+        """A failure to write .env does not cause a 500 — warning only."""
+        import api.settings as settings_module
+        monkeypatch.setattr(settings_module.settings, "embedding_provider", "nvidia")
+
+        with patch("api.settings._update_env_key", side_effect=OSError("disk full")), \
+             patch("api.settings.rag_engine", create=True) as mock_rag:
+            mock_rag.embedding_provider = MagicMock()
+            mock_rag.embedding_provider.provider = "nvidia"
+            r = await client.post(
+                "/api/settings/embedding-switch",
+                json={"provider": "openai"},
+            )
+
+        assert r.status_code == 200
+        assert r.json()["provider"] == "openai"
+
+    @pytest.mark.asyncio
+    async def test_post_embedding_switch_rag_rebind_failure_is_non_fatal(self, client, monkeypatch):
+        """A failure to rebind rag_engine does not cause a 500 — warning only."""
+        import api.settings as settings_module
+        monkeypatch.setattr(settings_module.settings, "embedding_provider", "nvidia")
+
+        with patch("api.settings._update_env_key"), \
+             patch("core.rag_engine.rag_engine", create=True, side_effect=ImportError("no rag")):
+            r = await client.post(
+                "/api/settings/embedding-switch",
+                json={"provider": "ollama"},
+            )
+
+        assert r.status_code == 200

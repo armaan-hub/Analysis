@@ -35,6 +35,9 @@ class DocumentProcessor:
 
     SUPPORTED_TYPES = {".pdf", ".docx", ".xlsx", ".xls", ".txt", ".csv", ".md"}
 
+    _BATCH_SIZE = 2_000
+    _BATCH_SEPARATOR = "---BATCH_{n}---"
+
     def __init__(self, chunk_size: int | None = None, chunk_overlap: int | None = None):
         from config import settings as _s
         _size = chunk_size if chunk_size is not None else _s.embedding_chunk_size
@@ -337,6 +340,73 @@ class DocumentProcessor:
             wb.close()
 
         return sheets
+
+    @staticmethod
+    def _open_csv_with_fallback(filepath: str):
+        """Open a CSV file trying multiple encodings before giving up."""
+        import io
+        for enc in ("utf-8-sig", "cp1252", "latin-1"):
+            try:
+                with open(filepath, newline="", encoding=enc) as f:
+                    content = f.read()
+                return io.StringIO(content)
+            except UnicodeDecodeError:
+                continue
+        raise ValueError(f"Cannot decode CSV: {filepath}")
+
+    def batch_extract_csv(self, filepath: str) -> str:
+        """Extract CSV content, batching rows if >5,000 rows."""
+        import csv
+        rows = []
+        reader = csv.reader(self._open_csv_with_fallback(filepath))
+        header = next(reader, None)
+        for row in reader:
+            rows.append(row)
+
+        header_str = " | ".join(header) if header else ""
+        metadata_header = f"row_count: {len(rows)}\ncolumns: {header_str}\n"
+
+        if len(rows) <= 5_000:
+            body = "\n".join(" | ".join(r) for r in rows)
+            return f"{metadata_header}\n{header_str}\n{body}"
+
+        parts = [metadata_header]
+        for batch_n, start in enumerate(range(0, len(rows), self._BATCH_SIZE), start=1):
+            batch = rows[start:start + self._BATCH_SIZE]
+            body = "\n".join(" | ".join(r) for r in batch)
+            parts.append(f"{self._BATCH_SEPARATOR.format(n=batch_n)}\n{header_str}\n{body}")
+        return "\n\n".join(parts)
+
+    def batch_extract_excel(self, filepath: str) -> str:
+        """Extract Excel content, batching sheets with >5,000 rows."""
+        import openpyxl
+        wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+        all_parts = []
+        batch_n = 0
+
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows:
+                continue
+            header = rows[0]
+            data_rows = rows[1:]
+            header_str = " | ".join(str(c) if c is not None else "" for c in header)
+            metadata = f"sheet: {sheet_name}\nrow_count: {len(data_rows)}\ncolumns: {header_str}\n"
+
+            if len(data_rows) <= 5_000:
+                body = "\n".join(" | ".join(str(c) if c is not None else "" for c in r) for r in data_rows)
+                all_parts.append(f"{metadata}\n{header_str}\n{body}")
+            else:
+                all_parts.append(metadata)
+                for start in range(0, len(data_rows), self._BATCH_SIZE):
+                    batch_n += 1
+                    batch = data_rows[start:start + self._BATCH_SIZE]
+                    body = "\n".join(" | ".join(str(c) if c is not None else "" for c in r) for r in batch)
+                    all_parts.append(f"{self._BATCH_SEPARATOR.format(n=batch_n)}\n{header_str}\n{body}")
+
+        wb.close()
+        return "\n\n".join(all_parts)
 
     def _extract_text(self, filepath: str) -> list[dict]:
         """Extract text from plain text / CSV / markdown files."""

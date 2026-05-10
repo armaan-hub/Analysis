@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Grid3X3, List, Search } from 'lucide-react';
 import { API } from '../lib/api';
 import { NotebookCard, CreateNotebookCard, type Notebook } from '../components/common/NotebookCard';
+import ModeSelector, { type ChatMode } from '../components/ModeSelector';
 
 interface HomePageProps {
-  onNewChat?: () => void;
+  onNewChat?: (mode?: ChatMode) => void;
 }
 
 type ModeFilter = 'all' | 'fast' | 'deep_research' | 'analyst';
@@ -24,6 +25,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeModes, setActiveModes] = useState<Set<ModeFilter>>(new Set(['all']));
+  const [mode, setMode] = useState<ChatMode>('chat');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,8 +48,21 @@ export default function HomePage({ onNewChat }: HomePageProps) {
   const handleOpen = (id: string) => navigate(`/notebook/${id}`);
 
   const handleCreate = () => {
-    if (onNewChat) onNewChat();
-    else navigate('/notebook/new');
+    if (mode === 'analysis') {
+      // Analysis mode requires a file upload — navigate with mode param so LegalStudio can prompt
+      navigate('/notebook/new?mode=analysis');
+      return;
+    }
+    if (onNewChat) {
+      onNewChat(mode);
+    } else {
+      const dest = mode === 'research'
+        ? '/notebook/new?mode=deep_research'
+        : mode === 'council'
+          ? '/notebook/new?mode=council'
+          : '/notebook/new';
+      navigate(dest);
+    }
   };
 
   const toggleMode = (mode: ModeFilter) => {
@@ -211,6 +226,14 @@ export default function HomePage({ onNewChat }: HomePageProps) {
     <div className="home-page">
       <div className="home-page__header">
         <h1 className="home-page__title">📚 Compliance and Analysis Studio</h1>
+      </div>
+
+      {/* New-chat mode selector — choose mode before creating a notebook */}
+      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--s-text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          New chat as
+        </span>
+        <ModeSelector value={mode} onChange={setMode} />
       </div>
 
       {/* Mode filter bar */}

@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_db, AsyncSessionLocal
 from db.models import Conversation, Message, Document
 from core.llm_manager import get_llm_provider
-from core.rag_engine import rag_engine, _infer_domain_from_name
+from core.rag_engine import rag_engine, _infer_domain_from_name, _normalize_chunk
 from core.prompt_router import get_system_prompt, route_prompt, DOMAIN_PROMPTS, FORMATTING_REMINDER
 from core.chat.domain_classifier import classify_domain, DomainLabel, ClassifierResult
 from core.chat.intent_classifier import classify_intent
@@ -27,7 +27,7 @@ from pathlib import Path as _Path
 from core.rag.hybrid_retriever import HybridRetriever
 from core.rag.graph_rag import GraphRAG
 from core.rag.graphify_retriever import graphify_retriever
-from config import settings
+from config import settings, compute_llm_params
 from core.web_search import search_web, build_web_context
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,61 @@ def _inject_no_sources_disclaimer(response_text: str, sources_found: int) -> str
     if sources_found == 0:
         return _NO_SOURCES_DISCLAIMER + response_text
     return response_text
+
+
+CITATION_INSTRUCTION = (
+    "\n\nIMPORTANT: For every factual claim you make, cite the source document using the format "
+    "[Source: <filename>, p.<page>] or [Source: <filename>] if page is unknown. "
+    "Only cite sources that were actually provided in the context. "
+    "If no relevant sources were found, state that clearly."
+)
+
+
+_CITATION_RE = re.compile(
+    r'\[Source:[^\]]+\]|'          # [Source: filename]
+    r'\[Ref:[^\]]+\]|'             # [Ref: filename]
+    r'\[source:[^\]]+\]|'          # [source: filename]
+    r'\bSources?:\s*\n',           # "Sources:" or "Source:" at line start
+    re.IGNORECASE
+)
+
+
+def _inject_citation_fallback(response: str, chunks: list[dict]) -> str:
+    """Append source list to response if LLM did not include citations.
+
+    Args:
+        response: The LLM's text response.
+        chunks: List of normalized chunks (output of _normalize_chunk()).
+
+    Returns:
+        Original response if citations detected; otherwise response + appended sources.
+    """
+    if not chunks:
+        return response
+
+    # Detect if citations already present using strict regex to avoid false positives
+    if _CITATION_RE.search(response):
+        return response
+
+    # Deduplicate by source_file
+    seen: set[str] = set()
+    sources: list[str] = []
+    for chunk in chunks:
+        sf = chunk.get("source_file")
+        if not sf or sf in seen:
+            continue
+        seen.add(sf)
+        page = chunk.get("page")
+        if page is not None:
+            sources.append(f"- {sf}, p.{page}")
+        else:
+            sources.append(f"- {sf}")
+
+    if not sources:
+        return response
+
+    source_block = "\n\n**Sources:**\n" + "\n".join(sources)
+    return response + source_block
 
 
 # Type aliases
@@ -553,6 +608,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
     if req.stream:
         async def generate():  # noqa: C901
+            llm_params = compute_llm_params(
+                model_name=settings.nvidia_model,
+                mode=req.mode,
+                provider=settings.llm_provider,
+            )
             # ── 1. Domain classification ──────────────────────────────────────
             _eff = req.domain_override or req.domain
             if _eff:
@@ -613,6 +673,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             else:
                 logger.warning("Intent classification failed (non-fatal): %s", _intent_res)
 
+            _sys += CITATION_INSTRUCTION
+
             if isinstance(_query_vars, Exception):
                 _query_vars = [req.message]
 
@@ -646,7 +708,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                 try:
                     _search_results = await _hybrid_retriever.retrieve(
                         query=req.message,
-                        top_k=settings.fast_top_k if req.mode == "fast" else settings.top_k_results,
+                        top_k=llm_params["top_k"],
                         rag_filter=_rag_filter,
                     )
                 except Exception as _rag_exc:
@@ -673,17 +735,17 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                                 _broad_all = await asyncio.gather(
                                     *[rag_engine.search(
                                         q,
-                                        top_k=settings.fast_top_k,
+                                        top_k=llm_params["top_k"],
                                         filter=_base_filter,
                                         min_score=settings.rag_min_score,
                                     ) for q in _query_vars],
                                     return_exceptions=True,
                                 )
-                                _broad_results = _dedup_merge(_broad_all, settings.fast_top_k)
+                                _broad_results = _dedup_merge(_broad_all, llm_params["top_k"])
                             else:
                                 _broad_results = await rag_engine.search(
                                     req.message,
-                                    top_k=settings.top_k_results,
+                                    top_k=llm_params["top_k"],
                                     filter=_base_filter,
                                     min_score=settings.rag_min_score,
                                 )
@@ -908,12 +970,12 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
 
             # ── 9. Stream LLM response ────────────────────────────────────────
             full_response = ""
-            _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
+            _requested_max = llm_params["max_tokens"]
             _safe_max = _llm.compute_safe_max_tokens(_msgs, _requested_max)
             try:
                 async for chunk in _llm.chat_stream(
                     _msgs,
-                    temperature=settings.fast_temperature if req.mode == "fast" else settings.deep_temperature if req.mode in ("analyst", "deep_research") else settings.temperature,
+                    temperature=llm_params["temperature"],
                     max_tokens=_safe_max,
                     reasoning_effort=_reasoning_effort,
                 ):
@@ -961,6 +1023,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             _allowed_urls.discard("")
             full_response = strip_hallucinated_urls(full_response, _allowed_urls)
             full_response = _inject_no_sources_disclaimer(full_response, sources_found=len(_search_results))
+            normalized_chunks = [_normalize_chunk(r) for r in _search_results]
+            _pre_fallback = full_response
+            full_response = _inject_citation_fallback(full_response, normalized_chunks)
+            # If fallback appended sources, stream the appended portion to the client
+            if full_response != _pre_fallback:
+                appended = full_response[len(_pre_fallback):]
+                yield f"data: {json.dumps({'delta': appended, 'type': 'citation_append'})}\n\n"
 
             # ── 10. Sources + web auto-ingest ─────────────────────────────────
             if _sources:
@@ -1020,6 +1089,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
         )
 
     # Build messages list
+    llm_params = compute_llm_params(
+        model_name=settings.nvidia_model,
+        mode=req.mode,
+        provider=settings.llm_provider,
+    )
     messages = []
     sources = []
     search_results = []
@@ -1068,6 +1142,8 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     except Exception as exc:
         logger.warning("Intent classification failed (non-fatal): %s", exc)
 
+    system_prompt += CITATION_INSTRUCTION
+
     # If RAG is enabled, search for relevant context
     if req.use_rag:
         rag_filter = None
@@ -1098,7 +1174,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
             )
             search_results = await _hybrid_retriever.retrieve(
                 query=req.message,
-                top_k=settings.fast_top_k if req.mode == "fast" else settings.top_k_results,
+                top_k=llm_params["top_k"],
                 rag_filter=rag_filter,
             )
         except Exception as rag_exc:
@@ -1128,7 +1204,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             *[
                                 rag_engine.search(
                                     q,
-                                    top_k=settings.fast_top_k,
+                                    top_k=llm_params["top_k"],
                                     filter=_base_filter,
                                     min_score=settings.rag_min_score,
                                 )
@@ -1136,11 +1212,11 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
                             ],
                             return_exceptions=True,
                         )
-                        _broad_results = _dedup_merge(_broad_all, settings.fast_top_k)
+                        _broad_results = _dedup_merge(_broad_all, llm_params["top_k"])
                     else:
                         _broad_results = await rag_engine.search(
                             req.message,
-                            top_k=settings.top_k_results,
+                            top_k=llm_params["top_k"],
                             filter=_base_filter,
                             min_score=settings.rag_min_score,
                         )
@@ -1301,13 +1377,13 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     messages.append({"role": "user", "content": req.message})
 
     # Call LLM
-    _requested_max = settings.fast_max_tokens if req.mode == "fast" else settings.max_tokens
+    _requested_max = llm_params["max_tokens"]
     _safe_max = llm.compute_safe_max_tokens(messages, _requested_max)
     try:
         # Non-streaming response
         response = await llm.chat(
             messages,
-            temperature=settings.fast_temperature if req.mode == "fast" else settings.deep_temperature if req.mode in ("analyst", "deep_research") else settings.temperature,
+            temperature=llm_params["temperature"],
             max_tokens=_safe_max,
             reasoning_effort=_reasoning_effort,
         )
@@ -1345,6 +1421,7 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks, db: 
     _allowed_urls.discard("")
     answer_content = strip_hallucinated_urls(answer_content, _allowed_urls)
     answer_content = _inject_no_sources_disclaimer(answer_content, sources_found=len(search_results))
+    answer_content = _inject_citation_fallback(answer_content, [_normalize_chunk(r) for r in search_results])
 
     # Save assistant message
     assistant_msg = Message(
@@ -1609,111 +1686,3 @@ async def export_deep_research(req: DeepResearchExportRequest):
         )
     else:
         raise HTTPException(status_code=400, detail=f"Unknown format: {req.format}")
-
-
-# ── Deep Research Endpoint ────────────────────────────────────────────────────
-
-class DeepResearchRequest(BaseModel):
-    conversation_id: Optional[str] = None
-    query: str
-    selected_doc_ids: Optional[list[str]] = None
-
-
-@router.post("/deep-research")
-async def deep_research_stream(req: DeepResearchRequest):
-    """Dedicated deep-research SSE endpoint: RAG + web synthesis with progress steps."""
-    from core.rag_engine import rag_engine
-    from core.web_search import deep_search
-
-    async def generate():
-        try:
-            # Step 1: Search indexed documents
-            doc_sources: list[dict] = []
-            if req.selected_doc_ids:
-                yield f"data: {json.dumps({'type': 'step', 'text': f'Searching {len(req.selected_doc_ids)} selected document(s)…'})}\n\n"
-                # Deep research is always professional context — combine with law+finance to prevent contamination
-                doc_filter = {
-                    "$and": [
-                        {"doc_id": {"$in": req.selected_doc_ids}},
-                        {"category": {"$in": ["law", "finance"]}},
-                    ]
-                }
-                raw = await rag_engine.search(
-                    req.query, top_k=10, filter=doc_filter,
-                    min_score=settings.rag_min_score,
-                )
-            else:
-                yield f"data: {json.dumps({'type': 'step', 'text': 'Searching law & finance knowledge base…'})}\n\n"
-                raw = await rag_engine.search(
-                    req.query,
-                    top_k=10,
-                    filter={"category": {"$in": ["law", "finance"]}},
-                    min_score=settings.rag_min_score,
-                )
-
-            rag_context_parts: list[str] = []
-            for r in raw:
-                meta = r.get("metadata") or {}
-                fname = meta.get("original_name") or meta.get("source") or "document"
-                page = meta.get("page_number") or meta.get("page") or 1
-                snippet = r.get("text", "")[:600]
-                rag_context_parts.append(f"[{fname}, p.{page}]\n{snippet}")
-                doc_sources.append({"filename": fname, "page": page})
-
-            # Step 2: Web research
-            yield f"data: {json.dumps({'type': 'step', 'text': 'Running deep web research…'})}\n\n"
-            try:
-                web_results = await asyncio.wait_for(deep_search(req.query, max_queries=5), timeout=60.0)
-            except asyncio.TimeoutError:
-                logger.warning("Deep web search timed out — continuing with RAG results only")
-                web_results = []
-            web_sources: list[dict] = []
-            web_context_parts: list[str] = []
-            for w in web_results or []:
-                url = w.get("href") or w.get("url", "")
-                title = w.get("title", url)
-                body = w.get("body", "")[:500]
-                web_sources.append({"title": title, "url": url})
-                web_context_parts.append(f"[{title}]({url})\n{body}")
-
-            # Step 3: Synthesize
-            yield f"data: {json.dumps({'type': 'step', 'text': 'Synthesising answer…'})}\n\n"
-            llm = get_llm_provider(mode="analyst")
-            system = (
-                "You are a thorough research analyst. Synthesise the provided document excerpts and "
-                "web search results into a comprehensive, well-structured answer. Use Markdown with "
-                "## headings and bullet points. When citing web sources, use markdown hyperlinks in the "
-                "format [Title](url) — copy the exact URL from the source as provided. "
-                "CRITICAL URL RULE: Only include hyperlinks for URLs explicitly listed in the web results above. "
-                "NEVER invent, guess, or reconstruct a URL from a company name. If no URL was provided for a "
-                "company or source, mention it as plain text only — no link. "
-                "For document sources, cite as (Document Name, p.N)."
-            )
-            context_block = ""
-            if rag_context_parts:
-                context_block += "## Document Context\n" + "\n\n".join(rag_context_parts) + "\n\n"
-            if web_context_parts:
-                context_block += "## Web Research\n" + "\n\n".join(web_context_parts) + "\n\n"
-
-            messages_for_llm = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": context_block + f"## Question\n{req.query}"},
-            ]
-            answer_parts: list[str] = []
-            async for chunk in llm.chat_stream(messages_for_llm, temperature=settings.deep_temperature, max_tokens=2000):
-                answer_parts.append(chunk)
-                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
-
-            full_answer = "".join(answer_parts)
-            yield f"data: {json.dumps({'type': 'answer', 'content': full_answer, 'sources': doc_sources, 'web_sources': web_sources})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-        except Exception as e:
-            logger.error(f"Deep research error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
-    )

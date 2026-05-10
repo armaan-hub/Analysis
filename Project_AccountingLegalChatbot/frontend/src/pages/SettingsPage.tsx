@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API, API_BASE, getErrMsg } from '../lib/api';
+import ApiKeyRow, { type KeyMode } from '../components/ApiKeyRow';
+import EmbeddingCard from '../components/EmbeddingCard';
 
 interface ProviderConfig {
   api_key: string;
@@ -25,14 +27,6 @@ interface DetectProviderResponse {
   key_valid: boolean;
 }
 
-interface EmbeddingConfig {
-  provider: string;
-  model: string;
-  chunk_size: number;
-  dimension: number;
-  fingerprint: string;
-  note: string;
-}
 
 interface ReindexStatus {
   needs_reindex: boolean;
@@ -104,10 +98,14 @@ export default function SettingsPage() {
   const [apiKeyLabel,       setApiKeyLabel]       = useState<string>('');
   const [apiKeyValid,       setApiKeyValid]       = useState<boolean>(false);
 
-  // Embedding provider state
-  const [embeddingConfig,  setEmbeddingConfig]  = useState<EmbeddingConfig | null>(null);
+  // Embedding provider state (reindex status only — live status shown by EmbeddingCard)
   const [reindexStatus,    setReindexStatus]    = useState<ReindexStatus | null>(null);
   const [reindexing,       setReindexing]       = useState(false);
+
+  // API key visibility modes
+  const API_KEY_NAMES = ['NVIDIA_API_KEY', 'NVIDIA_FAST_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY'] as const;
+  const [keyModes,    setKeyModes]    = useState<Record<string, KeyMode>>({});
+  const [keyLoading,  setKeyLoading]  = useState<Record<string, boolean>>({});
 
   const flash = (text: string, ok: boolean) => {
     setStatusMsg({ text, ok });
@@ -115,7 +113,6 @@ export default function SettingsPage() {
   };
 
   const fetchEmbeddingInfo = () => {
-    API.get('/api/documents/embedding-config').then(r => setEmbeddingConfig(r.data)).catch(() => {});
     API.get('/api/documents/reindex-status').then(r => setReindexStatus(r.data)).catch(() => {});
   };
 
@@ -200,7 +197,29 @@ export default function SettingsPage() {
       .finally(() => setLoading(false));
     fetchEmbeddingInfo();
     void fetchLocalScan();
+    API.get('/api/settings/keys')
+      .then(r => setKeyModes(r.data as Record<string, KeyMode>))
+      .catch(() => {});
   }, []);
+
+  const toggleKeyMode = async (keyName: string, newMode: KeyMode) => {
+    if (keyLoading[keyName]) return;
+    const previousMode = keyModes[keyName];
+    setKeyModes(prev => ({ ...prev, [keyName]: newMode }));
+    setKeyLoading(prev => ({ ...prev, [keyName]: true }));
+    try {
+      await API.put('/api/settings/keys', { [keyName]: newMode });
+    } catch (e) {
+      flash(getErrMsg(e, 'Failed to update key visibility'), false);
+      setKeyModes(prev => ({ ...prev, [keyName]: previousMode }));
+      // Best-effort sync with server state after revert
+      API.get('/api/settings/keys')
+        .then(r => setKeyModes(r.data as Record<string, KeyMode>))
+        .catch(() => {});
+    } finally {
+      setKeyLoading(prev => ({ ...prev, [keyName]: false }));
+    }
+  };
 
   const pickProvider = (p: string) => {
     setSelectedProvider(p);
@@ -599,8 +618,8 @@ export default function SettingsPage() {
 
         {/* ── Embedding Provider Card ──────────────────────────────── */}
         {!loading && (
-          <div style={{ marginTop: '28px', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px', background: 'var(--surface-2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ marginTop: '28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
               <span style={{ fontSize: '1.2rem' }}>🔢</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '1rem' }}>Embedding Provider</div>
@@ -625,39 +644,28 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div className="settings-field">
-                <label className="settings-label">Provider</label>
-                <select className="settings-input settings-select" value={embeddingConfig?.provider ?? ''} disabled title="Change EMBEDDING_PROVIDER in .env to switch providers">
-                  <option value="nvidia">NVIDIA (nv-embedqa-e5-v5)</option>
-                  <option value="ollama">Ollama (nomic-embed-text, local)</option>
-                  <option value="openai">OpenAI (text-embedding-3-small)</option>
-                </select>
-                <div style={{ fontSize: '0.71rem', color: 'var(--text-2)' }}>Set via <code>EMBEDDING_PROVIDER</code> in .env — restart to change</div>
-              </div>
-
-              <div className="settings-field">
-                <label className="settings-label">Model</label>
-                <input type="text" className="settings-input" value={embeddingConfig?.model ?? '—'} readOnly style={{ cursor: 'default', opacity: 0.8 }} />
-              </div>
-
-              <div className="settings-field">
-                <label className="settings-label">Vector Dimension</label>
-                <input type="text" className="settings-input" value={embeddingConfig?.dimension ?? '—'} readOnly style={{ cursor: 'default', opacity: 0.8 }} />
-              </div>
-
-              <div className="settings-field">
-                <label className="settings-label">Chunk Size</label>
-                <input type="text" className="settings-input" value={embeddingConfig?.chunk_size ?? '—'} readOnly style={{ cursor: 'default', opacity: 0.8 }} />
+            <EmbeddingCard onProviderChange={() => fetchEmbeddingInfo()} />
+          </div>
+        )}
+        {/* ── API Key Visibility Section ─────────────────────────── */}
+        {!loading && (
+          <div style={{ marginTop: '28px', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px', background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <span style={{ fontSize: '1.2rem' }}>🔑</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem' }}>API Key Visibility</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-2)' }}>Control how API keys are displayed — cycle between masked, hidden, and visible modes</div>
               </div>
             </div>
-
-            <div style={{ marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-2)' }}>
-              Fingerprint: <code style={{ color: 'var(--primary)', fontSize: '0.73rem' }}>{reindexStatus?.fingerprint ?? embeddingConfig?.fingerprint ?? '…'}</code>
-              {reindexStatus && !reindexStatus.needs_reindex && (
-                <span style={{ marginLeft: '10px', color: 'var(--green)' }}>✓ All documents indexed</span>
-              )}
-            </div>
+            {API_KEY_NAMES.map(keyName => (
+              <ApiKeyRow
+                key={keyName}
+                keyName={keyName}
+                mode={(keyModes[keyName] as KeyMode) ?? 'masked'}
+                onToggle={toggleKeyMode}
+                loading={!!keyLoading[keyName]}
+              />
+            ))}
           </div>
         )}
       </div>

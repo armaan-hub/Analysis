@@ -5,7 +5,7 @@ Reads settings from .env file and exposes them as typed attributes.
 
 import os
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, TypedDict
 from pydantic import Field, model_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # ── Ollama (local) ───────────────────────────────────────────────
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
+
+    # ── Generic local OpenAI-compatible server (LM Studio, TGI, etc.) ──
+    local_base_url: str = "http://localhost:1234"
+    local_model: str = ""
 
     # ── Local Server Scanner ─────────────────────────────────────────
     local_scan_ports: list[int] = [11434, 1234, 8080, 5001]
@@ -212,3 +216,117 @@ class Settings(BaseSettings):
 # Singleton instance
 settings = Settings()
 settings.ensure_dirs()
+
+
+# ── LLM Parameter Registry ───────────────────────────────────────────────────
+
+
+class LLMParams(TypedDict):
+    """Per-mode, per-model-family optimal LLM parameters."""
+    max_tokens: int
+    temperature: float
+    timeout: float
+    top_k: int
+
+
+_FAMILY_MODES: dict[str, dict[str, LLMParams]] = {
+    "claude": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 90.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
+    },
+    "gpt-4": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 90.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
+    },
+    "gpt-3.5": {
+        "fast":          {"max_tokens": 4096,  "temperature": 0.3,  "timeout": 30.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 8192,  "temperature": 0.4,  "timeout": 60.0,  "top_k": 20},
+        "analyst":       {"max_tokens": 8192,  "temperature": 0.25, "timeout": 90.0,  "top_k": 16},
+    },
+    "ollama": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 180.0, "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
+    },
+    "lmstudio": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 300.0, "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 600.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 900.0, "top_k": 16},
+    },
+    "mistral": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 90.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
+    },
+    "groq": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 45.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 16384, "temperature": 0.4,  "timeout": 180.0, "top_k": 20},
+        "analyst":       {"max_tokens": 16384, "temperature": 0.25, "timeout": 300.0, "top_k": 16},
+    },
+    "nvidia": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 90.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
+    },
+    "default": {
+        "fast":          {"max_tokens": 4096,  "temperature": 0.3,  "timeout": 60.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 16384, "temperature": 0.4,  "timeout": 180.0, "top_k": 20},
+        "analyst":       {"max_tokens": 16384, "temperature": 0.25, "timeout": 300.0, "top_k": 16},
+    },
+}
+
+# (substring, family) — lower-cased match against model_name; first match wins
+_FAMILY_PATTERNS: list[tuple[str, str]] = [
+    ("claude",    "claude"),
+    ("gpt-4",     "gpt-4"),
+    ("gpt-3.5",   "gpt-3.5"),
+    ("llama-3.1",  "ollama"),    # llama-3.1 is typically served locally via Ollama
+    ("llama-3",   "groq"),       # llama-3.3 and other llama-3.x = Groq hosted
+    ("llama3",    "ollama"),
+    ("llama",     "ollama"),
+    ("qwen",      "lmstudio"),   # Qwen models typically served via LM Studio
+    ("ollama",    "ollama"),
+    ("lmstudio",  "lmstudio"),
+    ("local",     "lmstudio"),
+    ("devstral",  "mistral"),
+    ("mistralai", "mistral"),
+    ("mistral",   "mistral"),
+    ("groq",      "groq"),
+    ("nvidia",    "nvidia"),
+    ("nv-",       "nvidia"),
+    ("nim",       "nvidia"),
+]
+
+
+def compute_llm_params(
+    model_name: str,
+    mode: str,
+    provider: str | None = None,
+) -> LLMParams:
+    """Return optimal max_tokens, temperature, timeout, and top_k for a model+mode pair.
+
+    Args:
+        model_name: e.g. "mistralai/mistral-large-3-675b-instruct-2512", "claude-sonnet-4"
+        mode: "fast" | "deep_research" | "analyst"
+        provider: optional hint to resolve ambiguous model names
+
+    Returns:
+        LLMParams dict with keys: max_tokens, temperature, timeout, top_k
+    """
+    if mode not in ("fast", "deep_research", "analyst"):
+        mode = "fast"
+
+    # Provider hint overrides pattern matching when unambiguous
+    if provider in _FAMILY_MODES:
+        family = provider
+    else:
+        lower = model_name.lower()
+        family = "default"
+        for pattern, fam in _FAMILY_PATTERNS:
+            if pattern in lower:
+                family = fam
+                break
+
+    return dict(_FAMILY_MODES.get(family, _FAMILY_MODES["default"])[mode])

@@ -218,6 +218,8 @@ from api import audit_studio
 from api.legal_studio import router as legal_studio_router
 from api.council import router as council_router
 from api.llm import router as llm_router
+from api.deep_research import router as deep_research_router
+from api.analysis import router as analysis_router
 
 app.include_router(chat_router)
 app.include_router(documents_router)
@@ -230,6 +232,8 @@ app.include_router(audit_studio.router)
 app.include_router(legal_studio_router)
 app.include_router(council_router)
 app.include_router(llm_router)
+app.include_router(deep_research_router)
+app.include_router(analysis_router)
 
 
 # ── Root Endpoint ─────────────────────────────────────────────────
@@ -265,6 +269,24 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+# ── Serve built frontend (fallback when CF frontend tunnel is unavailable) ────
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    # Serve /assets/* etc. from the dist folder
+    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/app/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Catch-all to serve the React SPA for any non-API route."""
+        from fastapi.responses import FileResponse
+        index = _FRONTEND_DIST / "index.html"
+        return FileResponse(str(index))
+
+    @app.get("/ui", include_in_schema=False)
+    async def serve_ui_root():
+        from fastapi.responses import FileResponse
+        return FileResponse(str(_FRONTEND_DIST / "index.html"))
 
 # ── Run directly ──────────────────────────────────────────────────
 

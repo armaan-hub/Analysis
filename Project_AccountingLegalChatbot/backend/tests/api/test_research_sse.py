@@ -18,21 +18,20 @@ async def test_deep_research_streams_sse():
     ]
 
     with (
-        patch("core.rag_engine.rag_engine.search", new_callable=AsyncMock, return_value=fake_rag_results),
-        patch("core.web_search.deep_search", new_callable=AsyncMock, return_value=fake_web_results),
-        patch("api.chat.get_llm_provider", return_value=_FakeLLM()),
+        patch("api.deep_research.rag_engine.search", new_callable=AsyncMock, return_value=fake_rag_results),
+        patch("api.deep_research.search_web", new_callable=AsyncMock, return_value=fake_web_results),
+        patch("api.deep_research.get_llm_provider", return_value=_FakeLLM()),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             async with client.stream(
                 "POST",
-                "/api/chat/deep-research",
-                json={"conversation_id": "c1", "query": "q", "selected_doc_ids": []},
+                "/api/deep-research",
+                json={"query": "q", "selected_doc_ids": []},
             ) as r:
                 assert r.status_code == 200
                 assert r.headers["content-type"].startswith("text/event-stream")
                 body = "".join([chunk async for chunk in r.aiter_text()])
 
-    # every frame starts with "data: " and is parseable JSON
     frames = [line[len("data: "):] for line in body.splitlines() if line.startswith("data: ")]
     parsed = [json.loads(f) for f in frames]
     types = [p["type"] for p in parsed]

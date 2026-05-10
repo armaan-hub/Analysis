@@ -93,6 +93,9 @@ async def test_chat_uses_compute_safe_max_tokens(client):
         "messages argument must be a list"
     assert len(call_args_captured.get("messages", [])) > 0, \
         "messages argument must not be empty"
-    from config import settings
-    assert call_args_captured.get("requested_max") == settings.fast_max_tokens, \
-        f"fast mode must pass fast_max_tokens ({settings.fast_max_tokens}), got {call_args_captured.get('requested_max')}"
+    from config import settings, compute_llm_params
+    expected_max = compute_llm_params(
+        model_name=settings.nvidia_model, mode="fast", provider=settings.llm_provider
+    )["max_tokens"]
+    assert call_args_captured.get("requested_max") == expected_max, \
+        f"fast mode must pass compute_llm_params max_tokens ({expected_max}), got {call_args_captured.get('requested_max')}"
