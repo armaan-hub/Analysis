@@ -38,24 +38,30 @@ export default function EmbeddingCard({ onProviderChange }: EmbeddingCardProps) 
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/settings/embedding-status`);
+      const res = await fetch(`${API_BASE}/api/settings/embedding-status`, { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: EmbeddingStatus = await res.json();
       setStatus(data);
     } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : 'Failed to load embedding status');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void fetchStatus(); }, [fetchStatus]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchStatus(controller.signal);
+    return () => controller.abort();
+  }, [fetchStatus]);
 
   const handleProviderChange = async (provider: string) => {
+    if (switching) return;
     if (!status || provider === status.provider) return;
     setSwitching(true);
     try {

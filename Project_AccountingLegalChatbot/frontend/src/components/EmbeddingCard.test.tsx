@@ -61,3 +61,23 @@ test('shows error state when fetch fails', async () => {
   render(<EmbeddingCard />);
   await waitFor(() => expect(screen.getByText(/error|unavailable|failed/i)).toBeInTheDocument());
 });
+
+test('reverts provider dropdown on switch failure', async () => {
+  vi.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL) => {
+    if (String(url).includes('embedding-status')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({
+        provider: 'nvidia', status: 'green', latency_ms: 45, model: 'test', chunk_count: 100,
+        available_providers: ['nvidia', 'openai'],
+      }) } as Response);
+    }
+    if (String(url).includes('embedding-switch')) {
+      return Promise.reject(new Error('Switch failed'));
+    }
+    return Promise.reject(new Error('unknown'));
+  });
+  render(<EmbeddingCard />);
+  await waitFor(() => screen.getByRole('combobox'));
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'openai' } });
+  await waitFor(() => expect(screen.getByText(/error|failed|unavailable/i)).toBeInTheDocument());
+  expect(screen.getByRole('combobox')).toHaveValue('nvidia');
+});
