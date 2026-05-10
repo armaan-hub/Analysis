@@ -945,3 +945,27 @@ Wrote a lean replacement script that bypasses ALL LLM calls:
 tail -f ~/chatbot_local/Project_AccountingLegalChatbot/backend/scripts/batch_ingest_v2.log
 ~/chatbot_venv/bin/python3 -c "import sys; sys.path.insert(0,'backend'); import chromadb; c=chromadb.PersistentClient('/Users/armaan/vector_store_v2'); col=c.get_collection('documents'); print('Vectors:', col.count())"
 ```
+
+### May 10, 2026 — RAG System Fix & Local Ollama Setup
+
+**Issues Fixed:**
+1. **Database schema mismatch** — Added missing  column to documents table
+2. **Path resolution bug** — bulk_ingest.py looking in wrong data_source directories (3 levels up instead of project root)
+3. **Missing .env** — Config looking for .env at parent.parent instead of backend/
+
+**Setup:**
+- Created  with Ollama config
+- Copied to  (parent level for config.py)
+- Configured Ollama provider: qwen3.5:35b-a3b-coding-nvfp4
+- Configured Ollama embedding: nomic-embed-text
+
+**Results:**
+- 502 documents indexed (495 in DB, 24,890 chunks in ChromaDB)
+- RAG search working (tested with VAT registration query)
+- All finance (325 files) + law (175 files) documents processed
+
+**Next:**
+- Test full chat API with Ollama
+- Implement auto-ingest pipeline per design spec
+- Add Arabic translation, metadata tagging, entity graph
+

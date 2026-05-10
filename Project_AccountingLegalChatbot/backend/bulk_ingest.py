@@ -46,10 +46,14 @@ _engine = create_async_engine(
 _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
 # ── Source directories ────────────────────────────────────────────
-_HERE = Path(__file__).resolve().parent
+# Data source directories are at the ROOT level (35. 11-Apr-2026 Agentic AI/)
+# bulk_ingest.py is in Project_AccountingLegalChatbot/backend/
+# parent = backend/, parent.parent = Project_AccountingLegalChatbot/, parent.parent.parent = root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 DIRS = {
-    "finance": _HERE / "data_source_finance",
-    "law": _HERE / "data_source_law",
+    "finance": PROJECT_ROOT / "data_source_finance",
+    "law": PROJECT_ROOT / "data_source_law",
 }
 
 
