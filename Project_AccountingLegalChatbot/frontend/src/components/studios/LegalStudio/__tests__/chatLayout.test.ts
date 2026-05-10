@@ -18,7 +18,7 @@ describe('chat-msg CSS', () => {
       css.matchAll(/\.chat-msg--user\s+\.chat-msg__bubble\s*\{([^}]+)\}/g),
     );
     if (bubbleMatches.length > 0) {
-      const hasMaxWidth = bubbleMatches.some((match) => /max-width/.test(match[1]));
+      const hasMaxWidth = bubbleMatches.some((match) => /max-width/.test((match as RegExpMatchArray)[1] ?? ''));
       expect(hasMaxWidth).toBe(true);
       return;
     }

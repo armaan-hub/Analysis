@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SettingsPage from '../SettingsPage';
 import { API } from '../../lib/api';
@@ -75,7 +75,7 @@ describe('SettingsPage local models section', () => {
     expect(await screen.findByText('2 models')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Ollama'));
-    const baseUrlInput = await screen.findByLabelText('Base URL');
+    const baseUrlInput = await screen.findByDisplayValue('http://localhost:11434');
     expect(baseUrlInput).toHaveValue('http://localhost:11434');
   });
 
@@ -85,6 +85,8 @@ describe('SettingsPage local models section', () => {
     const refreshBtn = await screen.findByTitle('Refresh local model scan');
     fireEvent.click(refreshBtn);
 
-    expect(API.post).toHaveBeenCalledWith('/api/settings/local-scan/refresh');
+    await waitFor(() => {
+      expect(API.post).toHaveBeenCalledWith('/api/settings/local-scan/refresh');
+    });
   });
 });

@@ -40,6 +40,20 @@ interface ReindexStatus {
   fingerprint: string;
 }
 
+interface LocalServerInfo {
+  provider: string;
+  base_url: string;
+  online: boolean;
+  models: string[];
+  latency_ms: number;
+}
+
+interface LocalScanResponse {
+  scan_time: string | null;
+  cache_age_s: number;
+  servers: LocalServerInfo[];
+}
+
 const PROVIDER_META: Record<string, { label: string; icon: string; keyRequired: boolean; hasBaseUrl: boolean; hasFastModel: boolean }> = {
   nvidia:  { label: 'NVIDIA NIM',    icon: '🟢', keyRequired: true,  hasBaseUrl: true,  hasFastModel: true  },
   openai:  { label: 'OpenAI',        icon: '⚫', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
@@ -47,6 +61,14 @@ const PROVIDER_META: Record<string, { label: string; icon: string; keyRequired: 
   mistral: { label: 'Mistral',       icon: '🔵', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
   groq:    { label: 'Groq',          icon: '🟡', keyRequired: true,  hasBaseUrl: false, hasFastModel: true  },
   ollama:  { label: 'Ollama (local)', icon: '🟣', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
+  local:   { label: 'Local',         icon: '🖥️', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
+};
+
+const LOCAL_PROVIDER_NAMES: Record<string, string> = {
+  ollama: 'Ollama',
+  lmstudio: 'LM Studio',
+  tgi: 'HuggingFace TGI',
+  kobold: 'Kobold.cpp',
 };
 
 export default function SettingsPage() {
@@ -64,6 +86,10 @@ export default function SettingsPage() {
   // Tracks which providers already have a key configured (so we don't overwrite with masked values)
   const [hasKey,       setHasKey]       = useState<Record<string, boolean>>({});
   const [hasFastKey,   setHasFastKey]   = useState<Record<string, boolean>>({});
+  const [localScan,    setLocalScan]    = useState<LocalScanResponse | null>(null);
+  const [loadingLocal, setLoadingLocal] = useState(true);
+  const [refreshingLocal, setRefreshingLocal] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(true);
 
   const [models,         setModels]         = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
@@ -91,6 +117,47 @@ export default function SettingsPage() {
   const fetchEmbeddingInfo = () => {
     API.get('/api/documents/embedding-config').then(r => setEmbeddingConfig(r.data)).catch(() => {});
     API.get('/api/documents/reindex-status').then(r => setReindexStatus(r.data)).catch(() => {});
+  };
+
+  const fetchLocalScan = async () => {
+    setLoadingLocal(true);
+    try {
+      const r = await API.get('/api/settings/local-scan');
+      setLocalScan(r.data as LocalScanResponse);
+    } catch {
+      setLocalScan({ scan_time: null, cache_age_s: 0, servers: [] });
+    } finally {
+      setLoadingLocal(false);
+    }
+  };
+
+  const refreshLocalScan = async () => {
+    setRefreshingLocal(true);
+    try {
+      await API.post('/api/settings/local-scan/refresh');
+      await fetchLocalScan();
+      flash('Local scan complete', true);
+    } catch (e) {
+      flash(getErrMsg(e, 'Scan failed'), false);
+    } finally {
+      setRefreshingLocal(false);
+    }
+  };
+
+  const selectLocalServer = (server: LocalServerInfo) => {
+    if (!server.online) return;
+    setSelectedProvider('local');
+    setModels(server.models || []);
+    setModelsError('');
+    setStatusMsg(null);
+    setApiKeyLabel('');
+    setApiKeyValid(false);
+    setEditKey('');
+    setEditFastKey('');
+    setEditFastModel('');
+    setEditModel(server.models?.[0] || '');
+    setEditBaseUrl(server.base_url || '');
+    void onBaseUrlBlur(server.base_url || '');
   };
 
   const triggerReindex = async () => {
@@ -132,6 +199,7 @@ export default function SettingsPage() {
       .catch(() => flash('Failed to load settings', false))
       .finally(() => setLoading(false));
     fetchEmbeddingInfo();
+    void fetchLocalScan();
   }, []);
 
   const pickProvider = (p: string) => {
@@ -139,6 +207,8 @@ export default function SettingsPage() {
     setModels([]);
     setModelsError('');
     setStatusMsg(null);
+    setApiKeyLabel('');
+    setApiKeyValid(false);
     const prov: ProviderConfig = fullSettings?.providers?.[p] || { api_key: '', model: '', base_url: '', fast_api_key: '', fast_model: '' };
     // Never pre-fill key fields with masked values — leave blank so users must type to change
     setEditKey('');
@@ -218,7 +288,11 @@ export default function SettingsPage() {
   };
 
   const onBaseUrlBlur = async (url: string) => {
-    if (!url.trim()) return;
+    if (!url.trim()) {
+      setApiKeyLabel('');
+      setApiKeyValid(false);
+      return;
+    }
     try {
       setDetectingProvider(true);
       const res = await fetch('/api/settings/detect-provider', {
@@ -242,6 +316,9 @@ export default function SettingsPage() {
 
   const meta = PROVIDER_META[selectedProvider] ?? { label: selectedProvider, icon: '⚙️', keyRequired: true, hasBaseUrl: false, hasFastModel: false };
   const isActive = fullSettings?.llm_provider === selectedProvider;
+  const localServers = localScan?.servers || [];
+  const onlineLocalServers = localServers.filter(server => server.online);
+  const offlineLocalServers = localServers.filter(server => !server.online);
 
   return (
     <div className="main">
@@ -261,8 +338,85 @@ export default function SettingsPage() {
           <div className="api-settings-layout">
 
             <div className="provider-card-list">
+              <div className="settings-section-title" style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setLocalExpanded(v => !v)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, font: 'inherit' }}
+                >
+                  <span>{localExpanded ? '▼' : '▶'}</span>
+                  <span>Local Models</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-icon"
+                  style={{ padding: '4px' }}
+                  title="Refresh local model scan"
+                  onClick={refreshLocalScan}
+                  disabled={refreshingLocal}
+                >
+                  {refreshingLocal ? '…' : '↻'}
+                </button>
+              </div>
+
+              {localExpanded && (
+                <>
+                  {loadingLocal ? (
+                    <div style={{ padding: '8px 0' }}>
+                      <div className="loading-spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', margin: '6px auto' }} />
+                    </div>
+                  ) : localServers.length === 0 ? (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', lineHeight: 1.4, paddingBottom: '8px' }}>
+                      No local models detected. Make sure Ollama or LM Studio is running.
+                    </div>
+                  ) : (
+                    <>
+                      {onlineLocalServers.map(server => {
+                        const selected = selectedProvider === 'local' && editBaseUrl === server.base_url;
+                        return (
+                          <div
+                            key={`${server.provider}:${server.base_url}`}
+                            className={`provider-card ${selected ? 'selected' : ''}`}
+                            onClick={() => selectLocalServer(server)}
+                          >
+                            <span className="provider-card-icon" style={{ fontSize: '0.62rem', border: '1px solid var(--border)', borderRadius: '999px', padding: '2px 6px', letterSpacing: '0.04em' }}>LOCAL</span>
+                            <div className="provider-card-info">
+                              <div className="provider-card-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>{LOCAL_PROVIDER_NAMES[server.provider] || server.provider}</span>
+                                <span style={{ color: 'var(--green)', fontSize: '0.62rem' }}>●</span>
+                              </div>
+                              <div className="provider-card-model">
+                                {server.models.length} model{server.models.length === 1 ? '' : 's'}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {offlineLocalServers.map(server => (
+                        <div
+                          key={`${server.provider}:${server.base_url}`}
+                          className="provider-card"
+                          style={{ opacity: 0.55, cursor: 'default' }}
+                          aria-disabled
+                        >
+                          <span className="provider-card-icon" style={{ fontSize: '0.62rem', border: '1px solid var(--border)', borderRadius: '999px', padding: '2px 6px', letterSpacing: '0.04em' }}>LOCAL</span>
+                          <div className="provider-card-info">
+                            <div className="provider-card-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{LOCAL_PROVIDER_NAMES[server.provider] || server.provider}</span>
+                              <span style={{ color: 'var(--text-3)', fontSize: '0.62rem' }}>●</span>
+                            </div>
+                            <div className="provider-card-model">offline</div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+
               <div className="settings-section-title" style={{ marginBottom: '10px' }}>Providers</div>
-              {Object.entries(PROVIDER_META).map(([key, m]) => {
+              {Object.entries(PROVIDER_META).filter(([key]) => key !== 'local').map(([key, m]) => {
                 const isAct = fullSettings?.llm_provider === key;
                 return (
                   <div
@@ -510,5 +664,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-
