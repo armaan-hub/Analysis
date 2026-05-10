@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from httpx import AsyncClient, ASGITransport
 from core.document_processor import DocumentProcessor
+from api import analysis as analysis_module
 
 
 @pytest.fixture
@@ -11,6 +12,13 @@ async def client():
     from main import app
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def reset_analysis_files():
+    analysis_module._analysis_files.clear()
+    yield
+    analysis_module._analysis_files.clear()
 
 
 class TestBatchExtractCsv:
@@ -46,8 +54,12 @@ class TestBatchExtractCsv:
 
 
 @pytest.mark.asyncio
-async def test_analysis_upload_endpoint_exists(client):
+async def test_analysis_upload_endpoint_exists(client, tmp_path, monkeypatch):
     """POST /api/analysis/upload returns 200 with a PDF file."""
+    mock_settings = MagicMock()
+    mock_settings.upload_dir = str(tmp_path)
+    monkeypatch.setattr(analysis_module, "settings", mock_settings)
+
     pdf_bytes = b"%PDF-1.4 1 0 obj<</Type/Catalog>>endobj"
     files = {"file": ("test.pdf", io.BytesIO(pdf_bytes), "application/pdf")}
     with patch("api.analysis.document_processor") as mock_dp:

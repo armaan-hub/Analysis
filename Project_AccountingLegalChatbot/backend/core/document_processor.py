@@ -341,15 +341,27 @@ class DocumentProcessor:
 
         return sheets
 
+    @staticmethod
+    def _open_csv_with_fallback(filepath: str):
+        """Open a CSV file trying multiple encodings before giving up."""
+        import io
+        for enc in ("utf-8-sig", "cp1252", "latin-1"):
+            try:
+                with open(filepath, newline="", encoding=enc) as f:
+                    content = f.read()
+                return io.StringIO(content)
+            except UnicodeDecodeError:
+                continue
+        raise ValueError(f"Cannot decode CSV: {filepath}")
+
     def batch_extract_csv(self, filepath: str) -> str:
         """Extract CSV content, batching rows if >5,000 rows."""
         import csv
         rows = []
-        with open(filepath, newline="", encoding="utf-8-sig", errors="replace") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-            for row in reader:
-                rows.append(row)
+        reader = csv.reader(self._open_csv_with_fallback(filepath))
+        header = next(reader, None)
+        for row in reader:
+            rows.append(row)
 
         header_str = " | ".join(header) if header else ""
         metadata_header = f"row_count: {len(rows)}\ncolumns: {header_str}\n"

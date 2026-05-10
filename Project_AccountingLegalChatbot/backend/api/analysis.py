@@ -1,6 +1,7 @@
 """
 Analysis Mode API — Multi-stage document analysis pipeline.
 """
+import asyncio
 import logging
 import shutil
 import uuid
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/api/analysis", tags=["Analysis"])
 
 document_processor = DocumentProcessor()
 _analysis_files: dict[str, dict] = {}
+_analysis_lock = asyncio.Lock()
 
 
 class AnalyzeRequest(BaseModel):
@@ -51,15 +53,19 @@ async def upload_analysis_document(file: UploadFile = File(...)):
     upload_path = Path(settings.upload_dir) / f"analysis_{file_id}{suffix}"
     upload_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with upload_path.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
+    try:
+        with upload_path.open("wb") as f:
+            shutil.copyfileobj(file.file, f)
+    finally:
+        await file.close()
 
-    _analysis_files[file_id] = {
-        "file_id": file_id,
-        "filename": file.filename,
-        "path": str(upload_path),
-        "suffix": suffix,
-    }
+    async with _analysis_lock:
+        _analysis_files[file_id] = {
+            "file_id": file_id,
+            "filename": file.filename,
+            "path": str(upload_path),
+            "suffix": suffix,
+        }
     return {"file_id": file_id, "filename": file.filename}
 
 
@@ -76,10 +82,14 @@ async def analyze_documents(req: AnalyzeRequest):
     doc_sections: list[str] = []
     analyzed_files: list[str] = []
 
+    async with _analysis_lock:
+        for file_id in req.file_ids:
+            if file_id not in _analysis_files:
+                raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
+        file_infos = {fid: dict(_analysis_files[fid]) for fid in req.file_ids}
+
     for file_id in req.file_ids:
-        if file_id not in _analysis_files:
-            raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
-        finfo = _analysis_files[file_id]
+        finfo = file_infos[file_id]
         path = finfo["path"]
         fname = finfo["filename"] or path
         suffix = finfo["suffix"].lower()
@@ -119,6 +129,12 @@ async def analyze_documents(req: AnalyzeRequest):
     ]
     response = await llm.chat(messages, temperature=llm_params["temperature"], max_tokens=llm_params["max_tokens"])
 
+    async with _analysis_lock:
+        for file_id in req.file_ids:
+            finfo = file_infos.get(file_id, {})
+            Path(finfo.get("path", "")).unlink(missing_ok=True)
+            _analysis_files.pop(file_id, None)
+
     return {
         "report": response.text,
         "files_analyzed": analyzed_files,
@@ -127,3 +143,9 @@ async def analyze_documents(req: AnalyzeRequest):
             for c in rag_chunks
         ],
     }
+
+    async with _analysis_lock:
+        for file_id in req.file_ids:
+            finfo = file_infos.get(file_id, {})
+            Path(finfo.get("path", "")).unlink(missing_ok=True)
+            _analysis_files.pop(file_id, None)
