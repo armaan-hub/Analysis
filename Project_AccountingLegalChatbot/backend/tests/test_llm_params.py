@@ -66,3 +66,35 @@ class TestComputeLlmParamsFamilyDetection:
     def test_returns_llmparams_typed_dict_keys(self):
         p = compute_llm_params("gpt-4o", "fast")
         assert set(p.keys()) == {"max_tokens", "temperature", "timeout", "top_k"}
+
+
+class TestComputeLlmParamsEdgeCases:
+    """Edge cases and mutation safety."""
+
+    def test_return_is_copy_not_reference(self):
+        """Mutating returned dict must not affect global registry."""
+        p1 = compute_llm_params("claude-sonnet-4", "fast")
+        p1["max_tokens"] = 9999999
+        p2 = compute_llm_params("claude-sonnet-4", "fast")
+        assert p2["max_tokens"] == 8192  # Original unchanged
+
+    def test_local_llama_goes_to_ollama_not_groq(self):
+        """llama-3.1:8b is a local Ollama model — must get ollama timeout."""
+        p = compute_llm_params("llama-3.1:8b", "fast")
+        assert p["timeout"] == 180.0  # ollama, NOT groq's 45.0
+
+    def test_groq_llama3_still_works(self):
+        """llama-3.3 on Groq still maps to groq family."""
+        p = compute_llm_params("llama-3.3-70b-versatile", "fast")
+        assert p["timeout"] == 45.0  # groq
+
+    def test_provider_override_takes_precedence(self):
+        """Provider hint overrides pattern matching."""
+        p = compute_llm_params("some-random-model", "fast", provider="claude")
+        assert p["max_tokens"] == 8192
+        assert p["timeout"] == 90.0
+
+    def test_provider_unknown_value_falls_through_to_pattern(self):
+        """Unknown provider falls back to pattern matching."""
+        p = compute_llm_params("claude-sonnet-4", "fast", provider="unknown-provider")
+        assert p["max_tokens"] == 8192  # claude matched by pattern

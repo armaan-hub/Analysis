@@ -5,7 +5,7 @@ Reads settings from .env file and exposes them as typed attributes.
 
 import os
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, TypedDict
 from pydantic import Field, model_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
@@ -219,10 +219,9 @@ settings.ensure_dirs()
 
 
 # ── LLM Parameter Registry ───────────────────────────────────────────────────
-from typing import TypedDict as _TypedDict
 
 
-class LLMParams(_TypedDict):
+class LLMParams(TypedDict):
     """Per-mode, per-model-family optimal LLM parameters."""
     max_tokens: int
     temperature: float
@@ -283,7 +282,8 @@ _FAMILY_PATTERNS: list[tuple[str, str]] = [
     ("claude",    "claude"),
     ("gpt-4",     "gpt-4"),
     ("gpt-3.5",   "gpt-3.5"),
-    ("llama-3",   "groq"),       # Groq uses llama-3.x names
+    ("llama-3.1",  "ollama"),    # llama-3.1 is typically served locally via Ollama
+    ("llama-3",   "groq"),       # llama-3.3 and other llama-3.x = Groq hosted
     ("llama3",    "ollama"),
     ("llama",     "ollama"),
     ("qwen",      "lmstudio"),   # Qwen models typically served via LM Studio
@@ -329,4 +329,4 @@ def compute_llm_params(
                 family = fam
                 break
 
-    return _FAMILY_MODES.get(family, _FAMILY_MODES["default"])[mode]
+    return dict(_FAMILY_MODES.get(family, _FAMILY_MODES["default"])[mode])
