@@ -34,3 +34,10 @@ test('disabled prop prevents onChange', () => {
   fireEvent.click(screen.getByText(/Research/i));
   expect(onChange).not.toHaveBeenCalled();
 });
+
+test('switching from research back to chat fires onChange with chat', () => {
+  const onChange = vi.fn();
+  render(<ModeSelector value="research" onChange={onChange} />);
+  fireEvent.click(screen.getByText(/Chat/i));
+  expect(onChange).toHaveBeenCalledWith('chat');
+});

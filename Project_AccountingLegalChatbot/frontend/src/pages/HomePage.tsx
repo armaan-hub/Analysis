@@ -6,7 +6,7 @@ import { NotebookCard, CreateNotebookCard, type Notebook } from '../components/c
 import ModeSelector, { type ChatMode } from '../components/ModeSelector';
 
 interface HomePageProps {
-  onNewChat?: () => void;
+  onNewChat?: (mode?: ChatMode) => void;
 }
 
 type ModeFilter = 'all' | 'fast' | 'deep_research' | 'analyst';
@@ -54,7 +54,7 @@ export default function HomePage({ onNewChat }: HomePageProps) {
       return;
     }
     if (onNewChat) {
-      onNewChat();
+      onNewChat(mode);
     } else {
       const dest = mode === 'research'
         ? '/notebook/new?mode=deep_research'
