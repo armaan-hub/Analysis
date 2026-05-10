@@ -19,7 +19,15 @@
 > git commit -m "docs/feat/fix: <description>\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 > git push origin <branch>   # branch decided at push time
 > ```
-> This journal file itself must be committed and pushed every time it is updated.
+> **This journal file itself must be committed and pushed every time it is updated.**
+
+### Rule 2b — Journal Update After Every Session
+> After **every Claude session**, update this journal with:
+> - Date and session summary
+> - What was fixed or completed
+> - What remains pending
+> - Then commit and push (same as Rule 2)
+> **Never end a session without updating the journal.**
 
 ### Rule 3 — All Project Files Go in Main Branch Folder
 > Any new project-related file created (scripts, configs, docs, tools) **must be placed in the Main Branch folder**:
