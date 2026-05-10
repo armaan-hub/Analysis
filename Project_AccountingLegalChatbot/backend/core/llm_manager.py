@@ -1,7 +1,7 @@
 """
 Pluggable LLM Manager – Factory pattern for swapping providers.
 
-Supports: NVIDIA NIM, OpenAI, Anthropic Claude, Mistral, Ollama.
+Supports: NVIDIA NIM, OpenAI, Anthropic Claude, Mistral, Ollama, LocalProvider (LM Studio, TGI, Kobold.cpp).
 All providers expose the same interface: send a list of messages, get a response.
 """
 
@@ -1203,7 +1203,7 @@ class LocalProvider(BaseLLMProvider):
     Ollama's native /api/chat protocol is handled by OllamaProvider.
     """
 
-    def __init__(self, base_url: str, model: str, api_key: str = "sk-local"):
+    def __init__(self, base_url: str, model: str, api_key: str = ""):
         super().__init__(api_key=api_key, model=model, base_url=base_url)
         self.provider_name = "local"
 
@@ -1215,24 +1215,31 @@ class LocalProvider(BaseLLMProvider):
             "max_tokens": max_tokens,
             "stream": False,
         }
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
-        ) as client:
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        async with httpx.AsyncClient(timeout=self._DEFAULT_TIMEOUT) as client:
             resp = await client.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers=headers,
             )
             resp.raise_for_status()
             data = resp.json()
 
-        content = data["choices"][0]["message"]["content"]
+        choices = data.get("choices")
+        if not choices:
+            raise RuntimeError(
+                f"LocalProvider: server returned no choices. Body: {data!r}"
+            )
+        content = choices[0]["message"]["content"]
+        finish_reason = choices[0].get("finish_reason", "stop")
         return LLMResponse(
             content=content,
             model=data.get("model", self.model),
             provider=self.provider_name,
             tokens_used=data.get("usage", {}).get("total_tokens", 0),
-            finish_reason=data["choices"][0].get("finish_reason", "stop"),
+            finish_reason=finish_reason,
         )
 
     async def chat_stream(self, messages, temperature=0.7, max_tokens=4096, reasoning_effort=None):
@@ -1243,14 +1250,15 @@ class LocalProvider(BaseLLMProvider):
             "max_tokens": max_tokens,
             "stream": True,
         }
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
-        ) as client:
+        stream_headers = {}
+        if self.api_key:
+            stream_headers["Authorization"] = f"Bearer {self.api_key}"
+        async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
             async with client.stream(
                 "POST",
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers=stream_headers,
             ) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
@@ -1261,7 +1269,14 @@ class LocalProvider(BaseLLMProvider):
                         break
                     try:
                         chunk = json.loads(data_str)
-                        content = chunk["choices"][0].get("delta", {}).get("content", "")
+                        if "error" in chunk:
+                            logger.error("LocalProvider stream error: %s", chunk["error"])
+                            return
+                        choices = chunk.get("choices", [])
+                        if not choices:
+                            continue
+                        delta = choices[0].get("delta", {})
+                        content = delta.get("content") or ""
                         if content:
                             yield content
                     except (json.JSONDecodeError, KeyError, IndexError):
@@ -1303,6 +1318,7 @@ _PROVIDER_MAP = {
     "lmstudio": lambda: LocalProvider(
         base_url="http://localhost:1234",
         model=getattr(settings, "lmstudio_model", "local-model"),
+        api_key="",
     ),
     "mock": lambda: MockProvider(),
 }
