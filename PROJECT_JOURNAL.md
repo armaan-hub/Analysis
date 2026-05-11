@@ -2,7 +2,7 @@
 
 > **Repository:** [armaan-hub/Analysis](https://github.com/armaan-hub/Analysis.git)  
 > **Branches:** `main` (production), `v2` (hybrid RAG), `deep-research` (research mode)  
-> **Backend URL:** http://localhost:8002  
+> **Backend URL:** http://localhost:8001  
 > **Frontend URL:** http://localhost:5173 (run `npm run dev` in `frontend/`)
 
 ---
@@ -74,8 +74,8 @@ GRAPH_STORE_DIR=/Users/armaan/graph_store
 |----------|-----------|
 | Full Project README | `Project_AccountingLegalChatbot/README.md` |
 | Developer Guide | `Project_AccountingLegalChatbot/DEVELOPER_GUIDE.md` |
-| Swagger UI (live) | http://localhost:8002/docs |
-| Health Check | http://localhost:8002/api/health |
+| Swagger UI (live) | http://localhost:8001/docs |
+| Health Check | http://localhost:8001/api/health |
 | Frontend | http://localhost:5173 |
 | Skills / AI Knowledge Base | `skills/accounting-legal-chatbot-rag.md` |
 | Design Specs | `Project_AccountingLegalChatbot/docs/superpowers/specs/` |
@@ -159,8 +159,8 @@ After adding new documents, restart the backend — ingestion runs automatically
 
 ## 🔌 API Reference
 
-Backend base URL: **http://localhost:8002**  
-Interactive docs: **http://localhost:8002/docs**
+Backend base URL: **http://localhost:8001**  
+Interactive docs: **http://localhost:8001/docs**
 
 ### Chat
 | Method | Endpoint | Description |
@@ -1114,3 +1114,66 @@ tail -f ~/chatbot_local/Project_AccountingLegalChatbot/backend/scripts/batch_ing
 - Frontend: ModeSelector (4 modes), ApiKeyRow (eye toggle), EmbeddingCard (embedding status + switch)
 
 **Commits:** `53d4ff5d` (base) → `d96b533f` T1 → `ac7f861f` T2 → `c89f5743` T3 → `6d58bbd4` T4 → `f7fe5a98` T5 → `5fba7f59` T6 → `03c6b686` T7 → `3ac47403` T8 → `3cca853d` T8-fix → `2150c1d9` T9 → `8ecb8086` T9-fix → `9c7c06a4` T10 → `3675542a` T10-fix → `ef57c7a3` T11 → `81685a02` T11-fix
+
+---
+
+### Session: 2026-05-12 — OpenCode Zen Provider Integration
+
+**Goal:** Add OpenCode Zen (`https://opencode.ai/zen/v1`) as a new LLM provider on the Settings API page with auto-fetch of 41 available models.
+
+**Root cause of display issue:** Frontend was configured to call `http://localhost:8002` (an older/stale backend without opencode changes). The fixed backend runs on `http://localhost:8001`. A `frontend/.env` file was missing, so `VITE_API_BASE_URL` fell back to the example value.
+
+**OpenCode Zen API findings:**
+- Endpoint: `GET https://opencode.ai/zen/v1/models` — returns 41 models, no auth required (free tier)
+- Chat endpoint: `POST https://opencode.ai/zen/v1/chat/completions` — OpenAI-compatible
+- Models include: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `gemini-3.1-pro`, `gpt-5.5`, `deepseek-v4-flash-free`, and 34 others
+
+**Files changed (5 files):**
+
+| File | Change |
+|------|--------|
+| `backend/config.py` | Added `opencode_api_key`, `opencode_model` (default: `claude-sonnet-4-6`), `opencode_base_url`. Updated `active_api_key`, `active_model`, `_FAMILY_MODES`, `_FAMILY_PATTERNS` |
+| `backend/core/llm_manager.py` | Added `OpenCodeProvider` class (OpenAI-compatible, conditional auth header). Added to `_PROVIDER_MAP` and `list_available_providers` |
+| `backend/api/settings.py` | Added `opencode` to `_KEY_MAP`, `fetch_provider_models` (auto-fetches from zen/v1/models), `get_current_settings`, `_KNOWN_KEYS` |
+| `backend/core/local_scanner.py` | Added `opencode.ai` URL detection pattern |
+| `frontend/src/pages/SettingsPage.tsx` | Added `opencode` to `PROVIDER_META` (🌐 icon, "OpenCode Zen", no key required). Auto-fetches models on provider selection. Added `OPENCODE_API_KEY` to visibility controls |
+
+**Bug fixed:** Created `frontend/.env` with `VITE_API_BASE_URL=http://localhost:8001` — frontend was calling wrong port (8002 vs 8001)
+
+**Verification:**
+- Backend `GET /api/settings/providers/opencode/models` → 41 models ✅
+- Backend `GET /api/settings/current` → opencode provider present ✅
+- Frontend TypeScript → 0 errors ✅
+
+**To test:** Visit `http://localhost:5173/settings`, click **OpenCode Zen** (🌐) — models auto-populate. Click **Save & Activate** to switch.
+
+---
+
+### Session: 2026-05-12 — Blank Screen & start-app.sh Stability Fixes
+
+**Goal:** Fix blank screen at `localhost:5173`, broken `start-app.sh`, and stop `.env` from being corrupted by Cloudflare tunnel URLs.
+
+**Root Causes Found:**
+1. `frontend/.env` had expired Cloudflare tunnel URL as `VITE_API_BASE_URL` → React loaded but couldn't reach backend API → blank page
+2. `start-app.sh` was **duplicated** (406 lines = 2 identical copies concatenated) — caused restart loop after Ctrl+C
+3. `start-app.sh` was patching `.env` with the tunnel URL on every startup; pre-push hook triggered this on every `git push`
+4. `lib/api.ts` and `api-config.ts` had wrong default port `8001` instead of `8002`
+5. No `ErrorBoundary` in React app — any crash showed a completely blank screen with no error message
+
+**Fixes Applied (Git SHA: 379dde56):**
+
+| File | Change |
+|------|--------|
+| `start-app.sh` | Removed duplicate copy (406→204 lines). Dev server now always uses `localhost:8002` in `.env`. Production build uses tunnel URL via env override only. `cleanup()` restores `.env` to localhost on exit |
+| `frontend/.env` | Reset to `VITE_API_BASE_URL=http://localhost:8002` |
+| `frontend/src/lib/api.ts` | Default fallback port `8001→8002` |
+| `frontend/src/api-config.ts` | Default fallback port `8001→8002` |
+| `frontend/src/App.tsx` | Added `ErrorBoundary` class — crashes now show readable error instead of blank screen |
+
+**Verification:**
+- Backend: `:8002` healthy ✅
+- Frontend: `:5173` responding ✅
+- `.env` survives git push without tunnel URL corruption ✅
+- Build: 0 TypeScript errors ✅
+
+**Rule Reminder:** `VITE_API_BASE_URL` in `frontend/.env` must always be `http://localhost:8002`. The dev server should NEVER use a Cloudflare tunnel URL.
