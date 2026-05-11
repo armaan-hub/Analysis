@@ -122,26 +122,28 @@ else
   CF_BACKEND_URL="(unavailable)"; CF_BACKEND_PID=""
 fi
 
-# ── 4. Update frontend/.env with backend CF URL ───────────────────────────────
+# ── 4. Dev server always uses localhost — NEVER patch .env with tunnel URL ───
+# The dev server is for local use; the tunnel URL is shown in the summary only.
+# Ensure .env is set to localhost:8002 so the dev server always works locally.
 echo ""
-if [ "$CF_BACKEND_URL" != "(unavailable)" ]; then
-  echo "▶ Updating frontend/.env → VITE_API_BASE_URL=$CF_BACKEND_URL"
-  if grep -q '^VITE_API_BASE_URL=' "$ENV_FILE" 2>/dev/null; then
-    sed -i '' "s|^VITE_API_BASE_URL=.*|VITE_API_BASE_URL=$CF_BACKEND_URL|" "$ENV_FILE"
-  else
-    echo "VITE_API_BASE_URL=$CF_BACKEND_URL" >> "$ENV_FILE"
-  fi
-  echo "  ✓ .env updated"
+echo "▶ Ensuring frontend/.env → VITE_API_BASE_URL=http://localhost:8002 (local dev)"
+if grep -q '^VITE_API_BASE_URL=' "$ENV_FILE" 2>/dev/null; then
+  sed -i '' "s|^VITE_API_BASE_URL=.*|VITE_API_BASE_URL=http://localhost:8002|" "$ENV_FILE"
 else
-  echo "▶ Skipping .env patch (tunnel unavailable — keeping existing VITE_API_BASE_URL)"
+  echo "VITE_API_BASE_URL=http://localhost:8002" >> "$ENV_FILE"
 fi
+echo "  ✓ .env set to localhost:8002"
 
-# ── 5. Build frontend → served at /ui via backend tunnel (no 2nd tunnel needed)
+# ── 5. Build frontend with tunnel URL → served at /ui via backend tunnel ─────
 echo ""
 echo "▶ Building frontend for internet access (served at /ui via backend tunnel)…"
 cd "$FRONTEND_DIR"
-if npm run build > "$LOG_DIR/frontend-build.log" 2>&1; then
-  echo "  ✓ Frontend built → $CF_BACKEND_URL/ui"
+BUILD_ENV="VITE_API_BASE_URL=${CF_BACKEND_URL}"
+if [ "$CF_BACKEND_URL" = "(unavailable)" ]; then
+  BUILD_ENV="VITE_API_BASE_URL=http://localhost:8002"
+fi
+if env "$BUILD_ENV" npm run build > "$LOG_DIR/frontend-build.log" 2>&1; then
+  echo "  ✓ Frontend built → ${CF_BACKEND_URL}/ui"
 else
   echo "  ⚠ Frontend build failed — check $LOG_DIR/frontend-build.log"
   echo "    Internet access at /ui may show stale build."

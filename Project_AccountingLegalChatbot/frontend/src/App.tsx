@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, Component, type ReactNode, type ErrorInfo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { API, type Alert } from './lib/api';
 import { StudioProvider } from './context/StudioProvider';
@@ -7,6 +7,28 @@ import { AuditOverlayProvider } from './context/AuditOverlayContext';
 import { AuditOverlay } from './components/studios/LegalStudio/AuditOverlay';
 import { StudioSwitcher } from './components/StudioSwitcher';
 import { ContextualSidebar } from './components/ContextualSidebar';
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e }; }
+  componentDidCatch(e: Error, info: ErrorInfo) { console.error('App error:', e, info); }
+  render() {
+    if (this.state.error) {
+      const e = this.state.error as Error;
+      return (
+        <div style={{ padding: '40px', color: '#ef4444', fontFamily: 'monospace', fontSize: '14px', background: '#111', minHeight: '100vh' }}>
+          <h2 style={{ color: '#fff', marginBottom: '16px' }}>⚠ App Error — open DevTools Console for full trace</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', color: '#fca5a5' }}>{e.message}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', color: '#6b7280', marginTop: '12px', fontSize: '12px' }}>{e.stack}</pre>
+          <button onClick={() => this.setState({ error: null })} style={{ marginTop: '20px', padding: '8px 16px', background: '#374151', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const LegalStudio = React.lazy(() =>
   import('./components/studios/LegalStudio/LegalStudio').then(m => ({ default: m.LegalStudio }))
@@ -120,15 +142,19 @@ function AppInner() {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <ThemeProvider>
     <AuditOverlayProvider>
       <AuditOverlay />
       <Router>
         <StudioProvider>
-          <AppInner />
+          <ErrorBoundary>
+            <AppInner />
+          </ErrorBoundary>
         </StudioProvider>
       </Router>
     </AuditOverlayProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }
