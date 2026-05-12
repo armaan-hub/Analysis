@@ -1192,6 +1192,87 @@ class OllamaProvider(BaseLLMProvider):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# OpenCode Zen Provider (free, OpenAI-compatible)
+# ═══════════════════════════════════════════════════════════════════
+
+class OpenCodeProvider(BaseLLMProvider):
+    """OpenCode Zen — free OpenAI-compatible gateway (https://opencode.ai/zen/v1)."""
+
+    def __init__(self, api_key: str = "", model: str = "claude-sonnet-4-6", base_url: str = "https://opencode.ai/zen/v1"):
+        super().__init__(api_key, model, base_url)
+        self.provider_name = "opencode"
+
+    async def chat(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        payload: dict = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": False,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        async with httpx.AsyncClient(timeout=self._DEFAULT_TIMEOUT) as client:
+            resp = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        choice = data["choices"][0]
+        usage = data.get("usage", {})
+        return LLMResponse(
+            content=choice["message"]["content"],
+            model=data.get("model", self.model),
+            provider=self.provider_name,
+            tokens_used=usage.get("total_tokens", 0),
+            finish_reason=choice.get("finish_reason", "stop"),
+        )
+
+    async def chat_stream(self, messages, temperature=0.7, max_tokens=None, reasoning_effort=None):
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        payload: dict = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        async with httpx.AsyncClient(timeout=self._STREAM_TIMEOUT) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+
+
+# ═══════════════════════════════════════════════════════════════════
 # LocalProvider (OpenAI-compatible: LM Studio, TGI, Kobold.cpp)
 # ═══════════════════════════════════════════════════════════════════
 
@@ -1315,6 +1396,11 @@ _PROVIDER_MAP = {
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
     ),
+    "opencode": lambda: OpenCodeProvider(
+        api_key=settings.opencode_api_key,
+        model=settings.opencode_model,
+        base_url=settings.opencode_base_url,
+    ),
     "lmstudio": lambda: LocalProvider(
         base_url="http://localhost:1234",
         model=getattr(settings, "lmstudio_model", "local-model"),
@@ -1418,6 +1504,7 @@ def list_available_providers() -> list[dict]:
         "mistral":  "mistral_api_key",
         "groq":     "groq_api_key",
         "ollama":   None,
+        "opencode": "opencode_api_key",
         "lmstudio": None,
         "local":    None,
     }

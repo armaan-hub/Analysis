@@ -38,6 +38,7 @@ _URL_PATTERNS: list[tuple[str, str, Optional[str], str]] = [
     ("nvidia.com",      "nvidia",   "NVIDIA_API_KEY",    "NVIDIA API Key"),
     ("mistral.ai",      "mistral",  "MISTRAL_API_KEY",   "Mistral API Key"),
     ("groq.com",        "groq",     "GROQ_API_KEY",      "Groq API Key"),
+    ("opencode.ai",    "opencode",  "OPENCODE_API_KEY",  "OpenCode API Key (optional)"),
     ("localhost:11434", "ollama",   None,                ""),
     ("localhost:1234",  "lmstudio", None,                ""),
 ]
