@@ -643,6 +643,47 @@ async def update_keys_visibility(
 _VALID_EMBEDDING_PROVIDERS = ("nvidia", "openai", "ollama")
 
 
+class EmbeddingStatusResponse(BaseModel):
+    provider: str
+    status: str
+    latency_ms: float
+    model: str
+    chunk_count: int
+    available_providers: list[str]
+
+
+@router.get("/embedding-status", response_model=EmbeddingStatusResponse)
+async def get_embedding_status():
+    """Return live embedding provider health check used by EmbeddingCard."""
+    import time
+    from core.rag_engine import rag_engine
+
+    available = ["nvidia", "openai", "ollama"]
+
+    start = time.perf_counter()
+    try:
+        await rag_engine.embedding_provider.embed_query("test")
+        latency_ms = (time.perf_counter() - start) * 1000
+        status = "green" if latency_ms < 5000 else "yellow"
+    except Exception:
+        latency_ms = 0.0
+        status = "red"
+
+    try:
+        chunk_count = rag_engine.collection.count()
+    except Exception:
+        chunk_count = 0
+
+    return EmbeddingStatusResponse(
+        provider=settings.embedding_provider,
+        status=status,
+        latency_ms=round(latency_ms, 1),
+        model=settings.embedding_model,
+        chunk_count=chunk_count,
+        available_providers=available,
+    )
+
+
 @router.post("/embedding-switch")
 async def switch_embedding_provider(req: EmbeddingSwitchRequest):
     """Switch the active embedding provider and rebind the live rag_engine."""
