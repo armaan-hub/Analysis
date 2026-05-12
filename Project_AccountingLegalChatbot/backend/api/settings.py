@@ -38,6 +38,7 @@ _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 _KNOWN_KEYS = [
     "NVIDIA_API_KEY", "NVIDIA_FAST_API_KEY", "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY",
+    "OPENCODE_API_KEY",
 ]
 _VISIBILITY_VALUES = ("masked", "hidden", "none")
 _DEFAULT_VISIBILITY = "masked"
@@ -262,6 +263,7 @@ async def update_provider(req: ProviderUpdateRequest):
         "mistral": ("mistral_api_key",  "MISTRAL_API_KEY",  "mistral_model",  "MISTRAL_MODEL",  None, None, None, None, None, None),
         "groq":    ("groq_api_key",     "GROQ_API_KEY",     "groq_model",     "GROQ_MODEL",     None, None, None, None, "groq_fast_model", "GROQ_FAST_MODEL"),
         "ollama":  (None, None,          "ollama_model",    "OLLAMA_MODEL",   "ollama_base_url","OLLAMA_BASE_URL", None, None, None, None),
+        "opencode":("opencode_api_key","OPENCODE_API_KEY", "opencode_model","OPENCODE_MODEL", "opencode_base_url","OPENCODE_BASE_URL", None, None, None, None),
         "local":   (None, None,          "local_model",     "LOCAL_MODEL",    "local_base_url", "LOCAL_BASE_URL",  None, None, None, None),
     }
     if provider not in _KEY_MAP:
@@ -420,6 +422,21 @@ async def fetch_provider_models(provider: str):
             models = sorted(m["id"] for m in data.get("data", []))
             return [ModelInfo(id=m, name=m) for m in models]
 
+        # ── OpenCode Zen (free, no auth required) ────────────────────
+        elif provider == "opencode":
+            headers = {}
+            if settings.opencode_api_key:
+                headers["Authorization"] = f"Bearer {settings.opencode_api_key}"
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{settings.opencode_base_url}/models",
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                data = _parse_json_response(resp, "OpenCode")
+            models = sorted(m["id"] for m in data.get("data", []))
+            return [ModelInfo(id=m, name=m) for m in models]
+
         else:
             raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
 
@@ -491,6 +508,7 @@ async def get_current_settings():
             "mistral": {"api_key": _mask(settings.mistral_api_key),  "model": settings.mistral_model,  "base_url": "https://api.mistral.ai/v1",    "fast_api_key": "", "fast_model": ""},
             "groq":    {"api_key": _mask(settings.groq_api_key),     "model": settings.groq_model,     "base_url": settings.groq_base_url,         "fast_api_key": "", "fast_model": settings.groq_fast_model},
             "ollama":  {"api_key": "",                                "model": settings.ollama_model,   "base_url": settings.ollama_base_url,       "fast_api_key": "", "fast_model": ""},
+            "opencode": {"api_key": _mask(settings.opencode_api_key),"model": settings.opencode_model, "base_url": settings.opencode_base_url,     "fast_api_key": "", "fast_model": ""},
         },
     }
 
@@ -623,6 +641,47 @@ async def update_keys_visibility(
 # ── Embedding Provider Switch ─────────────────────────────────────
 
 _VALID_EMBEDDING_PROVIDERS = ("nvidia", "openai", "ollama")
+
+
+class EmbeddingStatusResponse(BaseModel):
+    provider: str
+    status: str
+    latency_ms: float
+    model: str
+    chunk_count: int
+    available_providers: list[str]
+
+
+@router.get("/embedding-status", response_model=EmbeddingStatusResponse)
+async def get_embedding_status():
+    """Return live embedding provider health check used by EmbeddingCard."""
+    import time
+    from core.rag_engine import rag_engine
+
+    available = ["nvidia", "openai", "ollama"]
+
+    start = time.perf_counter()
+    try:
+        await rag_engine.embedding_provider.embed_query("test")
+        latency_ms = (time.perf_counter() - start) * 1000
+        status = "green" if latency_ms < 5000 else "yellow"
+    except Exception:
+        latency_ms = 0.0
+        status = "red"
+
+    try:
+        chunk_count = rag_engine.collection.count()
+    except Exception:
+        chunk_count = 0
+
+    return EmbeddingStatusResponse(
+        provider=settings.embedding_provider,
+        status=status,
+        latency_ms=round(latency_ms, 1),
+        model=settings.embedding_model,
+        chunk_count=chunk_count,
+        available_providers=available,
+    )
 
 
 @router.post("/embedding-switch")

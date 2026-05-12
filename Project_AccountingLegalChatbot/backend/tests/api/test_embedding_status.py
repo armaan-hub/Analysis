@@ -123,3 +123,19 @@ class TestPostEmbeddingSwitch:
             )
 
         assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_embedding_status_returns_required_fields(client):
+    resp = await client.get("/api/settings/embedding-status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "provider" in data
+    assert "status" in data
+    assert data["status"] in ("green", "yellow", "red")
+    assert "latency_ms" in data
+    assert "model" in data
+    assert "chunk_count" in data
+    assert "available_providers" in data
+    assert isinstance(data["available_providers"], list)
+    assert len(data["available_providers"]) >= 1

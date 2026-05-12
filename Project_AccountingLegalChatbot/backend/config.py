@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
 
+    # ── OpenCode Zen (free, OpenAI-compatible) ────────────────────────────
+    opencode_api_key: str = ""          # not required — free tier
+    opencode_model: str = "claude-sonnet-4-6"
+    opencode_base_url: str = "https://opencode.ai/zen/v1"
+
     # ── Generic local OpenAI-compatible server (LM Studio, TGI, etc.) ──
     local_base_url: str = "http://localhost:1234"
     local_model: str = ""
@@ -186,6 +191,7 @@ class Settings(BaseSettings):
             "mistral": self.mistral_api_key,
             "groq": self.groq_api_key,
             "ollama": "",  # Ollama is local, no key needed
+            "opencode": self.opencode_api_key,  # OpenCode Zen — key optional
         }
         return key_map.get(self.llm_provider, "")
 
@@ -199,6 +205,7 @@ class Settings(BaseSettings):
             "mistral": self.mistral_model,
             "groq": self.groq_model,
             "ollama": self.ollama_model,
+            "opencode": self.opencode_model,
         }
         return model_map.get(self.llm_provider, "")
 
@@ -270,6 +277,11 @@ _FAMILY_MODES: dict[str, dict[str, LLMParams]] = {
         "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
         "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
     },
+    "opencode": {
+        "fast":          {"max_tokens": 8192,  "temperature": 0.3,  "timeout": 90.0,  "top_k": 8},
+        "deep_research": {"max_tokens": 32768, "temperature": 0.4,  "timeout": 300.0, "top_k": 20},
+        "analyst":       {"max_tokens": 32768, "temperature": 0.25, "timeout": 600.0, "top_k": 16},
+    },
     "default": {
         "fast":          {"max_tokens": 4096,  "temperature": 0.3,  "timeout": 60.0,  "top_k": 8},
         "deep_research": {"max_tokens": 16384, "temperature": 0.4,  "timeout": 180.0, "top_k": 20},
@@ -297,6 +309,7 @@ _FAMILY_PATTERNS: list[tuple[str, str]] = [
     ("nvidia",    "nvidia"),
     ("nv-",       "nvidia"),
     ("nim",       "nvidia"),
+    ("opencode",  "opencode"),
 ]
 
 

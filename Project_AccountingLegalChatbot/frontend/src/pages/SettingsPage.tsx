@@ -54,6 +54,7 @@ const PROVIDER_META: Record<string, { label: string; icon: string; keyRequired: 
   claude:  { label: 'Anthropic',     icon: '🟠', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
   mistral: { label: 'Mistral',       icon: '🔵', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
   groq:    { label: 'Groq',          icon: '🟡', keyRequired: true,  hasBaseUrl: false, hasFastModel: true  },
+  opencode: { label: 'OpenCode Zen', icon: '🌐', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
   ollama:  { label: 'Ollama (local)', icon: '🟣', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
   local:   { label: 'Local',         icon: '🖥️', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
 };
@@ -103,7 +104,7 @@ export default function SettingsPage() {
   const [reindexing,       setReindexing]       = useState(false);
 
   // API key visibility modes
-  const API_KEY_NAMES = ['NVIDIA_API_KEY', 'NVIDIA_FAST_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY'] as const;
+  const API_KEY_NAMES = ['NVIDIA_API_KEY', 'NVIDIA_FAST_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'OPENCODE_API_KEY'] as const;
   const [keyModes,    setKeyModes]    = useState<Record<string, KeyMode>>({});
   const [keyLoading,  setKeyLoading]  = useState<Record<string, boolean>>({});
 
@@ -235,6 +236,19 @@ export default function SettingsPage() {
     setEditBaseUrl(prov.base_url || '');
     setEditFastKey('');
     setEditFastModel(prov.fast_model || '');
+    // Auto-fetch models for OpenCode Zen (free, no key required)
+    if (p === 'opencode') {
+      setFetchingModels(true);
+      API.get(`/api/settings/providers/opencode/models`)
+        .then(r => {
+          const rawData = Array.isArray(r.data) ? r.data : [];
+          const list: string[] = rawData.map((m: { id: string }) => m.id);
+          setModels(list);
+          if (list.length === 0) setModelsError('No models returned from OpenCode Zen.');
+        })
+        .catch(e => setModelsError(getErrMsg(e, 'Failed to fetch models')))
+        .finally(() => setFetchingModels(false));
+    }
   };
 
   const fetchModels = async () => {
