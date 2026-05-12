@@ -131,3 +131,8 @@ view_db.py
 HOW_TO_RUN_PROJECT.md (will be replaced by README.md)
 Project_AccountingLegalChatbot/backend/api/settings_keys.json
 _backup_*
+cleanup_backup_*.zip
+~/cleanup_backup_*.zip
+*.venv/
+.venv/
+.venv-main/
