@@ -1177,3 +1177,37 @@ tail -f ~/chatbot_local/Project_AccountingLegalChatbot/backend/scripts/batch_ing
 - Build: 0 TypeScript errors ✅
 
 **Rule Reminder:** `VITE_API_BASE_URL` in `frontend/.env` must always be `http://localhost:8002`. The dev server should NEVER use a Cloudflare tunnel URL.
+
+---
+
+### Session: 2026-05-12 — Settings Fixes, Embedding Endpoint & Project Cleanup
+
+**Goal:** Fix missing OpenCode Zen provider in Settings UI, fix HTTP 404 embedding status, remove stale duplicate `Main Branch/` sub-clone.
+
+**Root Causes:**
+1. OpenCode Zen code existed in GDrive root working tree but was never committed/copied to `~/chatbot_local/`
+2. `/api/settings/embedding-status` endpoint missing → EmbeddingCard showed "HTTP 404"
+3. `Main Branch/` subfolder was a stale separate git clone of same repo (different commit) — caused clutter and confusion. Pre-push hook was using it as first candidate.
+
+**Fixes (3 parallel subagents — GPT-5.5, GPT-5.3-Codex, Claude Opus 4.7):**
+
+| Task | Agent | Fix | Commit |
+|------|-------|-----|--------|
+| OpenCode Zen to chatbot_local | GPT-5.5 | Copied 5 files; 41 models auto-fetched from opencode.ai/zen/v1 | Committed + pushed |
+| Add embedding-status endpoint | GPT-5.3-Codex | TDD: test first (404), added GET route, test passes (8/8) | `f4b89710` |
+| Remove Main Branch sub-clone | Claude Opus 4.7 | Backed up 997MB to `_backup_Main_Branch_2026-05-12/`, preserved 3 unique test files, removed from git | `0a2b2d94` |
+
+**Files Changed:**
+- `backend/config.py` — OpenCode settings (api_key, model, base_url)
+- `backend/api/settings.py` — OpenCode provider route + new `/embedding-status` endpoint
+- `backend/core/llm_manager.py` — `OpenCodeProvider` class
+- `backend/core/local_scanner.py` — `opencode.ai` URL pattern
+- `frontend/src/pages/SettingsPage.tsx` — OpenCode Zen card (🌐, no key required, auto-fetch)
+- `backend/tests/api/test_embedding_status.py` — 8 tests, all passing
+
+**Verification:**
+- `GET /api/settings/providers/opencode/models` → 41 models ✅
+- `GET /api/settings/embedding-status` → `{"provider":"nvidia","status":"green","latency_ms":508,"model":"nvidia/nv-embedqa-e5-v5","chunk_count":23246}` ✅
+- `opencode` in providers list ✅
+- 235 tests pass, 1 pre-existing failure (test_deep_research_stream — unrelated) ✅
+- start-app.sh copies: 2 (canonical chatbot_local + synced GDrive root) ✅
