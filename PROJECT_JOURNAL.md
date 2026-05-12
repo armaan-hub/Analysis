@@ -1211,3 +1211,39 @@ tail -f ~/chatbot_local/Project_AccountingLegalChatbot/backend/scripts/batch_ing
 - `opencode` in providers list ✅
 - 235 tests pass, 1 pre-existing failure (test_deep_research_stream — unrelated) ✅
 - start-app.sh copies: 2 (canonical chatbot_local + synced GDrive root) ✅
+
+---
+
+### Session: 2026-05-12 — Full Migration to GDrive Root + Cleanup
+
+**Goal:** Migrate all runtime from ~/chatbot_local to GDrive root; clean up orphaned files.
+
+**What was done:**
+
+#### Migration (GPT-5.5 agent)
+- Updated `start-app.sh` BACKEND_DIR/FRONTEND_DIR/LOG_DIR → GDrive root absolute paths
+- Installed pre-push hook in GDrive root `.git/hooks/pre-push` (GDrive path listed first)
+- Created `logs/` directory in GDrive root
+- Migrated `chatbot.db` + WAL files from `~/chatbot_local` → GDrive root `backend/data/`
+- Fixed `Project_AccountingLegalChatbot/.env` — set `LLM_PROVIDER=nvidia`, `EMBEDDING_PROVIDER=nvidia` with correct NVIDIA keys
+- Services now start from GDrive root: backend :8002, frontend :5173
+
+#### Cleanup (GPT-5.3-Codex agent)
+Backed up and removed 13 orphaned items → `~/cleanup_backup_2026-05-12.zip` (8.6MB):
+- Root-level: `backend/`, `vector_store_v2/`, `graph_store/`, `auto-commit.ps1`,
+  `setup_python_env.bat`, `setup_python_env.ps1`, `setup-auto-push.ps1`,
+  `.venv/`, `.venv-main/`, `.pytest_cache/`, `25. 21-Mar-2026/`, `src/`, `conv_id.txt`
+- Updated `.gitignore` with cleanup patterns
+
+#### Verification Results
+- Backend: ✅ running from GDrive root, health OK
+- Frontend: ✅ running from GDrive root, port 5173
+- NVIDIA Embedding: ✅ green, 24,890 chunks, model nvidia/nv-embedqa-e5-v5
+- Test suite: 801 passed, 16 skipped, 7 pre-existing failures
+  - Pre-existing: `/api/chat/deep-research` route not yet implemented (4 tests)
+  - Pre-existing: OllamaEmbeddingProvider dim-mismatch test (1 test)
+  - Pre-existing: deep-research-stream tests (2 tests, known from prior session)
+
+**Commits:** `ab86db7f` (cleanup), `4b8d04ee` (migration paths), `[this commit]` (journal)
+
+**Next step:** Remove `~/chatbot_local` (pending user confirmation)
