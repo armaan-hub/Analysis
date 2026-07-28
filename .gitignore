@@ -136,3 +136,7 @@ cleanup_backup_*.zip
 *.venv/
 .venv/
 .venv-main/
+
+# Explicitly catch numbered virtualenv directories (prevents venv_py311, etc.)
+venv_py*/
+*/venv_py*/

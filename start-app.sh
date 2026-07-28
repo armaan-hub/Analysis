@@ -2,11 +2,12 @@
 set -e
 
 # ── Config ────────────────────────────────────────────────────────────────────
-BACKEND_DIR="/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com/My Drive/Study/Armaan/AI Class/Data Science Class/35. 11-Apr-2026 Agentic AI/Project_AccountingLegalChatbot/backend"
-FRONTEND_DIR="/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com/My Drive/Study/Armaan/AI Class/Data Science Class/35. 11-Apr-2026 Agentic AI/Project_AccountingLegalChatbot/frontend"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$PROJECT_ROOT/Project_AccountingLegalChatbot/backend"
+FRONTEND_DIR="$PROJECT_ROOT/Project_AccountingLegalChatbot/frontend"
 VENV="$HOME/chatbot_venv/bin/activate"
 ENV_FILE="$FRONTEND_DIR/.env"
-LOG_DIR="/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com/My Drive/Study/Armaan/AI Class/Data Science Class/35. 11-Apr-2026 Agentic AI/logs"
+LOG_DIR="$PROJECT_ROOT/logs"
 CF_RETRIES=5                       # attempts before giving up on tunnel
 CF_WAIT_SECS=45                    # seconds to wait per attempt for URL
 CF_RETRY_DELAY=8                   # seconds between retry attempts
@@ -31,7 +32,7 @@ cleanup() {
   done
   kill_port 8002; kill_port 5173
   # Always restore .env to localhost so next browser open works without a tunnel
-  local env_file="/Users/armaan/Library/CloudStorage/GoogleDrive-armaanmishra86@gmail.com/My Drive/Study/Armaan/AI Class/Data Science Class/35. 11-Apr-2026 Agentic AI/Project_AccountingLegalChatbot/frontend/.env"
+  local env_file="$FRONTEND_DIR/.env"
   if [ -f "$env_file" ]; then
     sed -i '' "s|^VITE_API_BASE_URL=.*|VITE_API_BASE_URL=http://localhost:8002|" "$env_file" 2>/dev/null || true
   fi
