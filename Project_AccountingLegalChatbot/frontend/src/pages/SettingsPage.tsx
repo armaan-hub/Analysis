@@ -54,7 +54,7 @@ const PROVIDER_META: Record<string, { label: string; icon: string; keyRequired: 
   claude:  { label: 'Anthropic',     icon: '🟠', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
   mistral: { label: 'Mistral',       icon: '🔵', keyRequired: true,  hasBaseUrl: false, hasFastModel: false },
   groq:    { label: 'Groq',          icon: '🟡', keyRequired: true,  hasBaseUrl: false, hasFastModel: true  },
-  opencode: { label: 'OpenCode Zen', icon: '🌐', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
+  opencode: { label: 'OpenCode Zen', icon: '🌐', keyRequired: true, hasBaseUrl: true,  hasFastModel: false },
   ollama:  { label: 'Ollama (local)', icon: '🟣', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
   local:   { label: 'Local',         icon: '🖥️', keyRequired: false, hasBaseUrl: true,  hasFastModel: false },
 };
