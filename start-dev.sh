@@ -61,7 +61,7 @@ echo ""
 if [ $START_BACKEND -eq 1 ]; then
     echo -e "${BLUE}Starting backend...${NC}"
     cd "$BACKEND_DIR"
-    npm run start &
+    uvicorn main:app --host localhost --port 8002 --reload > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
     BACKEND_PID=$!
     echo "Backend PID: $BACKEND_PID"
 fi
@@ -70,7 +70,7 @@ fi
 if [ $START_FRONTEND -eq 1 ]; then
     echo -e "${BLUE}Starting frontend...${NC}"
     cd "$FRONTEND_DIR"
-    npm run start &
+    npm run dev &
     FRONTEND_PID=$!
     echo "Frontend PID: $FRONTEND_PID"
 fi
