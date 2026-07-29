@@ -105,15 +105,17 @@ export default function EmbeddingCard({ onProviderChange }: EmbeddingCardProps) 
     color: 'var(--text-1, #fff)',
   };
 
-  if (loading && !status) {
+  if (error && !status) {
     return (
       <div style={cardStyle}>
-        <div style={{ color: 'var(--text-2)', fontSize: '0.85rem' }}>Loading embedding status…</div>
+        <div style={{ color: 'var(--red, #ef4444)', fontSize: '0.85rem' }}>
+          ⚠ Embedding service unavailable — {error}
+        </div>
       </div>
     );
   }
 
-  if (error && !status) {
+  if (!status) { // covers loading + race condition where loading=false before status is set
     return (
       <div style={cardStyle}>
         <div style={{ color: 'var(--red, #ef4444)', fontSize: '0.85rem' }}>
