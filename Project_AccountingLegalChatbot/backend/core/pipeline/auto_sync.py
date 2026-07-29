@@ -15,10 +15,9 @@ from watchdog.observers import Observer
 
 logger = logging.getLogger(__name__)
 
-_WATCH_DIRS: list[tuple[Path, str]] = [
-    (Path(__file__).parent.parent.parent / "data_source_law", "law"),
-    (Path(__file__).parent.parent.parent / "data_source_finance", "finance"),
-]
+_WATCH_DIRS: list[tuple[Path, str]] = []
+# Lazily populated from settings so that env-var overrides for source_law_dir /
+# source_finance_dir take effect.  Import is deferred to break circular deps.
 
 _DEBOUNCE_SECONDS = 10.0
 
@@ -96,9 +95,15 @@ def start_auto_sync(loop: asyncio.AbstractEventLoop) -> None:
     global _observer, _handlers
     if _observer is not None:
         return  # already running
+    # Read source directories from settings so env-var overrides take effect.
+    from config import settings as _cfg
+    _watch_dirs: list[tuple[Path, str]] = [
+        (Path(_cfg.source_law_dir), "law"),
+        (Path(_cfg.source_finance_dir), "finance"),
+    ]
     _handlers = []
     _observer = Observer()
-    for watch_dir, category in _WATCH_DIRS:
+    for watch_dir, category in _watch_dirs:
         watch_dir.mkdir(parents=True, exist_ok=True)
         handler = _PDFHandler(category=category, loop=loop)
         _handlers.append(handler)
