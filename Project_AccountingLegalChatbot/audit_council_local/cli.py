@@ -20,7 +20,6 @@ from .llm import (
     DEFAULT_OPENCODE_BASE_URL,
     DEFAULT_OPENCODE_KEY,
     DEFAULT_OPENCODE_MODEL,
-    OPENCODE_FREE_MODELS,
     get_llm_client,
 )
 from .orchestrator import run_financial_audit_council_stream
@@ -83,26 +82,18 @@ def parse_args() -> argparse.Namespace:
 
     # LLM Provider Configuration
     parser.add_argument("--provider", type=str, default="opencode", choices=["opencode", "openai", "proxy", "anthropic"], help="LLM Provider")
-    parser.add_argument("--model", type=str, default=DEFAULT_OPENCODE_MODEL, help="Model ID (e.g. laguna-s-2.1-free, deepseek-v4-flash-free)")
+    parser.add_argument("--model", type=str, default=DEFAULT_OPENCODE_MODEL, help=f"Model ID (default: {DEFAULT_OPENCODE_MODEL})")
     parser.add_argument("--api-key", type=str, default=None, help="Provider API Key (defaults to embedded OpenCode key or ENV)")
     parser.add_argument("--base-url", type=str, default=None, help="Custom Base URL (e.g. http://127.0.0.1:4001/v1)")
 
     # Execution controls
     parser.add_argument("--no-stream", action="store_true", help="Disable live token streaming to terminal")
-    parser.add_argument("--list-free-models", action="store_true", help="List known free OpenCode Zen models and exit")
 
     return parser.parse_args()
 
 
 async def main_async() -> int:
     args = parse_args()
-
-    if args.list_free_models:
-        print(f"\n{C_BOLD}OpenCode Zen Free Tier Models:{C_RESET}")
-        for m in OPENCODE_FREE_MODELS:
-            print(f"  • {C_GREEN}{m}{C_RESET}")
-        print()
-        return 0
 
     _print_banner()
 

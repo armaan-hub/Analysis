@@ -38,26 +38,17 @@ python3 run_audit_council.py \
   --output my_audit_report.md
 ```
 
-### 3. List Available OpenCode Free Tier Models
-```bash
-python3 run_audit_council.py --list-free-models
-```
-
 ---
 
 ## ⚙️ LLM Providers & Models
 
-### OpenCode Zen Free Tier (Default Active Provider)
-The tool comes pre-configured with OpenCode Zen Free Tier models:
-- `laguna-s-2.1-free` (Default)
-- `deepseek-v4-flash-free`
-- `minimax-m3-free`
-- `mimo-v2.5-free`
-- `nemotron-3-super-free`
+### OpenCode Zen (Default Active Model: laguna-s-2.1-free)
+The tool comes pre-configured with the free, high-performance OpenCode Zen model:
+- `laguna-s-2.1-free` (Default active model)
 
 ```bash
-# Run with a specific free model
-python3 run_audit_council.py --sample --model deepseek-v4-flash-free
+# Run with default OpenCode Zen model
+python3 run_audit_council.py --sample
 
 # Provide custom OpenCode key
 python3 run_audit_council.py --sample --api-key "sk-..."

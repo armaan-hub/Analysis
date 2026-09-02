@@ -22,7 +22,6 @@ from audit_council_local.template import (
 )
 from audit_council_local.llm import (
     DEFAULT_OPENCODE_MODEL,
-    OPENCODE_FREE_MODELS,
     BaseLLMClient,
     get_llm_client,
 )
@@ -107,11 +106,10 @@ class TestLocalAuditCouncil(unittest.TestCase):
         self.assertIn("9,250,000.00", doc2.read_text(encoding="utf-8"))
         self.assertIn("Al Khaleej Engineering & Trading L.L.C.", doc3.read_text(encoding="utf-8"))
 
-    def test_llm_factory_and_free_tier(self):
-        self.assertIn("laguna-s-2.1-free", OPENCODE_FREE_MODELS)
-        self.assertIn("deepseek-v4-flash-free", OPENCODE_FREE_MODELS)
+    def test_llm_factory_and_default_model(self):
+        self.assertEqual(DEFAULT_OPENCODE_MODEL, "laguna-s-2.1-free")
         client = get_llm_client("opencode")
-        self.assertEqual(client.model, DEFAULT_OPENCODE_MODEL)
+        self.assertEqual(client.model, "laguna-s-2.1-free")
 
     def test_orchestrator_pipeline_mock_run(self):
         async def _run():

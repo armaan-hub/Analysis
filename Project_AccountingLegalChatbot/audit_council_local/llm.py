@@ -26,15 +26,6 @@ DEFAULT_OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
 DEFAULT_OPENCODE_MODEL = "laguna-s-2.1-free"
 DEFAULT_OPENCODE_KEY = "sk-hNWrtbTRmZFwpq1PYsdH0f2zZNFkCUzugrz8P2kwmCCldwfjFDWnokBIMafwP9yG"
 
-# Known OpenCode Free Tier models
-OPENCODE_FREE_MODELS = [
-    "laguna-s-2.1-free",
-    "deepseek-v4-flash-free",
-    "minimax-m3-free",
-    "mimo-v2.5-free",
-    "nemotron-3-super-free",
-]
-
 
 class BaseLLMClient:
     """Base interface for audit council LLM providers."""
