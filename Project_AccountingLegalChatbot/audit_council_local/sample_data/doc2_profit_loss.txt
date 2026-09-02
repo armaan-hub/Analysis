@@ -1,0 +1,70 @@
+AL KHALEEJ ENGINEERING & TRADING LLC
+PROFIT AND LOSS STATEMENT & OPERATING PERFORMANCE
+FOR THE YEARS ENDED 31 DECEMBER 2025 AND 31 DECEMBER 2024
+CURRENCY: UAE DIRHAMS (AED)
+
+Account Code | Line Item / Description                    | 2025 (AED)   | 2024 (AED)
+--------------------------------------------------------------------------------------
+-- REVENUE & TURNOVER --
+410100       | Revenue from Engineering Services          | 5,820,000.00 | 4,650,000.00
+410200       | Revenue from Commercial Equipment Trading  | 3,430,000.00 | 2,850,000.00
+             | TOTAL REVENUE / TURNOVER                   | 9,250,000.00 | 7,500,000.00
+
+-- COST OF SALES & DIRECT OPERATIONAL EXPENSES --
+510100       | Cost of Trading Goods & Materials Consumed |(4,120,000.00)|(3,350,000.00)
+510200       | Direct Engineering Staff Costs & Wages     | (980,000.00) | (820,000.00)
+510300       | Sub-contractor Charges & Site Execution    | (540,000.00) | (430,000.00)
+510400       | Freight, Customs & Port Clearance Fees     | (160,000.00) | (130,000.00)
+             | TOTAL COST OF SALES                        |(5,800,000.00)|(4,730,000.00)
+
+             | GROSS PROFIT                               | 3,450,000.00 | 2,770,000.00
+             | Gross Margin %                             |        37.30%|        36.93%
+
+-- GENERAL AND ADMINISTRATIVE EXPENSES --
+610100       | Administrative Salaries and Allowances     |(1,150,000.00)| (980,000.00)
+610200       | End of Service Benefit Expense for Year    | (115,000.00) |  (95,000.00)
+610300       | Office Rent, Service Charges & Utilities   | (220,000.00) | (210,000.00)
+610400       | Depreciation of Property, Plant & Equipment| (140,000.00) | (125,000.00)
+610500       | Amortization of Right-of-Use Assets (ROU)  | (130,000.00) | (120,000.00)
+610600       | Legal, Professional & Statutory Audit Fees |  (75,000.00) |  (65,000.00)
+610700       | Trade License Renewal & Government Fees    |  (48,000.00) |  (42,000.00)
+610800       | Impairment / Provision for ECL on Debtors  |  (25,000.00) |  (20,000.00)
+610900       | General Office, IT & Communication Expenses|  (62,000.00) |  (53,000.00)
+             | TOTAL GENERAL & ADMINISTRATIVE EXPENSES    |(1,965,000.00)|(1,710,000.00)
+
+-- SELLING AND DISTRIBUTION EXPENSES --
+620100       | Marketing, Advertising & Exhibitions       |  (95,000.00) |  (75,000.00)
+620200       | Logistics, Delivery & Vehicle Operating Exp|  (85,000.00) |  (70,000.00)
+             | TOTAL SELLING & DISTRIBUTION EXPENSES      | (180,000.00) | (145,000.00)
+
+-- OTHER OPERATING INCOME --
+710100       | Scrap Material Sales                       |    42,000.00 |    30,000.00
+710200       | Foreign Currency Exchange Gain             |    18,000.00 |    12,000.00
+             | TOTAL OTHER OPERATING INCOME               |    60,000.00 |    42,000.00
+
+             | OPERATING PROFIT                           | 1,365,000.00 |   957,000.00
+
+-- FINANCE COSTS --
+810100       | Bank Loan Interest & Overdraft Charges     |  (90,000.00) |  (82,000.00)
+810200       | Lease Liability Interest Expense (IFRS 16) |  (50,000.00) |  (65,000.00)
+             | TOTAL FINANCE COSTS                        | (140,000.00) | (147,000.00)
+
+             | PROFIT FOR THE YEAR BEFORE TAX             | 1,225,000.00 |   810,000.00
+
+-- UAE CORPORATE TAX EXPENSE --
+910100       | UAE Corporate Tax (9% over AED 375,000)    |  (76,500.00) |           -
+             | Taxable Income: AED 1,225,000.00
+             | Threshold Exempt: AED 375,000.00
+             | Taxable Base @ 9%: AED 850,000.00 = AED 76,500.00
+
+             | NET PROFIT FOR THE YEAR                    | 1,148,500.00 |   810,000.00
+             | Other Comprehensive Income (OCI)           |            - |            -
+             | TOTAL COMPREHENSIVE INCOME FOR THE YEAR    | 1,148,500.00 |   810,000.00
+
+-- EQUITY APPROPRIATIONS --
+Transfer to Statutory Reserve (10% of Net Profit up to 50% Share Capital Limit):
+  - 2024 Transfer: AED 81,000.00 (Reserve reached AED 115,000.00)
+  - 2025 Transfer: AED 35,000.00 (Cap at 50% of AED 300,000 Share Capital = AED 150,000.00)
+Net Transferred to Retained Earnings:
+  - 2025: AED 1,148,500.00 - AED 35,000.00 = AED 1,113,500.00 (Dividends paid: AED 449,500.00)
+  - Retained Earnings Movement: AED 1,482,000.00 + AED 1,113,500.00 - AED 449,500.00 = AED 2,146,000.00

@@ -101,4 +101,5 @@ export function deepResearchUrl(): string {
 }
 
 export const councilEndpoint = `${API_BASE}/api/chat/council`;
+export const financialAuditCouncilEndpoint = `${API_BASE}/api/chat/financial-council`;
 

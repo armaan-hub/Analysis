@@ -33,7 +33,7 @@ class DocumentChunk:
 class DocumentProcessor:
     """Processes documents into text chunks for the RAG pipeline."""
 
-    SUPPORTED_TYPES = {".pdf", ".docx", ".xlsx", ".xls", ".txt", ".csv", ".md"}
+    SUPPORTED_TYPES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".csv", ".md"}
 
     _BATCH_SIZE = 2_000
     _BATCH_SEPARATOR = "---BATCH_{n}---"
@@ -159,6 +159,8 @@ class DocumentProcessor:
             raw_text = await asyncio.to_thread(self._extract_pdf, filepath)
         elif file_type == ".docx":
             raw_text = await asyncio.to_thread(self._extract_docx, filepath)
+        elif file_type == ".doc":
+            raw_text = await asyncio.to_thread(self._extract_doc, filepath)
         elif file_type in {".xlsx", ".xls"}:
             raw_text = await asyncio.to_thread(self._extract_excel, filepath)
         elif file_type in {".txt", ".md", ".csv"}:
@@ -316,6 +318,30 @@ class DocumentProcessor:
                     full_text.append(row_text)
 
         return [{"text": "\n".join(full_text), "page": 1}]
+
+    def _extract_doc(self, filepath: str) -> list[dict]:
+        """Extract text from legacy binary .doc files via macOS textutil.
+
+        Falls back gracefully if textutil is unavailable or fails.
+        """
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["textutil", "-convert", "txt", "-stdout", filepath],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return [{"text": result.stdout, "page": 1}]
+            raise ValueError(result.stderr.strip() or "textutil produced no output")
+        except Exception as exc:
+            self._emit_warning_once(
+                "_doc_extraction_warning_emitted",
+                f"Failed to extract .doc '{Path(filepath).name}' via textutil: {exc}",
+            )
+            return []
 
     def _extract_excel(self, filepath: str) -> list[dict]:
         """Extract text from Excel spreadsheets."""

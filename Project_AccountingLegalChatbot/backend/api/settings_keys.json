@@ -1,8 +1,9 @@
 {
   "NVIDIA_API_KEY": "masked",
-  "ANTHROPIC_API_KEY": "masked",
+  "NVIDIA_FAST_API_KEY": "masked",
   "OPENAI_API_KEY": "masked",
-  "MISTRAL_API_KEY": "masked",
-  "GROQ_API_KEY": "masked",
-  "BRAVE_SEARCH_API_KEY": "masked"
+  "ANTHROPIC_API_KEY": "masked",
+  "GROQ_API_KEY": "none",
+  "MISTRAL_API_KEY": "none",
+  "OPENCODE_API_KEY": "sk-hNWrtbTRmZFwpq1PYsdH0f2zZNFkCUzugrz8P2kwmCCldwfjFDWnokBIMafwP9yG"
 }

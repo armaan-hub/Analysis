@@ -115,7 +115,7 @@ export default function EmbeddingCard({ onProviderChange }: EmbeddingCardProps) 
     );
   }
 
-  if (!status) { // covers loading + race condition where loading=false before status is set
+  if (loading && !status) {
     return (
       <div style={cardStyle}>
         <div style={{ color: 'var(--text-2)', fontSize: '0.85rem' }}>Loading embedding status…</div>

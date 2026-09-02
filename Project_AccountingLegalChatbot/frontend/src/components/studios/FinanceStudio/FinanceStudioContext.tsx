@@ -33,6 +33,9 @@ interface FinanceStudioState {
 
   workflowStep: WorkflowStep;
   setWorkflowStep: (s: WorkflowStep) => void;
+
+  isCouncilModalOpen: boolean;
+  setIsCouncilModalOpen: (open: boolean) => void;
 }
 
 const Ctx = createContext<FinanceStudioState | null>(null);
@@ -48,6 +51,7 @@ export function FinanceStudioProvider({ children }: { children: ReactNode }) {
   const [selectedTemplateId, setSelectedTemplate] = useState<string | null>(null);
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>(1);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [isCouncilModalOpen, setIsCouncilModalOpen] = useState<boolean>(false);
 
   const activeVersionId = versions.find(v => v.is_current)?.id ?? null;
 
@@ -119,6 +123,7 @@ export function FinanceStudioProvider({ children }: { children: ReactNode }) {
       outputs, generateOutput,
       selectedTemplateId, setSelectedTemplate,
       workflowStep, setWorkflowStep,
+      isCouncilModalOpen, setIsCouncilModalOpen,
     }}>
       {children}
     </Ctx.Provider>

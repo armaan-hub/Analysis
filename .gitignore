@@ -82,6 +82,8 @@ Project_AccountingLegalChatbot/desktop/dist/
 .system_generated/
 session_summary.md
 session_summary_2026-04-15.md
+council_journal.md
+council_models.md
 *.metadata.json
 *.resolved
 
@@ -140,3 +142,17 @@ cleanup_backup_*.zip
 # Explicitly catch numbered virtualenv directories (prevents venv_py311, etc.)
 venv_py*/
 */venv_py*/
+
+# Submodules, test harnesses & MCP tools
+.playwright-mcp/
+OmniRoute/
+Project_AccountingLegalChatbot/Project/
+graph_store/
+graphify-out/
+Project_AccountingLegalChatbot/graphify-out/
+
+# Patch files & screenshots
+patch*.js
+fix_patch.js
+*.png
+

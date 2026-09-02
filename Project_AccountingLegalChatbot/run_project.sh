@@ -3,7 +3,9 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VENV_PYTHON=~/chatbot_venv/bin/python3
+# Use system Python — it has chromadb 1.5.8, which can read vector_store_v2.
+# ~/chatbot_venv has chromadb 0.5.15 and would trigger the store's backup-and-reset fallback.
+VENV_PYTHON=/usr/local/bin/python3
 
 echo "=== Accounting & Legal AI Chatbot ==="
 echo "Project: $PROJECT_DIR"

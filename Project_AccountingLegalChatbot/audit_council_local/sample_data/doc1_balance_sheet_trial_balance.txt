@@ -1,0 +1,56 @@
+AL KHALEEJ ENGINEERING & TRADING LLC
+TRIAL BALANCE & STATEMENT OF FINANCIAL POSITION EXTRACTS
+FOR THE YEARS ENDED 31 DECEMBER 2025 AND 31 DECEMBER 2024
+CURRENCY: UAE DIRHAMS (AED)
+
+Account Code | Account Name / Description | 2025 (AED) | 2024 (AED)
+--------------------------------------------------------------------------------------
+-- NON-CURRENT ASSETS --
+110100       | Plant, Machinery and Equipment (Cost)       | 1,450,000.00 | 1,200,000.00
+110200       | Motor Vehicles (Cost)                      |   380,000.00 |   380,000.00
+110300       | Furniture, Fixtures & Office Equipment     |   215,000.00 |   190,000.00
+110900       | Less: Accumulated Depreciation             |  (620,000.00)|  (480,000.00)
+120100       | Right-of-Use Asset - Office & Warehouse    |   850,000.00 | 1,100,000.00
+120900       | Less: Accumulated Amortization on ROU      |  (250,000.00)|  (120,000.00)
+130100       | Long-term Office Lease Security Deposit    |    75,000.00 |    75,000.00
+130200       | DEWA and Utility Deposits                  |    25,000.00 |    25,000.00
+
+-- CURRENT ASSETS --
+140100       | Raw Materials & Spare Parts Inventory      |   620,000.00 |   540,000.00
+140200       | Finished Goods & Trading Inventory         |   410,000.00 |   380,000.00
+150100       | Trade Accounts Receivable (Gross)          | 1,840,000.00 | 1,420,000.00
+150900       | Less: Allowance for Expected Credit Loss   |   (85,000.00)|   (60,000.00)
+160100       | Prepaid Office & Warehouse Rent            |   120,000.00 |   110,000.00
+160200       | Prepaid Commercial Insurance               |    35,000.00 |    30,000.00
+160300       | Advances to Trade Suppliers                |   145,000.00 |    95,000.00
+160400       | Refundable Tender Deposits                 |    40,000.00 |    30,000.00
+170100       | Due from Related Parties (Al Khaleej Gulf) |   210,000.00 |   150,000.00
+180100       | Cash in Hand (Petty Cash)                  |    28,500.00 |    22,000.00
+180200       | Emirates NBD Bank - Current Account        |   742,500.00 |   480,000.00
+180300       | Abu Dhabi Commercial Bank - Call Deposit   |   350,000.00 |   250,000.00
+
+-- EQUITY --
+310100       | Share Capital (300 shares @ AED 1,000 ea)  |   300,000.00 |   300,000.00
+320100       | Statutory Reserve (10% Annual Transfer)    |   150,000.00 |   115,000.00
+330100       | Retained Earnings (B/Fwd + Current Profit) | 2,146,000.00 | 1,482,000.00
+340100       | Shareholders' Current / Loan Account       |   550,000.00 |   400,000.00
+
+-- NON-CURRENT LIABILITIES --
+210100       | Provision for Employee End of Service (EOSB)|   410,000.00 |   330,000.00
+220100       | Non-Current Lease Liabilities (IFRS 16)    |   450,000.00 |   720,000.00
+230100       | Mashreq Bank Term Loan (Non-Current)       |   380,000.00 |   520,000.00
+
+-- CURRENT LIABILITIES --
+240100       | Trade Accounts Payable                     |   920,000.00 |   680,000.00
+240200       | Sub-Contractor Accruals                    |   145,000.00 |   110,000.00
+240300       | Accrued Staff Salaries & Benefits          |   115,000.00 |    95,000.00
+240400       | Audit Fee Accrual                          |    30,000.00 |    25,000.00
+250100       | Lease Liabilities - Current Portion        |   280,000.00 |   260,000.00
+260100       | Bank Overdraft & Short-Term Trust Receipts |   245,000.00 |   190,000.00
+270100       | Due to Related Parties (Director Advance)  |    90,000.00 |    65,000.00
+280100       | VAT Payable to Federal Tax Authority       |    58,500.00 |    45,000.00
+280200       | UAE Corporate Tax Payable                  |    76,500.00 |         -
+
+TOTAL ASSETS (2025): AED 6,006,000.00 | (2024): AED 4,807,000.00
+TOTAL LIABILITIES & EQUITY (2025): AED 6,006,000.00 | (2024): AED 4,807,000.00
+STATUS: TRIAL BALANCE AND BALANCE SHEET TIE OUT EXACTLY (0.00 VARIANCE).

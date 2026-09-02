@@ -1,0 +1,117 @@
+================================================================================
+DOCUMENT 4: "COMPARATIVE MAINLAND" TARGET AUDIT REPORT SPECIFICATION
+================================================================================
+Template Identifier: comparative-mainland
+Format Title:        Standard Comparative Mainland Financial Audit Report (UAE Statutory)
+Applicable Laws:     UAE Federal Decree-Law No. 32 of 2021 (Commercial Companies)
+                     UAE Federal Decree-Law No. 47 of 2022 (Corporate & Business Tax)
+Reporting Framework: International Financial Reporting Standards (IFRS / IFRS for SMEs)
+Reporting Currency:  United Arab Emirates Dirhams (AED)
+
+================================================================================
+MANDATORY AUDIT REPORT STRUCTURE & SECTION NUMBERING
+================================================================================
+
+1. CORPORATE DIRECTORY & GENERAL INFORMATION
+   - Company Name (English and Arabic)
+   - Legal Form (LLC / Sole Proprietorship / PJSC / PrJSC)
+   - Commercial License Number & Issuing Authority (e.g. Dubai DET / DED / Free Zone)
+   - Chamber of Commerce Registration Number
+   - Registered Office & Postal Address
+   - General Manager & Authorized Signatories
+   - Principal Bankers
+   - Independent Statutory Auditors
+
+2. INDEPENDENT AUDITOR'S REPORT (UNQUALIFIED OPINION)
+   - Opinion on the Financial Statements (True and Fair view in accordance with IFRS)
+   - Basis for Opinion (International Standards on Auditing - ISAs)
+   - Key Audit Matters (KAM) / Responsibilities of Management & Governance
+   - Report on Other Legal and Regulatory Requirements (UAE Commercial Companies Law compliance)
+
+3. STATEMENT OF FINANCIAL POSITION (SOFP / BALANCE SHEET)
+   - Column 1: Current Year (2025) [AED]
+   - Column 2: Comparative Year (2024) [AED]
+   - Subsections:
+     * Non-Current Assets (PPE, Right-of-Use Assets, Intangibles, Deposits)
+     * Current Assets (Inventories, Trade & Other Receivables, Prepayments & Advances, Due from Related Parties, Cash & Bank Balances)
+     * Total Assets
+     * Equity (Share Capital, Statutory Reserve, Retained Earnings, Shareholders' Current Account)
+     * Non-Current Liabilities (Employees' End of Service Benefits - EOSB, Lease Liabilities - Non-Current, Bank Term Borrowings)
+     * Current Liabilities (Trade & Other Payables, Accruals, Lease Liabilities - Current Portion, Bank Overdrafts & Short-term Loans, Due to Related Parties, VAT Payable, Corporate Tax Payable)
+     * Total Liabilities and Equity
+
+4. STATEMENT OF PROFIT OR LOSS AND OTHER COMPREHENSIVE INCOME (SOPL)
+   - Column 1: Current Year (2025) [AED]
+   - Column 2: Comparative Year (2024) [AED]
+   - Line Items:
+     * Revenue from Contracts with Customers
+     * Direct Cost of Sales / Materials & Direct Wages
+     * Gross Profit (with Gross Margin %)
+     * General and Administrative Expenses (Salaries, EOSB Expense, Rent, Depreciation, Amortization, Professional Fees, ECL Provision)
+     * Selling and Distribution Expenses
+     * Other Operating Income / Foreign Exchange Gain
+     * Operating Profit (EBIT)
+     * Finance Costs (Bank Interest, Lease Liability Interest)
+     * Profit for the Year Before Tax
+     * UAE Corporate Tax Expense (9% on Taxable Income above AED 375,000 threshold)
+     * Net Profit for the Year
+     * Total Comprehensive Income for the Year
+
+5. STATEMENT OF CHANGES IN EQUITY (SOCE)
+   - Columns: Share Capital | Statutory Reserve | Retained Earnings | Shareholders' Current A/c | Total Equity
+   - Rows:
+     * Balance at 1 January 2024
+     * Comprehensive Profit for 2024
+     * Transfer to Statutory Reserve (10%)
+     * Dividends / Drawings
+     * Balance at 31 December 2024
+     * Comprehensive Profit for 2025
+     * Transfer to Statutory Reserve (10% capped at 50% Share Capital)
+     * Dividends / Drawings
+     * Balance at 31 December 2025
+
+6. STATEMENT OF CASH FLOWS (CFS) - INDIRECT METHOD
+   - Cash flows from Operating Activities (Operating profit, non-cash adjustments, working capital changes, tax paid)
+   - Cash flows from Investing Activities (Purchase of PPE, deposit movements)
+   - Cash flows from Financing Activities (Bank borrowings movement, lease payments, dividends paid)
+   - Net increase / (decrease) in cash and cash equivalents
+   - Cash and cash equivalents at beginning and end of year
+
+7. NOTES TO THE FINANCIAL STATEMENTS (NOTES 1 TO 29)
+   - Note 1: Legal Status and Principal Activities (Complete integration of Trade License & MOA)
+   - Note 2: Basis of Preparation & Statement of Compliance with IFRS
+   - Note 3: Significant Accounting Policies (Revenue IFRS 15, Leases IFRS 16, Financial Instruments IFRS 9, Employee Benefits IAS 19)
+   - Note 4: Critical Accounting Estimates and Judgments
+   - Note 5: Property, Plant and Equipment (Cost, Additions, Depreciation Schedule)
+   - Note 6: Right-of-Use Assets and Lease Commitments
+   - Note 7: Security & Utility Deposits
+   - Note 8: Inventories
+   - Note 9: Trade & Other Receivables (Gross, ECL Provision Breakdown)
+   - Note 10: Prepayments, Advances & Tender Deposits
+   - Note 11: Related Party Balances & Transactions
+   - Note 12: Cash and Cash Equivalents
+   - Note 13: Share Capital & Shareholding Structure Breakdown
+   - Note 14: Statutory Reserve Movement & 50% Legal Threshold Check
+   - Note 15: Provision for Employees' End of Service Benefits (EOSB)
+   - Note 16: Bank Borrowings and Term Facilities
+   - Note 17: Lease Liabilities (Maturity Analysis - Current vs Non-Current)
+   - Note 18: Trade and Other Payables & Accrued Expenses
+   - Note 19: UAE Corporate Tax Calculation & Tax Provision
+   - Note 20: Value Added Tax (VAT) Status & Returns
+   - Note 21: Revenue Disaggregation by Activity
+   - Note 22: Cost of Sales
+   - Note 23: General and Administrative Expenses
+   - Note 24: Selling and Distribution Expenses
+   - Note 25: Other Operating Income
+   - Note 26: Finance Costs
+   - Note 27: Financial Risk Management Objectives & Policies
+   - Note 28: Contingent Liabilities and Commitments
+   - Note 29: Events After the Reporting Period & Approval of Accounts
+
+================================================================================
+STRICT STATUTORY RULES
+================================================================================
+1. Chronological Column Presentation: Always 2025 (Left) followed by 2024 (Right).
+2. All mathematical totals must tie out with 0.00 variance.
+3. Blank or nil amounts must be represented by '-' (never leave empty cells or 0.00 unless zero balance).
+4. Full disclosure of shareholder percentages and nationality in Note 1 and Note 13.
